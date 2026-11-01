@@ -1,0 +1,150 @@
+"""Общие настройки. Окружение-специфичные значения берутся из переменных окружения (.env)."""
+
+from pathlib import Path
+
+import environ
+
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
+env = environ.Env()
+environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
+
+SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key-change-me")
+DEBUG = env.bool("DJANGO_DEBUG", default=False)
+ALLOWED_HOSTS = env.list("DJANGO_ALLOWED_HOSTS", default=["localhost", "127.0.0.1"])
+
+# --- Приложения ---------------------------------------------------------------
+
+DJANGO_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+]
+
+# Порядок отражает зависимости: core → данные → обработка → интерфейс.
+LOCAL_APPS = [
+    "apps.core",  # общие утилиты, базовые модели, pgvector, health-check
+    "apps.actors",  # Source, Actor, ActorInclusionPeriod, ActorAccount
+    "apps.documents",  # Document, DocumentVersion, DocumentQuality, ReuseLink
+    "apps.narratives",  # Topic, Narrative, NarrativeVersion, Label, Debunk, Candidate
+    "apps.ingestion",  # коллекторы по слоям A–E, мониторинг сбора
+    "apps.processing",  # воронка: релевантность, эмбеддинги, MinHash/LSH, kNN
+    "apps.analytics",  # WeeklyAggregate, API для графиков
+    "apps.dashboard",  # рабочая часть (README §7.1)
+    "apps.panel",  # панель исследователя (README §7.2)
+    "apps.validation",  # ручная разметка и согласие разметчиков
+]
+
+INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+                "apps.core.context_processors.project",
+            ],
+        },
+    },
+]
+
+# --- База данных --------------------------------------------------------------
+
+# PostgreSQL обязателен: pgvector нужен для эмбеддингов (README §4, шаг 4).
+DATABASES = {
+    "default": env.db(
+        "DATABASE_URL", default="postgres://trolltrace:trolltrace@localhost:5432/trolltrace"
+    ),
+}
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DB_CONN_MAX_AGE", default=60)
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# --- Аутентификация -----------------------------------------------------------
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+# --- Локализация --------------------------------------------------------------
+
+LANGUAGE_CODE = "ru"
+LANGUAGES = [("ru", "Русский"), ("cs", "Čeština"), ("en", "English")]
+LOCALE_PATHS = [BASE_DIR / "locale"]
+TIME_ZONE = "Europe/Prague"
+USE_I18N = True
+USE_TZ = True  # в БД всё хранится в UTC
+
+# --- Статика ------------------------------------------------------------------
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+MEDIA_URL = "media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+# --- Celery -------------------------------------------------------------------
+
+CELERY_BROKER_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=CELERY_BROKER_URL)
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 60 * 60  # жёсткий предел; длинные задачи (ретроразметка) бьются на чанки
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # тяжёлые задачи не накапливаются на одном воркере
+CELERY_TASK_ACKS_LATE = True
+# Расписание сбора (Celery beat) добавляется на Этапе 3.
+CELERY_BEAT_SCHEDULE: dict = {}
+
+# --- Проект -------------------------------------------------------------------
+
+TROLLTRACE = {
+    "VERSION": "0.1.0",
+    "CRAWLER_USER_AGENT": env(
+        "CRAWLER_USER_AGENT",
+        default="TrollTraceResearchBot/0.1 (+mailto:change-me@example.org)",
+    ),
+}
+
+# --- Логирование --------------------------------------------------------------
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "default": {"format": "{asctime} {levelname} {name}: {message}", "style": "{"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "default"},
+    },
+    "root": {"handlers": ["console"], "level": env("LOG_LEVEL", default="INFO")},
+}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Дашборд{% endblock %}
+
+{% block content %}
+  <h1>Рабочая часть</h1>
+  <p class="muted">
+    Здесь появятся список акторов, графики нарративов во времени, режим сравнения
+    и тепловая карта (README §7.1, Этап 8).
+  </p>
+
+  <section class="card">
+    <h2>Проверка графиков</h2>
+    <p class="muted">Демонстрационные данные: подтверждает, что ECharts загружается и рисует на canvas.</p>
+    <div id="demo-chart" class="chart" role="img" aria-label="Демонстрационный график"></div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/demo-chart.js' %}"></script>
+{% endblock %}

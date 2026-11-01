@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Django
+/staticfiles/
+/media/
+*.sqlite3
+
+# Окружение и секреты
+.env
+.env.*
+!.env.example
+
+# Данные исследования никогда не коммитятся
+/data/
+*.dump
+*.sql.gz
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

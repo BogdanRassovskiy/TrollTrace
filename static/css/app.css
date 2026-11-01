@@ -1,0 +1,92 @@
+:root {
+  --bg: #f7f7f8;
+  --surface: #ffffff;
+  --text: #1c1d21;
+  --muted: #62646d;
+  --border: #e2e3e8;
+  --accent: #2f5bd3;
+  --accent-soft: #e8eefc;
+  --radius: 8px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #121317;
+    --surface: #1b1d22;
+    --text: #e8e9ec;
+    --muted: #9a9ca5;
+    --border: #2c2f36;
+    --accent: #7c9cf5;
+    --accent-soft: #222b44;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: var(--accent); }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 24px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { font-weight: 700; text-decoration: none; color: var(--text); }
+
+.nav { display: flex; gap: 16px; flex-wrap: wrap; }
+.nav a { text-decoration: none; color: var(--muted); padding: 4px 0; }
+.nav a.active { color: var(--text); border-bottom: 2px solid var(--accent); }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+.muted { color: var(--muted); }
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 16px 0;
+}
+
+.chart { width: 100%; height: 360px; }
+
+.section-grid {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.section-grid .section { margin: 0; display: flex; justify-content: space-between; gap: 8px; }
+
+.badge {
+  font-size: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  padding: 2px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.messages { list-style: none; padding: 0; }
+.msg { padding: 8px 12px; border-radius: var(--radius); background: var(--accent-soft); }
+
+.footer { text-align: center; color: var(--muted); font-size: 13px; padding: 24px; }
+
+@media (max-width: 600px) {
+  .topbar, .container { padding-left: 16px; padding-right: 16px; }
+  .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+}

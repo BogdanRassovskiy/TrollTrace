@@ -341,3 +341,69 @@
 - Требования этической комиссии UJEP.
 - Доступ UJEP к архиву Newton Media.
 - Детали внешних атрибуций (VIGINUM, BIS, DFRLab, Check First) перепроверить по первоисточникам перед цитированием в тексте работы.
+
+---
+
+## 12. Разработка
+
+### Структура репозитория
+
+```
+config/            настройки Django (base / dev / test / prod), urls, Celery
+apps/
+  core/            общие утилиты, включение pgvector, health-check
+  actors/          Source, Actor, периоды включения, аккаунты
+  documents/       Document, версии, оценка качества, ReuseLink
+  narratives/      темы, нарративы, кодбук, метки, опровержения
+  ingestion/       коллекторы по слоям A–E, мониторинг сбора
+  processing/      воронка: релевантность, эмбеддинги, MinHash/LSH, kNN
+  analytics/       WeeklyAggregate, API для графиков
+  dashboard/       рабочая часть (§7.1)
+  panel/           панель исследователя (§7.2)
+  validation/      ручная разметка, согласие разметчиков
+templates/, static/  шаблоны и статика (ECharts лежит локально в static/vendor)
+docker/            Dockerfile, entrypoint, init-скрипт pgvector
+tests/             тесты (pytest)
+```
+
+### Запуск через Docker (рекомендуется)
+
+```bash
+cp .env.example .env          # при необходимости поправить значения
+docker compose up --build
+```
+
+Поднимаются `web` (http://localhost:8000), `db` (PostgreSQL 16 + pgvector), `redis`, `worker` и `beat` (Celery). Миграции применяются автоматически при старте `web`. Проверка состояния: http://localhost:8000/healthz/.
+
+```bash
+docker compose exec web python manage.py createsuperuser
+docker compose exec web pytest
+```
+
+### Запуск без Docker
+
+Нужны Python 3.12+, PostgreSQL 16 с расширением pgvector и Redis.
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements/dev.txt
+cp .env.example .env          # указать DATABASE_URL и REDIS_URL
+python manage.py migrate
+python manage.py runserver
+celery -A config worker -l info   # в отдельном терминале
+celery -A config beat -l info     # в отдельном терминале
+```
+
+### Проверки качества кода
+
+```bash
+pre-commit install            # один раз: хуки ruff перед каждым коммитом
+ruff check . && ruff format --check .
+pytest
+```
+
+Те же проверки (линтер + тесты против PostgreSQL с pgvector) запускаются в GitHub Actions на каждый push и pull request.
+
+### Ход работ
+
+Этапы разработки и чек-листы ведутся на Trello-доске проекта. Номер этапа указывается в сообщении коммита.

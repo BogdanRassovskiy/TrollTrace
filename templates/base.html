@@ -1,0 +1,36 @@
+{% load static %}<!doctype html>
+<html lang="{{ LANGUAGE_CODE|default:'ru' }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}TrollTrace{% endblock %} · TrollTrace</title>
+  <link rel="stylesheet" href="{% static 'css/app.css' %}">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="{% url 'core:home' %}">TrollTrace</a>
+    <nav class="nav">
+      {% with ns=request.resolver_match.namespace %}
+      <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Рабочая часть</a>
+      <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Панель исследователя</a>
+      {% endwith %}
+    </nav>
+  </header>
+
+  <main class="container">
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}<li class="msg msg-{{ message.tags }}">{{ message }}</li>{% endfor %}
+      </ul>
+    {% endif %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    TrollTrace v{{ PROJECT_VERSION }} · исследовательский инструмент, UJEP
+  </footer>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

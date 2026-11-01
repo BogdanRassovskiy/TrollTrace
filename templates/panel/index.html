@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Панель исследователя{% endblock %}
+
+{% block content %}
+  <h1>Панель исследователя</h1>
+  <p class="muted">
+    Управление исследованием. Все действия в панели будут записываться в журнал аудита (README §7.2).
+  </p>
+
+  <ul class="section-grid">
+    {% for name, stage in sections %}
+      <li class="card section">
+        <strong>{{ name }}</strong>
+        <span class="badge">{{ stage }}</span>
+      </li>
+    {% endfor %}
+  </ul>
+{% endblock %}
