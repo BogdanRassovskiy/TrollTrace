@@ -35,8 +35,8 @@ def test_home_redirects_to_dashboard(client):
 
 
 @pytest.mark.django_db
-def test_dashboard_renders_with_echarts(client):
-    response = client.get(reverse("dashboard:index"))
+def test_dashboard_renders_with_echarts(observer_client):
+    response = observer_client.get(reverse("dashboard:index"))
     assert response.status_code == 200
     content = response.content.decode()
     assert "Рабочая часть" in content
@@ -44,8 +44,8 @@ def test_dashboard_renders_with_echarts(client):
 
 
 @pytest.mark.django_db
-def test_panel_renders_sections(client):
-    response = client.get(reverse("panel:index"))
+def test_panel_renders_sections(researcher_client):
+    response = researcher_client.get(reverse("panel:index"))
     assert response.status_code == 200
     assert "Журнал аудита" in response.content.decode()
 

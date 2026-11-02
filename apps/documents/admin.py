@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from apps.panel.audit import AuditedModelAdmin
+
 from .models import Document, DocumentQuality, DocumentVersion, ReuseLink
 
 
@@ -20,7 +22,7 @@ class DocumentQualityInline(admin.TabularInline):
 
 
 @admin.register(Document)
-class DocumentAdmin(admin.ModelAdmin):
+class DocumentAdmin(AuditedModelAdmin):
     list_display = ["__str__", "actor", "source", "published_at", "collected_at", "status"]
     list_filter = ["source__layer", "status", "is_relevant", "date_source"]
     search_fields = ["title", "url", "actor__name"]
@@ -32,7 +34,7 @@ class DocumentAdmin(admin.ModelAdmin):
 
 
 @admin.register(DocumentQuality)
-class DocumentQualityAdmin(admin.ModelAdmin):
+class DocumentQualityAdmin(AuditedModelAdmin):
     list_display = ["document", "score", "quality_rules_version", "is_current", "computed_at"]
     list_filter = [
         "score",
@@ -45,7 +47,7 @@ class DocumentQualityAdmin(admin.ModelAdmin):
 
 
 @admin.register(ReuseLink)
-class ReuseLinkAdmin(admin.ModelAdmin):
+class ReuseLinkAdmin(AuditedModelAdmin):
     list_display = [
         "source_document",
         "target_document",

@@ -5,14 +5,14 @@
 {% block content %}
   <h1>Панель исследователя</h1>
   <p class="muted">
-    Управление исследованием. Все действия в панели будут записываться в журнал аудита (README §7.2).
+    Управление исследованием. Все изменения в панели и в админке записываются в журнал аудита (README §7.2).
   </p>
 
   <ul class="section-grid">
-    {% for name, stage in sections %}
+    {% for name, stage, url in sections %}
       <li class="card section">
-        <strong>{{ name }}</strong>
-        <span class="badge">{{ stage }}</span>
+        {% if url %}<a href="{{ url }}"><strong>{{ name }}</strong></a>{% else %}<strong>{{ name }}</strong>{% endif %}
+        <span class="badge{% if url %} badge-ready{% endif %}">{{ stage }}</span>
       </li>
     {% endfor %}
   </ul>

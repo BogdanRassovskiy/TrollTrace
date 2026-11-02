@@ -164,8 +164,8 @@ class Job(models.Model):
 class AuditLog(models.Model):
     """Журнал действий в панели: кто, когда, что изменил, старое → новое.
 
-    Только добавление: запись нельзя изменить или удалить через ORM. Запись в журнал из
-    панели (сервис аудита) — Этап 2.
+    Только добавление: запись нельзя изменить или удалить ни через ORM, ни SQL-запросом
+    (триггер в миграции panel/0002). Пишется через сервис apps.panel.audit.
     """
 
     class Action(models.TextChoices):
@@ -176,7 +176,10 @@ class AuditLog(models.Model):
         DELETE = "delete", "Удаление"
         DECISION = "decision", "Решение по кандидату"
         RUN = "run", "Запуск задачи"
+        ROLE = "role", "Изменение роли"
         LOGIN = "login", "Вход"
+        LOGOUT = "logout", "Выход"
+        LOGIN_FAILED = "login_failed", "Неудачный вход"
 
     timestamp = models.DateTimeField("когда", auto_now_add=True, db_index=True)
     user = models.ForeignKey(
@@ -190,7 +193,7 @@ class AuditLog(models.Model):
     username = models.CharField(
         "имя пользователя", max_length=150, blank=True, help_text="Сохраняется на случай удаления."
     )
-    action = models.CharField("действие", max_length=10, choices=Action.choices)
+    action = models.CharField("действие", max_length=12, choices=Action.choices)
     content_type = models.ForeignKey(
         ContentType, verbose_name="тип объекта", on_delete=models.PROTECT, null=True, blank=True
     )

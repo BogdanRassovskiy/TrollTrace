@@ -90,3 +90,50 @@ a { color: var(--accent); }
   .topbar, .container { padding-left: 16px; padding-right: 16px; }
   .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
+
+/* --- Этап 2: вход, роли, журнал аудита ------------------------------------ */
+
+.userbox { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--muted); }
+.link-button { background: none; border: 0; padding: 0; color: var(--accent); font: inherit; cursor: pointer; }
+.section-grid .badge { align-self: flex-start; }
+.badge-ready { background: #e3f4e8; color: #1f7a3d; }
+
+.auth-card { max-width: 420px; margin: 48px auto; }
+.form { display: grid; gap: 8px; }
+.form input, .filters select, .filters input {
+  font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); min-width: 0;
+}
+.button {
+  font: inherit; padding: 8px 14px; border: 0; border-radius: 6px;
+  background: var(--accent); color: #fff; cursor: pointer;
+}
+.form .button { margin-top: 8px; }
+.msg-error { background: #fdecec; color: #a3261f; }
+
+.crumbs { margin: 0; color: var(--muted); }
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 16px 0; }
+.table-wrap { padding: 0; overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; }
+.table > thead th { text-align: left; font-weight: 600; color: var(--muted); font-size: 13px; }
+.table > thead th, .table > tbody > tr > td { padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.nowrap { white-space: nowrap; }
+.small { font-size: 12px; }
+.diff { border-collapse: collapse; font-size: 13px; }
+.diff th { text-align: left; font-weight: 500; padding: 1px 8px 1px 0; color: var(--muted); white-space: nowrap; }
+.diff td { padding: 1px 4px; word-break: break-word; }
+.diff .old { color: #a3261f; text-decoration: line-through; }
+.diff .new { color: #1f7a3d; }
+.diff .arrow { color: var(--muted); }
+.pager { display: flex; gap: 16px; align-items: center; justify-content: center; margin: 16px 0; }
+
+@media (prefers-color-scheme: dark) {
+  .badge-ready { background: #17351f; color: #7fd69a; }
+  .msg-error { background: #3a1716; color: #f2a39d; }
+  .diff .old { color: #f2a39d; }
+  .diff .new { color: #7fd69a; }
+}
+
+@media (max-width: 600px) {
+  .userbox { margin-left: 0; }
+}

@@ -12,10 +12,21 @@
     <a class="brand" href="{% url 'core:home' %}">TrollTrace</a>
     <nav class="nav">
       {% with ns=request.resolver_match.namespace %}
-      <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Рабочая часть</a>
-      <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Панель исследователя</a>
+      {% if user_can_view_dashboard %}
+        <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Рабочая часть</a>
+      {% endif %}
+      {% if user_is_researcher %}
+        <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Панель исследователя</a>
+      {% endif %}
       {% endwith %}
     </nav>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% url 'logout' %}" class="userbox">
+        {% csrf_token %}
+        <span>{{ user.get_username }} <span class="badge">{{ user_role }}</span></span>
+        <button type="submit" class="link-button">Выйти</button>
+      </form>
+    {% endif %}
   </header>
 
   <main class="container">

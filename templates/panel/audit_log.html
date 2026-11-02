@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Журнал аудита{% endblock %}
+
+{% block content %}
+  <p class="crumbs"><a href="{% url 'panel:index' %}">Панель исследователя</a> /</p>
+  <h1>Журнал аудита</h1>
+  <p class="muted">
+    Все изменения в панели и админке: кто, когда, что изменил, старое и новое значение.
+    Записи нельзя изменить или удалить (README §7.2).
+  </p>
+
+  <form method="get" class="filters">
+    <select name="user" aria-label="Пользователь">
+      <option value="">Все пользователи</option>
+      {% for name in usernames %}<option value="{{ name }}" {% if filters.user == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
+    </select>
+    <select name="action" aria-label="Действие">
+      <option value="">Все действия</option>
+      {% for value, label in actions %}<option value="{{ value }}" {% if filters.action == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="type" aria-label="Тип объекта">
+      <option value="">Все объекты</option>
+      {% for ct in content_types %}<option value="{{ ct.pk }}" {% if filters.type == ct.pk|stringformat:"s" %}selected{% endif %}>{{ ct.name|capfirst }}</option>{% endfor %}
+    </select>
+    <input type="search" name="q" value="{{ filters.q|default:'' }}" placeholder="Объект…" aria-label="Поиск по объекту">
+    <button type="submit" class="button">Показать</button>
+    {% if querystring %}<a href="{% url 'panel:audit' %}">Сбросить</a>{% endif %}
+  </form>
+
+  <div class="table-wrap card">
+    <table class="table">
+      <thead>
+        <tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Объект</th><th>Изменения</th></tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+          <tr>
+            <td class="nowrap">{{ e.timestamp|date:"Y-m-d H:i:s" }}</td>
+            <td>{{ e.username|default:"—" }}{% if e.ip_address %}<div class="muted small">{{ e.ip_address }}</div>{% endif %}</td>
+            <td><span class="badge action-{{ e.action }}">{{ e.get_action_display }}</span></td>
+            <td>
+              {% if e.content_type %}<div class="muted small">{{ e.content_type.name|capfirst }} #{{ e.object_id }}</div>{% endif %}
+              {{ e.object_repr|default:"—" }}
+              {% if e.note %}<div class="muted small">{{ e.note }}</div>{% endif %}
+            </td>
+            <td>
+              {% if e.changes %}
+                <table class="diff">
+                  {% for field, pair in e.changes.items %}
+                    <tr>
+                      <th>{{ field }}</th>
+                      <td class="old">{{ pair.0|default_if_none:"∅"|truncatechars:120 }}</td>
+                      <td class="arrow">→</td>
+                      <td class="new">{{ pair.1|default_if_none:"∅"|truncatechars:120 }}</td>
+                    </tr>
+                  {% endfor %}
+                </table>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="muted">Записей нет.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if is_paginated %}
+    <nav class="pager">
+      {% if page_obj.has_previous %}<a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">← Новее</a>{% endif %}
+      <span class="muted">Страница {{ page_obj.number }} из {{ paginator.num_pages }} · {{ paginator.count }} записей</span>
+      {% if page_obj.has_next %}<a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Старее →</a>{% endif %}
+    </nav>
+  {% endif %}
+{% endblock %}

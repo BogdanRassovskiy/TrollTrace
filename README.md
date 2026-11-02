@@ -376,7 +376,7 @@ docker compose up --build
 Поднимаются `web` (http://localhost:8000), `db` (PostgreSQL 16 + pgvector), `redis`, `worker` и `beat` (Celery). Миграции применяются автоматически при старте `web`. Проверка состояния: http://localhost:8000/healthz/.
 
 ```bash
-docker compose exec web python manage.py createsuperuser
+docker compose exec web python manage.py createsuperuser   # суперпользователь = исследователь
 docker compose exec web pytest
 ```
 
@@ -393,6 +393,21 @@ python manage.py runserver
 celery -A config worker -l info   # в отдельном терминале
 celery -A config beat -l info     # в отдельном терминале
 ```
+
+### Пользователи и роли
+
+Все страницы, кроме `/healthz/`, требуют входа (`/accounts/login/`). Роли — группы Django, создаются автоматически после `migrate`:
+
+- **Исследователь** — рабочая часть, панель исследователя, админка (до готовности страниц панели на Этапе 9);
+- **Наблюдатель** — только рабочая часть (например, для руководителя).
+
+```bash
+docker compose exec web python manage.py assign_role ivana researcher --create   # спросит пароль
+docker compose exec web python manage.py assign_role vedouci observer --create
+docker compose exec web python manage.py assign_role ivana observer              # сменить роль
+```
+
+Любое изменение через панель или админку, вход/выход и смена ролей пишутся в журнал аудита (`/panel/audit/`): кто, когда, объект, старое → новое значение. Журнал только дополняется — UPDATE и DELETE запрещены триггером в PostgreSQL. Для будущих страниц панели — `apps.panel.audit` (`AuditedFormMixin`, `log_change`).
 
 ### Демо-данные
 

@@ -1,10 +1,12 @@
 from django.contrib import admin
 
+from apps.panel.audit import AuditedModelAdmin
+
 from .models import WeeklyAggregate
 
 
 @admin.register(WeeklyAggregate)
-class WeeklyAggregateAdmin(admin.ModelAdmin):
+class WeeklyAggregateAdmin(AuditedModelAdmin):
     list_display = [
         "week",
         "actor",

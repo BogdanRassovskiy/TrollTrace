@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Нет доступа{% endblock %}
+
+{% block content %}
+  <section class="card auth-card">
+    <h1>Нет доступа</h1>
+    {% if user.is_authenticated %}
+      <p>Ваша роль: <strong>{{ user_role }}</strong>. Этот раздел доступен только исследователю.</p>
+      {% if user_can_view_dashboard %}<p><a href="{% url 'dashboard:index' %}">Перейти в рабочую часть</a></p>{% endif %}
+    {% else %}
+      <p><a href="{% url 'login' %}">Войти</a></p>
+    {% endif %}
+  </section>
+{% endblock %}

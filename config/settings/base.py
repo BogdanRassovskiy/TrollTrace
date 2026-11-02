@@ -93,6 +93,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+LOGIN_URL = "login"
+LOGIN_REDIRECT_URL = "dashboard:index"
+LOGOUT_REDIRECT_URL = "login"
+SESSION_COOKIE_AGE = 60 * 60 * 12  # рабочий день; база закрытая (README §6)
+
 # --- Локализация --------------------------------------------------------------
 
 LANGUAGE_CODE = "ru"
