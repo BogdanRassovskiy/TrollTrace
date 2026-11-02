@@ -102,3 +102,42 @@ class TestAssignRoleCommand:
     def test_missing_user(self):
         with pytest.raises(CommandError):
             call_command("assign_role", "ghost", "observer")
+
+
+class TestOpenAccess:
+    """Временный режим без защиты: всё открыто, изменения пишутся от имени guest."""
+
+    @pytest.fixture(autouse=True)
+    def open_access(self, settings):
+        settings.OPEN_ACCESS = True
+
+    def test_everything_open_without_login(self, client):
+        for url in [DASHBOARD, PANEL, AUDIT, ADMIN]:
+            assert client.get(url).status_code == 200, url
+        assert "Открытый доступ" in client.get(DASHBOARD).content.decode()
+
+    def test_changes_audited_as_guest(self, client):
+        from .factories import SourceFactory
+
+        source = SourceFactory(name="Původní")
+        response = client.post(
+            reverse("admin:actors_source_change", args=[source.pk]),
+            {
+                "name": "Nový název",
+                "layer": source.layer,
+                "platform": source.platform,
+                "url": source.url,
+                "is_active": "on",
+                "expected_language": "cs",
+                "min_text_length": "300",
+                "stale_after_hours": "48",
+            },
+        )
+        assert response.status_code == 302, response.content.decode()[:2000]
+        entry = AuditLog.objects.get(action=AuditLog.Action.UPDATE)
+        assert entry.username == "guest"
+        assert entry.changes == {"name": ["Původní", "Nový název"]}
+
+    def test_guest_cannot_log_in_with_password(self, client):
+        client.get(DASHBOARD)  # создаёт guest
+        assert not client.login(username="guest", password="")

@@ -137,3 +137,6 @@ a { color: var(--accent); }
 @media (max-width: 600px) {
   .userbox { margin-left: 0; }
 }
+
+.badge-warn { background: #fdf1d8; color: #8a5a00; }
+@media (prefers-color-scheme: dark) { .badge-warn { background: #3a2c0c; color: #f0c56b; } }

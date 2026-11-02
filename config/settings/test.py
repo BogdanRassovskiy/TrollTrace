@@ -2,6 +2,7 @@ from .base import *  # noqa: F403
 
 DEBUG = False
 SECRET_KEY = "test-secret-key"
+OPEN_ACCESS = False  # тесты проверяют роли; открытый режим — отдельным тестом
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
 
 STORAGES["staticfiles"] = {  # noqa: F405

@@ -49,6 +49,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.core.middleware.OpenAccessMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
@@ -92,6 +93,9 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Временно: доступ без входа для всех (см. apps/core/middleware.py). В prod — выключено.
+OPEN_ACCESS = env.bool("OPEN_ACCESS", default=False)
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard:index"

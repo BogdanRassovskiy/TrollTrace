@@ -20,7 +20,9 @@
       {% endif %}
       {% endwith %}
     </nav>
-    {% if user.is_authenticated %}
+    {% if open_access_guest %}
+      <span class="userbox"><span class="badge badge-warn" title="Вход отключён (OPEN_ACCESS)">Открытый доступ</span></span>
+    {% elif user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="userbox">
         {% csrf_token %}
         <span>{{ user.get_username }} <span class="badge">{{ user_role }}</span></span>

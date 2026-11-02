@@ -19,4 +19,4 @@ known-first-party = ["apps", "config"]
 DJANGO_SETTINGS_MODULE = "config.settings.test"
 python_files = ["test_*.py"]
 testpaths = ["tests", "apps"]
-addopts = "-ra --strict-markers"
+addopts = "-ra --strict-markers --ds=config.settings.test"
