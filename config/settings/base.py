@@ -22,6 +22,7 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",
 ]
 
 # Порядок отражает зависимости: core → данные → обработка → интерфейс.
