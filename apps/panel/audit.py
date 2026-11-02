@@ -37,7 +37,10 @@ def snapshot(instance) -> dict:
     for field in instance._meta.concrete_fields:
         if isinstance(field, SKIP_FIELD_TYPES) or field.name in SKIP_FIELD_NAMES:
             continue
-        data[field.name] = _jsonable(field.value_from_object(instance))
+        value = field.value_from_object(instance)
+        if isinstance(field, models.FileField):
+            value = value.name or ""  # в журнал — путь файла, не содержимое
+        data[field.name] = _jsonable(value)
     return data
 
 

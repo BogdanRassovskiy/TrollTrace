@@ -48,8 +48,17 @@ class Source(TimeStampedModel):
     layer = models.CharField("слой", max_length=1, choices=Layer.choices)
     platform = models.CharField("платформа", max_length=20, choices=Platform.choices)
     url = models.URLField("адрес", max_length=500, unique=True)
-    feed_url = models.URLField("RSS / sitemap", max_length=500, blank=True)
     is_active = models.BooleanField("сбор включён", default=True)
+
+    # Параметры сбора (README §4.1). Ленты и sitemap — SourceFeed (apps.ingestion).
+    collect_interval_minutes = models.PositiveIntegerField("интервал сбора (мин)", default=30)
+    request_delay_seconds = models.FloatField("пауза между запросами (с)", default=2.0)
+    collector_config = models.JSONField(
+        "настройки коллектора",
+        default=dict,
+        blank=True,
+        help_text="Например: max_articles, backfill_pages, term (PSP).",
+    )
 
     # Атрибуция и внешний рейтинг — ссылки на чужие оценки, не наш вывод.
     attribution_by = models.CharField(
@@ -116,6 +125,8 @@ class Actor(TimeStampedModel):
     activity_cohort = models.CharField(
         "когорта активности", max_length=10, choices=ActivityCohort.choices, blank=True
     )
+    photo = models.ImageField("фото (иконка)", upload_to="actors/", blank=True)
+    photo_source_url = models.URLField("фото: источник", max_length=500, blank=True)
     is_pseudonymized = models.BooleanField(
         "псевдонимизирован", default=False, help_text="Частные лица (GDPR, README §6)."
     )

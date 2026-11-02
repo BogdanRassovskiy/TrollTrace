@@ -413,10 +413,21 @@ docker compose exec web python manage.py assign_role ivana observer             
 
 ```bash
 docker compose exec web python manage.py seed_demo           # 350 вымышленных акторов, 26 недель
-docker compose exec web python manage.py seed_demo --reset   # удалить исследовательские данные и пересоздать
+docker compose exec web python manage.py seed_demo --reset   # пересоздать демо-данные
+docker compose exec web python manage.py seed_demo --clear   # удалить только демо-данные (реальные не трогаются)
 ```
 
 Создаются источники и акторы слоёв A–E с периодами включения и аккаунтами, кодбук из 5 нарративов (у одного две версии), около тысячи документов с версиями, оценками качества и метками, заимствования, синтетические недельные агрегаты по акторам и группам (слой, партия), проверки мониторинга, инциденты, настройки по умолчанию. Все имена с префиксом «Demo», адреса в зоне `.example`.
+
+### Сбор данных (этап 3)
+
+```bash
+docker compose exec web python manage.py import_psp_deputies          # депутаты PSP → акторы слоя E, с иконками
+docker compose exec web python manage.py import_sources apps/ingestion/sources/mainstream.json
+docker compose exec web python manage.py collect --layer D --max-articles 5   # разовый сбор (--source ID, --all)
+```
+
+По расписанию (Celery beat) каждые 5 минут собираются источники, у которых подошёл `collect_interval_minutes`; раз в час статьи перепроверяются на правки и удаление (через 24 ч и 7 дней); раз в неделю обновляется реестр депутатов. Коллекторы: сайты (RSS/sitemap + trafilatura), Telegram (публичное превью `t.me/s/`), стенограммы PSP. Учитывается robots.txt (RFC 9309), паузы между запросами, сохраняются сырой HTML (сжатый), текст, `published_at` и `collected_at`; дедупликация по нормализованному URL и хешу текста, правки — новые версии. Формат файлов источников — `apps/ingestion/sources/README.md`. Фото акторов лежат в `media/` (не в git); без фото показывается заглушка.
 
 ### Проверки качества кода
 

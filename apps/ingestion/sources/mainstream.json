@@ -1,0 +1,117 @@
+{
+  "sources": [
+    {
+      "name": "ČT24",
+      "url": "https://ct24.ceskatelevize.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://ct24.ceskatelevize.cz/rss"
+        }
+      ],
+      "actor": {
+        "name": "ČT24",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    },
+    {
+      "name": "iROZHLAS",
+      "url": "https://www.irozhlas.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://www.irozhlas.cz/rss/irozhlas/section/zpravy-domov",
+          "rubric": "Domov"
+        },
+        {
+          "url": "https://www.irozhlas.cz/rss/irozhlas/section/zpravy-svet",
+          "rubric": "Svět"
+        }
+      ],
+      "actor": {
+        "name": "iROZHLAS",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    },
+    {
+      "name": "Seznam Zprávy",
+      "url": "https://www.seznamzpravy.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://www.seznamzpravy.cz/rss"
+        }
+      ],
+      "actor": {
+        "name": "Seznam Zprávy",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    },
+    {
+      "name": "iDNES.cz",
+      "url": "https://www.idnes.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://servis.idnes.cz/rss.aspx?c=zpravodaj"
+        }
+      ],
+      "actor": {
+        "name": "iDNES.cz",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    },
+    {
+      "name": "Novinky.cz",
+      "url": "https://www.novinky.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://www.novinky.cz/rss"
+        }
+      ],
+      "actor": {
+        "name": "Novinky.cz",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    },
+    {
+      "name": "Blesk.cz",
+      "url": "https://www.blesk.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "feeds": [
+        {
+          "url": "https://www.blesk.cz/rss"
+        }
+      ],
+      "actor": {
+        "name": "Blesk.cz",
+        "type": "media",
+        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+      }
+    }
+  ]
+}

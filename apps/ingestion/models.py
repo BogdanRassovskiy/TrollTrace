@@ -12,6 +12,79 @@ class Level(models.TextChoices):
     CRITICAL = "critical", "Критично"
 
 
+class SourceFeed(models.Model):
+    """RSS/Atom-лента или sitemap источника. У медиа — по ленте на политическую рубрику."""
+
+    class Kind(models.TextChoices):
+        RSS = "rss", "RSS / Atom"
+        SITEMAP = "sitemap", "Sitemap"
+
+    source = models.ForeignKey(
+        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="feeds"
+    )
+    url = models.URLField("адрес ленты", max_length=1000)
+    kind = models.CharField("тип", max_length=10, choices=Kind.choices, default=Kind.RSS)
+    rubric = models.CharField("рубрика", max_length=200, blank=True)
+    is_active = models.BooleanField("используется", default=True)
+
+    # Условные запросы (304 Not Modified) и состояние для страницы «Источники».
+    etag = models.CharField(max_length=300, blank=True, editable=False)
+    last_modified = models.CharField(max_length=100, blank=True, editable=False)
+    last_fetched_at = models.DateTimeField("последний запрос", null=True, blank=True)
+    last_success_at = models.DateTimeField("последняя успешная загрузка", null=True, blank=True)
+    last_item_count = models.PositiveIntegerField("записей в ленте", null=True, blank=True)
+    last_error = models.TextField("последняя ошибка", blank=True)
+
+    class Meta:
+        verbose_name = "лента источника"
+        verbose_name_plural = "ленты источников"
+        constraints = [
+            models.UniqueConstraint(fields=["source", "url"], name="source_feed_unique_url"),
+        ]
+
+    def __str__(self):
+        return f"{self.source.name}: {self.rubric or self.url}"
+
+
+class CollectionRun(models.Model):
+    """Один запуск сбора по источнику: что найдено и сохранено. Основа мониторинга (§4.2)."""
+
+    class Status(models.TextChoices):
+        RUNNING = "running", "Выполняется"
+        OK = "ok", "Успешно"
+        PARTIAL = "partial", "С ошибками"
+        FAILED = "failed", "Ошибка"
+
+    source = models.ForeignKey(
+        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="collection_runs"
+    )
+    started_at = models.DateTimeField("начало", auto_now_add=True)
+    finished_at = models.DateTimeField("конец", null=True, blank=True)
+    status = models.CharField(
+        "статус", max_length=10, choices=Status.choices, default=Status.RUNNING
+    )
+    found = models.PositiveIntegerField("найдено", default=0)
+    new = models.PositiveIntegerField("новых", default=0)
+    versions = models.PositiveIntegerField("новых версий", default=0)
+    unchanged = models.PositiveIntegerField("без изменений", default=0)
+    duplicates = models.PositiveIntegerField("дублей по тексту", default=0)
+    skipped = models.PositiveIntegerField("пропущено", default=0)
+    errors = models.PositiveIntegerField("ошибок", default=0)
+    http_requests = models.PositiveIntegerField("HTTP-запросов", default=0)
+    details = models.JSONField(
+        "подробности", default=dict, blank=True, help_text="Примеры ошибок, статусы HTTP."
+    )
+
+    class Meta:
+        verbose_name = "запуск сбора"
+        verbose_name_plural = "запуски сбора"
+        ordering = ["-started_at"]
+        indexes = [models.Index(fields=["source", "-started_at"])]
+
+    def __str__(self):
+        return f"{self.source.name} {self.started_at:%Y-%m-%d %H:%M}: {self.status}"
+
+
 class SourceHealthCheck(models.Model):
     """Результат одной проверки мониторинга по источнику за день."""
 

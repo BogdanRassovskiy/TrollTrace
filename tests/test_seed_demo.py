@@ -20,7 +20,7 @@ def test_seed_creates_consistent_demo_data():
     assert Actor.objects.count() == 40
     assert set(Actor.objects.values_list("layer", flat=True)) == {"A", "B", "C", "D", "E"}
     assert Narrative.objects.count() == 5
-    assert Narrative.objects.get(code="N003").current_version == 2
+    assert Narrative.objects.get(code="demo-n003").current_version == 2
     assert Document.objects.exists()
     assert Label.objects.count() == Document.objects.count()
 
@@ -40,3 +40,16 @@ def test_seed_refuses_to_overwrite_without_reset():
         seed()
     seed("--reset")
     assert Actor.objects.count() == 40
+
+
+def test_reset_and_clear_keep_real_data():
+    from .factories import ActorFactory, NarrativeFactory
+
+    real_actor, real_narrative = ActorFactory(name="Skutečný aktér"), NarrativeFactory(code="n001")
+    seed()
+    seed("--reset")
+    assert Actor.objects.count() == 41
+    call_command("seed_demo", "--clear", stdout=None)
+    assert list(Actor.objects.all()) == [real_actor]
+    assert list(Narrative.objects.all()) == [real_narrative]
+    assert not WeeklyAggregate.objects.exists() and not Document.objects.exists()

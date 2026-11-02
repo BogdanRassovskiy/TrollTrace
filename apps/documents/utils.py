@@ -11,10 +11,11 @@ TRACKING_PREFIXES = ("utm_",)
 _WHITESPACE = re.compile(r"\s+")
 
 
-def normalize_url(url: str) -> str:
+def normalize_url(url: str, *, keep_fragment: bool = False) -> str:
     """Схема и хост в нижнем регистре, без www, фрагмента, трекинговых параметров и хвостового /.
 
     Оставшиеся параметры сортируются: у разных ссылок на одну статью порядок бывает разным.
+    keep_fragment — когда фрагмент адресует отдельный документ (выступление в стенограмме).
     """
     parts = urlsplit(url.strip())
     host = (parts.hostname or "").lower().removeprefix("www.")
@@ -29,7 +30,8 @@ def normalize_url(url: str) -> str:
         if key.lower() not in TRACKING_PARAMS and not key.lower().startswith(TRACKING_PREFIXES)
     )
     path = parts.path.rstrip("/") or ""
-    return urlunsplit((parts.scheme.lower(), host, path, urlencode(query), ""))
+    fragment = parts.fragment if keep_fragment else ""
+    return urlunsplit((parts.scheme.lower(), host, path, urlencode(query), fragment))
 
 
 def text_hash(text: str) -> str:

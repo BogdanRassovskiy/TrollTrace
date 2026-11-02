@@ -69,6 +69,12 @@ class Document(models.Model):
     engagement = models.JSONField(
         "метрики отклика", default=dict, blank=True, help_text="Просмотры, реакции, репосты."
     )
+    meta = models.JSONField(
+        "метаданные источника",
+        default=dict,
+        blank=True,
+        help_text="Рубрика ленты, пересылка Telegram, оратор и страница стенограммы…",
+    )
     embedding = VectorField("эмбеддинг", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
     minhash = models.BinaryField("MinHash-подпись", null=True, blank=True)
 
@@ -79,6 +85,11 @@ class Document(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["source", "url_normalized"], name="document_unique_url_per_source"
+            ),
+            models.UniqueConstraint(
+                fields=["source", "external_id"],
+                condition=~Q(external_id=""),
+                name="document_unique_external_id",
             ),
             models.CheckConstraint(
                 condition=Q(status="deleted", deleted_at__isnull=False)
@@ -102,7 +113,8 @@ class Document(models.Model):
         return self.title[:80] or self.url
 
     def save(self, *args, **kwargs):
-        self.url_normalized = normalize_url(self.url)
+        # Внешний ID означает, что фрагмент URL адресует отдельный документ (#r3 в стенограмме).
+        self.url_normalized = normalize_url(self.url, keep_fragment=bool(self.external_id))
         self.text_hash = text_hash(self.text)
         super().save(*args, **kwargs)
 

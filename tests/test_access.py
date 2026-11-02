@@ -131,6 +131,11 @@ class TestOpenAccess:
                 "expected_language": "cs",
                 "min_text_length": "300",
                 "stale_after_hours": "48",
+                "collect_interval_minutes": "30",
+                "request_delay_seconds": "2",
+                "collector_config": "{}",
+                "feeds-TOTAL_FORMS": "0",
+                "feeds-INITIAL_FORMS": "0",
             },
         )
         assert response.status_code == 302, response.content.decode()[:2000]

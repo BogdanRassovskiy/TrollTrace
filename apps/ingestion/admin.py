@@ -2,7 +2,32 @@ from django.contrib import admin
 
 from apps.panel.audit import AuditedModelAdmin
 
-from .models import GoldenPage, SourceHealthCheck, SourceIncident
+from .models import CollectionRun, GoldenPage, SourceFeed, SourceHealthCheck, SourceIncident
+
+
+@admin.register(SourceFeed)
+class SourceFeedAdmin(AuditedModelAdmin):
+    list_display = ["source", "rubric", "url", "kind", "is_active", "last_success_at", "last_error"]
+    list_filter = ["kind", "is_active", "source__layer"]
+    search_fields = ["url", "source__name"]
+
+
+@admin.register(CollectionRun)
+class CollectionRunAdmin(admin.ModelAdmin):
+    """Только просмотр: запуски пишет сам сбор."""
+
+    list_display = [
+        "started_at", "source", "status", "found", "new", "versions",
+        "duplicates", "skipped", "errors", "http_requests",
+    ]  # fmt: skip
+    list_filter = ["status", "source__layer", "source"]
+    date_hierarchy = "started_at"
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(SourceHealthCheck)

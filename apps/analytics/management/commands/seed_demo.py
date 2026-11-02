@@ -5,7 +5,11 @@
 с задержкой (H1), культурные ведут политики (H2). Хватает для режима сравнения на ~350 линий.
 
     python manage.py seed_demo                 # 350 акторов, 26 недель
-    python manage.py seed_demo --reset         # удалить ВСЕ исследовательские данные и пересоздать
+    python manage.py seed_demo --reset         # удалить прежние демо-данные и создать заново
+    python manage.py seed_demo --clear         # только удалить демо-данные
+
+Демо-данные помечены и живут рядом с реальными, не трогая их: источники в зоне .demo.example,
+акторы с основанием «Демо-данные», коды нарративов и тем с префиксом «demo-».
 """
 
 import datetime
@@ -17,13 +21,20 @@ from collections import defaultdict
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.actors.models import Actor, ActorAccount, ActorInclusionPeriod, Layer, Platform, Source
 from apps.analytics.models import WeeklyAggregate
 from apps.documents.models import Document, DocumentQuality, DocumentVersion, ReuseLink
 from apps.documents.utils import normalize_url, text_hash
-from apps.ingestion.models import GoldenPage, Level, SourceHealthCheck, SourceIncident
+from apps.ingestion.models import (
+    GoldenPage,
+    Level,
+    SourceFeed,
+    SourceHealthCheck,
+    SourceIncident,
+)
 from apps.narratives.models import (
     Debunk,
     Label,
@@ -95,6 +106,9 @@ ONSET_LAG = {
     },
 }
 QUALITY_RULES_VERSION = "demo-1"
+DEMO_HOST = "demo.example"
+DEMO_CRITERION = "Демо-данные"
+DEMO_PREFIX = "demo-"
 
 
 class Command(BaseCommand):
@@ -109,18 +123,22 @@ class Command(BaseCommand):
             "--seed", type=int, default=42, help="Зерно генератора случайных чисел."
         )
         parser.add_argument(
-            "--reset",
-            action="store_true",
-            help="Удалить ВСЕ исследовательские данные (журнал аудита и настройки остаются).",
+            "--reset", action="store_true", help="Удалить прежние демо-данные и создать заново."
+        )
+        parser.add_argument(
+            "--clear", action="store_true", help="Только удалить демо-данные (реальные остаются)."
         )
 
-    def handle(self, *args, actors, weeks, seed, reset, **options):
+    def handle(self, *args, actors, weeks, seed, reset, clear, **options):
+        if clear:
+            with transaction.atomic():
+                self._reset()
+            self.stdout.write(self.style.SUCCESS("Демо-данные удалены."))
+            return
         if actors < 10 or weeks < 8:
             raise CommandError("Нужно минимум 10 акторов и 8 недель.")
-        if Actor.objects.exists() and not reset:
-            raise CommandError(
-                "В БД уже есть акторы. Запустите с --reset, чтобы пересоздать данные."
-            )
+        if Actor.objects.filter(inclusion_criterion=DEMO_CRITERION).exists() and not reset:
+            raise CommandError("Демо-данные уже есть. Запустите с --reset, чтобы пересоздать их.")
 
         self.rng = random.Random(seed)
         today = timezone.localdate()
@@ -150,28 +168,23 @@ class Command(BaseCommand):
     # --- Очистка -------------------------------------------------------------------------
 
     def _reset(self):
-        for model in [
-            WeeklyAggregate,
-            Label,
-            ReuseLink,
-            NarrativeCandidate,
-            DocumentQuality,
-            DocumentVersion,
-            Document,
-            ActorAccount,
-            ActorInclusionPeriod,
-            Actor,
-            SourceHealthCheck,
-            GoldenPage,
-            SourceIncident,
-            Source,
-            Debunk,
-            Narrative,
-            Topic,
-            Notification,
-            Job,
-        ]:
-            model.objects.all().delete()
+        """Удаляет только помеченные демо-данные (см. docstring модуля)."""
+        sources = Source.objects.filter(url__contains=DEMO_HOST)
+        actors = Actor.objects.filter(
+            Q(inclusion_criterion=DEMO_CRITERION) | Q(accounts__source__in=sources)
+        ).distinct()
+        narratives = Narrative.objects.filter(code__startswith=DEMO_PREFIX)
+        documents = Document.objects.filter(Q(source__in=sources) | Q(actor__in=actors))
+        WeeklyAggregate.objects.filter(Q(actor__in=actors) | Q(narrative__in=narratives)).delete()
+        Label.objects.filter(Q(document__in=documents) | Q(narrative__in=narratives)).delete()
+        NarrativeCandidate.objects.filter(description__startswith="Демо").delete()
+        documents.delete()  # версии, оценки качества и заимствования — каскадом
+        Actor.objects.filter(pk__in=list(actors.values_list("pk", flat=True))).delete()
+        sources.delete()  # ленты, запуски, проверки, инциденты — каскадом
+        narratives.delete()
+        Topic.objects.filter(code__startswith=DEMO_PREFIX).delete()
+        Notification.objects.filter(text__startswith="Демо").delete()
+        Job.objects.filter(message__startswith="Демо").delete()
 
     # --- Источники и акторы --------------------------------------------------------------
 
@@ -195,7 +208,6 @@ class Command(BaseCommand):
                     layer=layer,
                     platform=Platform.WEB,
                     url=f"https://{slug}-{i}.demo.example/",
-                    feed_url=f"https://{slug}-{i}.demo.example/rss",
                 )
                 if layer == Layer.ATTRIBUTED:
                     source.attribution_by = "Demo: внешняя атрибуция"
@@ -204,12 +216,13 @@ class Command(BaseCommand):
                     source.external_rating = "demo-rating"
                     source.external_rating_source = "Demo: внешний рейтинг"
                 source.save()
+                SourceFeed.objects.create(source=source, url=f"{source.url}rss")
                 sources["sites"][layer].append(source)
         sources["telegram"] = Source.objects.create(
             name="Telegram (публичные каналы)",
             layer=Layer.TELEGRAM,
             platform=Platform.TELEGRAM,
-            url="https://t.me/",
+            url="https://telegram.demo.example/",
             stale_after_hours=24 * 7,
             min_text_length=80,
         )
@@ -228,7 +241,7 @@ class Command(BaseCommand):
         actors: list[Actor] = []
 
         def add(actor: Actor, source: Source, account_id: str, url: str = ""):
-            actor.inclusion_criterion = "Демо-данные"
+            actor.inclusion_criterion = DEMO_CRITERION
             actor.save()
             ActorAccount.objects.create(actor=actor, source=source, account_id=account_id, url=url)
             actors.append(actor)
@@ -250,7 +263,7 @@ class Command(BaseCommand):
                 ),
                 sources["telegram"],
                 handle,
-                f"https://t.me/{handle}",
+                f"https://telegram.demo.example/{handle}",
             )
 
         for i in range(1, counts[Layer.PARLIAMENT] + 1):
@@ -287,11 +300,13 @@ class Command(BaseCommand):
     # --- Кодбук --------------------------------------------------------------------------
 
     def _create_codebook(self) -> list[dict]:
-        topics = {code: Topic.objects.create(code=code, name=name) for code, name in TOPICS}
+        topics = {
+            code: Topic.objects.create(code=DEMO_PREFIX + code, name=name) for code, name in TOPICS
+        }
         narratives = []
         for code, topic, name, kind, peak in NARRATIVES:
             narrative = Narrative(
-                code=code,
+                code=DEMO_PREFIX + code.lower(),
                 topic=topics[topic],
                 name=name,
                 definition=f"Демо-определение: {name.lower()}. Позиция фиксируется отдельно.",
@@ -468,7 +483,7 @@ class Command(BaseCommand):
                 )
                 n = len(documents) + 1
                 if account.source.platform == Platform.TELEGRAM:
-                    url = f"https://t.me/{account.account_id}/{n}"
+                    url = f"{account.source.url}{account.account_id}/{n}"
                 else:
                     url = f"{account.source.url}clanek/{n}?utm_source=rss"
                 text = f"[DEMO] {narrative.name}. Ukázkový text dokumentu pro vývoj. " * 8

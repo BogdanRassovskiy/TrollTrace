@@ -1,3 +1,6 @@
+import tempfile
+from pathlib import Path
+
 from .base import *  # noqa: F403
 
 DEBUG = False
@@ -18,3 +21,6 @@ CELERY_RESULT_BACKEND = "cache+memory://"
 # STATIC_ROOT в тестах не собирается — whitenoise ищет файлы через finders.
 WHITENOISE_AUTOREFRESH = True
 WHITENOISE_USE_FINDERS = True
+
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="trolltrace-media-"))  # фото акторов в тестах

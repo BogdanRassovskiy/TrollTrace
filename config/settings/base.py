@@ -132,8 +132,31 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 60 * 60  # жёсткий предел; длинные задачи (ретроразметка) бьются на чанки
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # тяжёлые задачи не накапливаются на одном воркере
 CELERY_TASK_ACKS_LATE = True
-# Расписание сбора (Celery beat) добавляется на Этапе 3.
-CELERY_BEAT_SCHEDULE: dict = {}
+# Расписание (README §4.1, §10 «сбор запускать как можно раньше»). Интервал сбора каждого
+# источника — Source.collect_interval_minutes; beat лишь проверяет, кому пора.
+CELERY_BEAT_SCHEDULE = {
+    "collect-due-sources": {
+        "task": "apps.ingestion.tasks.collect_due_sources",
+        "schedule": 5 * 60,
+    },
+    "recheck-documents": {
+        "task": "apps.ingestion.tasks.recheck_documents",
+        "schedule": 60 * 60,
+    },
+    "sync-psp-deputies": {
+        "task": "apps.ingestion.tasks.sync_psp_deputies",
+        "schedule": 7 * 24 * 60 * 60,
+    },
+}
+
+# Кэш на Redis: robots.txt и блокировки «один запуск сбора на источник» общие для воркеров.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": env("REDIS_URL", default="redis://localhost:6379/0"),
+        "KEY_PREFIX": "trolltrace",
+    }
+}
 
 # --- Проект -------------------------------------------------------------------
 
