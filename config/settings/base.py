@@ -156,6 +156,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.ingestion.tasks.check_golden_pages",
         "schedule": 24 * 60 * 60,
     },
+    # Пульс: проходит через beat и worker; без него /healthz/ в проде отвечает 503.
+    "heartbeat": {
+        "task": "apps.core.tasks.heartbeat",
+        "schedule": 5 * 60,
+    },
     "send-telegram-pending": {
         "task": "apps.ingestion.tasks.send_telegram_pending",
         "schedule": 10 * 60,
@@ -184,6 +189,11 @@ TROLLTRACE = {
 # Уведомления мониторинга сбора в Telegram (README §4.2). Пусто — только панель.
 TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
 TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID", default="")
+# Внешний «пульс» (например, healthchecks.io): пингуется каждые 5 минут из Celery.
+# Если сбор встал (умер worker или beat), сервис пришлёт тревогу сам.
+HEARTBEAT_PING_URL = env("HEARTBEAT_PING_URL", default="")
+# /healthz/ проверяет и свежесть пульса Celery (в проде; в dev beat может быть выключен).
+HEALTHZ_CHECK_SCHEDULER = env.bool("HEALTHZ_CHECK_SCHEDULER", default=False)
 # Адрес сайта для ссылок в Telegram-сообщениях.
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
 

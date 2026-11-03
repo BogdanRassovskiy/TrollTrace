@@ -440,6 +440,26 @@ docker compose exec web python manage.py assess_quality [--all]             # (�
 
 Telegram: создайте бота у @BotFather, укажите `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в `.env` (без них уведомления только в панели).
 
+### Деплой на сервер (этап 4)
+
+Нужен Linux-сервер с Docker (2 vCPU, 4 ГБ RAM, от 40 ГБ диска), домен с A-записью на сервер и открытые порты 80/443.
+
+```bash
+git clone … trolltrace && cd trolltrace
+cp .env.prod.example .env.prod          # заполнить: домен, секреты, пароль БД, Telegram, пинги
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py createsuperuser
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py import_psp_deputies
+docker compose -f docker-compose.prod.yml --env-file .env.prod exec web python manage.py import_sources apps/ingestion/sources/mainstream.json
+```
+
+- **HTTPS** — Caddy сам получает сертификат Let's Encrypt для `SITE_DOMAIN`; БД и Redis наружу не открыты.
+- **Вход** в проде обязателен (`OPEN_ACCESS=false`): полные тексты — закрытая среда (README §6).
+- **Бэкапы** — сервис `backup`: `pg_dump` + фото акторов сразу после старта и ежедневно в `BACKUP_HOUR` (UTC), хранятся `BACKUP_KEEP_DAYS` дней в `BACKUP_DIR`. Копировать каталог и за пределы сервера (rsync / диск факультета).
+  Восстановление: `pg_restore --clean --if-exists -d trolltrace backups/db-<дата>.dump` внутри контейнера `db`.
+- **Мониторинг сервера** — `/healthz/` проверяет БД, pgvector, Redis и пульс Celery (worker + beat, раз в 5 мин); отвечает 503, если сбор встал. Для тревоги «снаружи» завести две проверки на healthchecks.io (или аналог) и вписать их URL в `HEARTBEAT_PING_URL` и `BACKUP_PING_URL`. Поломки отдельных источников — мониторинг этапа 3.1 (панель + Telegram).
+- **Обновление**: `git pull && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build` (миграции применяются при старте `web`).
+
 ### Проверки качества кода
 
 ```bash

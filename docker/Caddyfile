@@ -1,0 +1,18 @@
+# HTTPS-сертификат Let's Encrypt выпускается автоматически для SITE_DOMAIN.
+{$SITE_DOMAIN} {
+	encode zstd gzip
+
+	# Фото акторов и прочие загрузки; статику отдаёт WhiteNoise в Django.
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+
+	reverse_proxy web:8000
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+}

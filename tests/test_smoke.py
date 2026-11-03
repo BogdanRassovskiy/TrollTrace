@@ -54,7 +54,8 @@ def test_panel_renders_sections(researcher_client):
 def test_healthz_reports_db_and_pgvector(client):
     response = client.get(reverse("core:healthz"))
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "db": True, "pgvector": True}
+    data = response.json()
+    assert (data["status"], data["db"], data["pgvector"]) == ("ok", True, True)
 
 
 def test_celery_ping_task():

@@ -1,0 +1,136 @@
+# Продакшен: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Сервисы: caddy (HTTPS), web (gunicorn), worker и beat (Celery), db, redis, backup.
+# Наружу открыты только 80/443 (Caddy); БД и Redis — только во внутренней сети.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/Dockerfile
+    args:
+      REQUIREMENTS: requirements/base.txt
+  image: trolltrace-app
+  restart: unless-stopped
+  env_file: .env.prod
+  environment:
+    DJANGO_SETTINGS_MODULE: config.settings.prod
+    DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    REDIS_URL: redis://redis:6379/0
+  volumes:
+    - media:/app/media
+  depends_on:
+    db:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  logging: &logging
+    driver: json-file
+    options:
+      max-size: "20m"
+      max-file: "5"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/00-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    logging: *logging
+
+  web:
+    <<: *app
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      RUN_MIGRATIONS: "1"
+      COLLECT_STATIC: "1"
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 3 --timeout 60
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz/', timeout=4)"
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+
+  worker:
+    <<: *app
+    command: celery -A config worker --loglevel=info --concurrency=2
+
+  beat:
+    <<: *app
+    command: celery -A config beat --loglevel=info --schedule /app/beat/celerybeat-schedule
+    volumes:
+      - beat:/app/beat
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN}
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - media:/srv/media:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - web
+    logging: *logging
+
+  backup:
+    image: postgres:16-alpine  # pg_dump той же версии; busybox wget для пингов
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_PING_URL: ${BACKUP_PING_URL:-}
+    volumes:
+      - ./docker/backup.sh:/backup.sh:ro
+      - ${BACKUP_DIR:-./backups}:/backups
+      - media:/media:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  pgdata:
+  redisdata:
+  media:
+  beat:
+  caddydata:
+  caddyconfig:

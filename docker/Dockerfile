@@ -14,7 +14,9 @@ RUN pip install -r ${REQUIREMENTS}
 
 COPY . .
 
-RUN useradd --create-home --uid 1000 app && chown -R app:app /app
+# Каталоги томов создаются заранее, чтобы том унаследовал владельца app.
+RUN useradd --create-home --uid 1000 app && mkdir -p /app/media /app/beat \
+    && chown -R app:app /app
 USER app
 
 COPY --chown=app:app docker/entrypoint.sh /entrypoint.sh
