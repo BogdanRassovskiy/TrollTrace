@@ -1,7 +1,9 @@
 # Локальная разработка: docker compose up --build
 # Сервисы: web (Django), db (PostgreSQL + pgvector), redis, worker и beat (Celery).
+# restart: unless-stopped — после перезагрузки Docker сбор продолжается сам.
 
 x-app: &app
+  restart: unless-stopped
   build:
     context: .
     dockerfile: docker/Dockerfile
@@ -25,6 +27,7 @@ x-app: &app
 services:
   db:
     image: pgvector/pgvector:pg16
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-trolltrace}
       POSTGRES_USER: ${POSTGRES_USER:-trolltrace}
@@ -42,6 +45,7 @@ services:
 
   redis:
     image: redis:7-alpine
+    restart: unless-stopped
     ports:
       - "6379:6379"
     healthcheck:
