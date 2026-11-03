@@ -171,6 +171,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.processing.tasks.process_pending_documents",
         "schedule": 2 * 60,
     },
+    # Разметка нарративов (README §4, шаг 7): кандидаты → LLM, по частям.
+    "label-pending-decisions": {
+        "task": "apps.processing.tasks.label_pending_decisions",
+        "schedule": 10 * 60,
+    },
 }
 # Эмбеддинги считает только воркер очереди processing: модель (~1 ГБ) грузится в нём одном.
 CELERY_TASK_ROUTES = {"apps.processing.tasks.*": {"queue": "processing"}}
@@ -204,6 +209,8 @@ HEARTBEAT_PING_URL = env("HEARTBEAT_PING_URL", default="")
 HEALTHZ_CHECK_SCHEDULER = env.bool("HEALTHZ_CHECK_SCHEDULER", default=False)
 # Эмбеддинги: sentence-transformers (модель из настройки embedding-model) или hashing (тесты).
 EMBEDDING_BACKEND = env("EMBEDDING_BACKEND", default="sentence-transformers")
+# Разметка нарративов (README §4, шаг 7): LLM через OpenRouter. Пусто — кандидаты ждут.
+OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 # Адрес сайта для ссылок в Telegram-сообщениях.
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
 

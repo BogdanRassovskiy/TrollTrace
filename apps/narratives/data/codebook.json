@@ -1,0 +1,117 @@
+[
+  {
+    "code": "evropa-v-plamenech",
+    "topic": "bezpecnost",
+    "kind": "narrative",
+    "name": "Evropa v plamenech",
+    "definition": "Evropa je obrazně i doslova „v plamenech“: sabotáže, žhářské útoky, výbuchy, požáry a výpadky infrastruktury se líčí jako doklad chaosu, rozkladu a neschopnosti evropských vlád ochránit vlastní občany. Podle BIS jsou vykonavatelé diverzí vedeni k tomu, aby natáčeli přípravu a následky útoků; z těchto záběrů vzniká mediální obsah pro ruské i evropské publikum.",
+    "examples": [
+      "Evropa hoří a vlády nedokážou ochránit ani vlastní železnice a sklady.",
+      "Další požár, další výbuch – Evropa se rozpadá a nikdo to neřeší.",
+      "Západ se topí v chaosu, zatímco politici posílají peníze na válku."
+    ],
+    "counter_examples": [
+      "BIS varuje, že za sabotážemi stojí ruské tajné služby, které z nich vyrábějí propagandu.",
+      "Žhářské útoky na evropskou infrastrukturu jsou součástí ruské hybridní kampaně."
+    ],
+    "stance_guide": {
+      "pro": "Text líčí požáry, sabotáže a výpadky jako znak rozpadu a selhání Evropy či jejích vlád, bez zmínky o ruském podílu, nebo ho zlehčuje.",
+      "contra": "Text upozorňuje na ruskou sabotážní a propagandistickou kampaň, vysvětluje, jak se obsah o útocích vyrábí, nebo obraz chaosu vyvrací.",
+      "neutral": "Zpravodajská zmínka o požáru, sabotáži či vyšetřování bez rámce „Evropa v plamenech“ a bez hodnocení."
+    },
+    "cues": ["sabotaz", "diverz", "zhar", "podpal", "pozar", "vybuch", "hori", "plamen", "utok na zeleznic", "infrastruktur", "chaos"],
+    "attribution": "BIS, Výroční zpráva 2025 (https://www.bis.cz/public/site/bis.cz/content/vyrocni-zpravy/2025-vz-cj.pdf): ruská operace, vykonavatelé diverzí natáčejí přípravu a následky útoků pro mediální obsah."
+  },
+  {
+    "code": "pomoc-ukrajine-se-nevyplati",
+    "topic": "ukrajina",
+    "kind": "narrative",
+    "name": "Pomáhat Ukrajině se nevyplácí",
+    "definition": "Podpora Ukrajiny se Česku ani Evropě nevyplácí – ekonomicky ani bezpečnostně: zdražuje energie a život, zatěžuje rozpočet, vtahuje nás do války a nic nepřinese. Patří sem i teze „chcete-li mít klid a vyhnout se problémům, ustupte Rusku“. Cílem je, aby v české veřejné debatě převládl názor, že podpora Ukrajiny se nevyplácí.",
+    "examples": [
+      "Posíláme miliardy na Ukrajinu a naši důchodci si nemohou dovolit topit.",
+      "Muniční iniciativa nás vtahuje do cizí války, která se nedá vyhrát.",
+      "Kdo nechce problémy, ať Rusko nedráždí a nechá ho být.",
+      "Ukrajinští uprchlíci nás stojí víc, než si můžeme dovolit."
+    ],
+    "counter_examples": [
+      "Podpora Ukrajiny je investice do naší bezpečnosti; ustoupit Rusku by bylo dražší.",
+      "Tvrzení, že pomoc Ukrajině ožebračuje Čechy, je ruská propaganda."
+    ],
+    "stance_guide": {
+      "pro": "Text tvrdí nebo naznačuje, že pomoc Ukrajině je drahá, zbytečná či nebezpečná, staví ji proti zájmům „obyčejných Čechů“, nebo doporučuje ustoupit Rusku.",
+      "contra": "Text hájí podporu Ukrajiny jako výhodnou či nutnou, nebo narativ označuje za propagandu a vyvrací ho.",
+      "neutral": "Text o pomoci Ukrajině informuje (částky, rozhodnutí, debata) bez vlastního hodnocení."
+    },
+    "cues": ["pomoc ukrajin", "podpor ukrajin", "pomahat ukrajin", "pro ukrajin", "munic", "zbran", "nevypla", "ustoup", "nedrazd", "uprchlik", "miliard", "valk"],
+    "attribution": "BIS, Výroční zpráva 2025: Rusko usiluje, aby ve veřejné debatě převládl názor, že podpora Ukrajiny se nevyplácí ekonomicky ani bezpečnostně."
+  },
+  {
+    "code": "antisystemove-narativy",
+    "topic": "system",
+    "kind": "narrative",
+    "name": "Antisystémové a rozdělující narativy",
+    "definition": "Politický systém, volby, instituce a hlavní média jsou zkorumpované, nelegitimní nebo řízené zvenčí (Bruselem, Washingtonem, neziskovkami); „obyčejní lidé“ stojí proti „elitám“, které je zrazují. Narativy prohlubují nedůvěru a rozdělují společnost. BIS před volbami 2025 sledovala neautentickou síť na TikToku, která šířila antisystémové a proruské narativy českému publiku; většina účtů byla falešná a uměle propojená. Vliv na výsledky voleb BIS nezjistila.",
+    "examples": [
+      "Volby nic nezmění, všechno řídí Brusel a zkorumpované elity.",
+      "Mainstreamová média lžou a vláda zrazuje vlastní lidi.",
+      "Neziskovky placené ze zahraničí rozhodují o tom, co si smíme myslet."
+    ],
+    "counter_examples": [
+      "BIS odhalila síť falešných účtů na TikToku, které šířily antisystémové narativy.",
+      "Kampaně podkopávající důvěru v demokratické instituce slouží ruským zájmům."
+    ],
+    "stance_guide": {
+      "pro": "Text vykresluje systém, instituce, volby nebo média jako zkorumpované, nelegitimní či cizí a staví „lid“ proti „elitám“.",
+      "contra": "Text na tyto narativy upozorňuje jako na manipulaci, popisuje neautentické sítě nebo hájí důvěryhodnost institucí.",
+      "neutral": "Text o kritice systému či o neautentických sítích jen informuje bez vlastního hodnocení."
+    },
+    "cues": ["elit", "zkorumpova", "korupc", "nelegitim", "diktat", "cenzur", "mainstream", "neziskov", "zrad", "loutk", "tiktok", "falesn ucet", "neautentick"],
+    "attribution": "BIS, Výroční zpráva 2025: neautentická síť na TikToku před volbami 2025 (většina účtů falešných); vliv na výsledky voleb BIS nezjistila."
+  },
+  {
+    "code": "korespondencni-volba",
+    "topic": "volby",
+    "kind": "narrative",
+    "name": "Korespondenční volba ze zahraničí jako podvod",
+    "definition": "Korespondenční hlasování ze zahraničí a další nové prvky voleb jsou nástrojem manipulace, podvodu či „ukradení“ voleb. Narativy silně rezonovaly na začátku kampaně k volbám 2025, později utichly. BIS je Rusku přímo nepřipisuje – narativ se sleduje kvůli jeho působení, ne jako prokázaná ruská operace.",
+    "examples": [
+      "Korespondenční volba je pozvánka k podvodu, hlasy ze zahraničí nikdo neohlídá.",
+      "Vláda si korespondenční volbou zajistí výsledek, jaký potřebuje."
+    ],
+    "counter_examples": [
+      "Korespondenční volba je bezpečná a používá ji většina zemí EU.",
+      "Obavy z podvodů při korespondenční volbě nemají oporu ve faktech."
+    ],
+    "stance_guide": {
+      "pro": "Text tvrdí nebo naznačuje, že korespondenční volba či jiné nové prvky voleb umožní podvod nebo manipulaci výsledku.",
+      "contra": "Text tato tvrzení vyvrací nebo vysvětluje zabezpečení hlasování.",
+      "neutral": "Text o korespondenční volbě informuje (pravidla, registrace, počty voličů) bez hodnocení."
+    },
+    "cues": ["korespondencn", "volb ze zahranic", "hlasovan ze zahranic", "postou", "volebn podvod", "zmanipul", "ukradn", "sciti hlas"],
+    "attribution": "BIS, Výroční zpráva 2025: narativy rezonovaly na začátku kampaně, pak utichly. BIS je Rusku přímo nepřipisuje."
+  },
+  {
+    "code": "role-sssr-osvobozeni",
+    "topic": "historie",
+    "kind": "theme",
+    "name": "Role SSSR při osvobození Československa",
+    "definition": "Spíše téma vlivu než zformulovaný narativ: zdůrazňování výhradní nebo rozhodující role Rudé armády při osvobození Československa, zpochybňování podílu západních spojenců a domácího odboje a přenášení vděku za osvobození na dnešní Rusko. Podle BIS byli mezi kontakty ruských agentů vlivu organizátoři akcí k 80. výročí konce války, které se věnovaly roli SSSR.",
+    "examples": [
+      "Bez Rudé armády by Československo nebylo; dnes na to Západ zapomíná.",
+      "Rusové nás osvobodili a my jim teď bouráme pomníky.",
+      "Patton jen přihlížel, skutečné osvobození přinesl Sovětský svaz."
+    ],
+    "counter_examples": [
+      "Osvobození v roce 1945 nelze zneužívat k ospravedlnění dnešní ruské agrese.",
+      "Rusko přepisuje historii a role SSSR se instrumentalizuje k propagandě."
+    ],
+    "stance_guide": {
+      "pro": "Text zdůrazňuje výhradní roli SSSR, spojuje ji s dnešním Ruskem nebo z ní vyvozuje vděk a ústupky Rusku.",
+      "contra": "Text upozorňuje na zneužívání výročí a historie k ruskému vlivu nebo historické zkreslení vyvrací.",
+      "neutral": "Text o výročí, pietních akcích či historii informuje bez tohoto rámce."
+    },
+    "cues": ["osvobozen", "rud armad", "rudoarmej", "sovetsk", "=sssr", "konec valk", "vyroc", "kveten 1945", "pomnik", "konev", "patton", "pieta"],
+    "attribution": "BIS, Výroční zpráva 2025: mezi kontakty ruských agentů vlivu byli organizátoři akcí k 80. výročí konce války věnovaných roli SSSR. Téma vlivu, nikoli zformulovaný narativ."
+  }
+]

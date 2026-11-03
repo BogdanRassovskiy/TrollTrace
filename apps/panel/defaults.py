@@ -41,6 +41,30 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "actor-min-activity": (4, "Minimum dokumentů za období pro zařazení aktéra."),
     "chart-click-max-lines": (10, "N: do kolika čar otevře kliknutí na bod grafu příspěvky."),
     "embedding-model": ("intfloat/multilingual-e5-base", "Model embeddingů (README §4, krok 4)."),
+    "labeling-model": (
+        "anthropic/claude-haiku-5.5",
+        "Anotace narativů: model OpenRouter, který rozhoduje o kandidátech (README §4, krok 7). "
+        "Srovnání modelů: manage.py label_narratives --compare.",
+    ),
+    "labeling-candidate-similarity": (
+        0.25,
+        "Anotace: kandidát, pokud je centrovaná podobnost s narativem aspoň tato.",
+    ),
+    "labeling-cue-similarity": (
+        0.15,
+        "Anotace: kandidát i při nižší podobnosti (aspoň tato), pokud text obsahuje "
+        "2 a více signálních slov narativu.",
+    ),
+    "labeling-min-confidence": (
+        0.5,
+        "Anotace: štítek se vytvoří jen při jistotě modelu aspoň této; nižší zůstávají "
+        "jako rozhodnutí k ruční kontrole.",
+    ),
+    "labeling-monthly-budget-usd": (
+        5.0,
+        "Anotace: měsíční strop útraty za model (USD). Po dosažení se další kandidáti nechají "
+        "čekat a přijde upozornění.",
+    ),
     "monitoring-volume-ratio": (
         0.33,
         "Monitoring: signál, pokud je dokumentů za den méně než tento podíl mediánu (README §4.2).",

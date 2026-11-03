@@ -5,7 +5,9 @@
 3. Релевантность: ключевые слова тем или близость к темам и нарративам кодбука.
 4. MinHash-подпись и LSH-пояса.
 5. Заимствования из слоя-источника: дословные (MinHash/LSH) и парафразы (kNN).
-6. Местные политики, функция которых прямо названа в тексте (starosta, zastupitel …), —
+6. Кандидаты в разметку нарративов (README §4, шаг 7): близость к нарративам кодбука и
+   сигнальные слова → ожидающие решения LLM (apps/processing/labeling.py, отдельная задача).
+7. Местные политики, функция которых прямо названа в тексте (starosta, zastupitel …), —
    в акторы с пометкой «přidán automaticky» (apps/actors/discovery.py). Для всех документов,
    в том числе нерелевантных: региональные рубрики тоже источник таких упоминаний.
 
@@ -23,7 +25,7 @@ from apps.actors import discovery
 from apps.documents.models import Document
 from apps.panel.defaults import get_setting
 
-from . import minhash, relevance, reuse
+from . import labeling, minhash, relevance, reuse
 from .embeddings import embed_documents, get_center, model_name
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,7 @@ class Stats:
     irrelevant: int = 0
     links: int = 0
     actors: int = 0
+    candidates: int = 0
 
     def add(self, other: "Stats"):
         for key in self.__dataclass_fields__:
@@ -63,12 +66,15 @@ def process_documents(documents: list[Document]) -> Stats:
     stats.embedded = embed_documents(passed)
     center = get_center(model)
     codebook = relevance.load_codebook(model)
+    prototypes = labeling.load_prototypes()
     for document in documents:
         with transaction.atomic():
             stats.links += _process_one(
                 document, reasons[document.pk], codebook, center, shingle_size
             )
             stats.actors += discovery.record_document(document)
+            if document.is_relevant:
+                stats.candidates += labeling.queue_candidates(document, prototypes, center)
         stats.processed += 1
         if document.is_relevant:
             stats.relevant += 1

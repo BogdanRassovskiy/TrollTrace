@@ -47,10 +47,18 @@ class NarrativeStatus(models.TextChoices):
     ARCHIVED = "archived", "Archiv"
 
 
+class NarrativeKind(models.TextChoices):
+    NARRATIVE = "narrative", "Narativ"
+    THEME = "theme", "Téma vlivu (ne zformulovaný narativ)"
+
+
 class Narrative(VersionedModel):
     """Нарратив кодбука. Любое изменение определения создаёт новую NarrativeVersion."""
 
-    VERSIONED_FIELDS = ("topic", "name", "definition", "examples", "status")
+    VERSIONED_FIELDS = (
+        "topic", "kind", "name", "definition", "examples", "counter_examples", "stance_guide",
+        "cues", "attribution", "status",
+    )  # fmt: skip
 
     code = models.SlugField("ID", max_length=50, unique=True)
     topic = models.ForeignKey(
@@ -58,7 +66,40 @@ class Narrative(VersionedModel):
     )
     name = models.CharField("stručná formulace", max_length=300)
     definition = models.TextField("definice")
-    examples = models.JSONField("příklady", default=list, blank=True)
+    examples = models.JSONField(
+        "příklady (postoj pro)",
+        default=list,
+        blank=True,
+        help_text="Typické formulace, které narativ šíří.",
+    )
+    kind = models.CharField(
+        "druh", max_length=10, choices=NarrativeKind.choices, default=NarrativeKind.NARRATIVE
+    )
+    counter_examples = models.JSONField(
+        "příklady (postoj proti)",
+        default=list,
+        blank=True,
+        help_text="Formulace, které narativ vyvracejí nebo označují za propagandu.",
+    )
+    stance_guide = models.JSONField(
+        "vodítko k postojům",
+        default=dict,
+        blank=True,
+        help_text='Co znamená postoj pro / proti / neutrálně: {"pro": …, "contra": …, '
+        '"neutral": …}. Pro anotátory i pro model.',
+    )
+    cues = models.JSONField(
+        "signální slova",
+        default=list,
+        blank=True,
+        help_text="Začátky slov bez diakritiky jako u témat („sabotaz“, „=sssr“). Text s více "
+        "signálními slovy stačí k zařazení při nižší podobnosti.",
+    )
+    attribution = models.TextField(
+        "zdroj a atribuce",
+        blank=True,
+        help_text="Kdo narativ popsal a zda ho připisuje Rusku (např. BIS, výroční zpráva).",
+    )
     status = models.CharField(
         "stav", max_length=10, choices=NarrativeStatus.choices, default=NarrativeStatus.ACTIVE
     )
@@ -97,7 +138,14 @@ class NarrativeVersion(VersionRecord):
     )
     name = models.CharField("stručná formulace", max_length=300)
     definition = models.TextField("definice")
-    examples = models.JSONField("příklady", default=list, blank=True)
+    examples = models.JSONField("příklady (postoj pro)", default=list, blank=True)
+    kind = models.CharField(
+        "druh", max_length=10, choices=NarrativeKind.choices, default=NarrativeKind.NARRATIVE
+    )
+    counter_examples = models.JSONField("příklady (postoj proti)", default=list, blank=True)
+    stance_guide = models.JSONField("vodítko k postojům", default=dict, blank=True)
+    cues = models.JSONField("signální slova", default=list, blank=True)
+    attribution = models.TextField("zdroj a atribuce", blank=True)
     status = models.CharField("stav", max_length=10, choices=NarrativeStatus.choices)
 
     class Meta(VersionRecord.Meta):
@@ -111,6 +159,12 @@ class NarrativeVersion(VersionRecord):
 
     def __str__(self):
         return f"{self.narrative.code} v{self.version}"
+
+
+class LabelQuerySet(models.QuerySet):
+    def current(self):
+        """Štítky podle aktuální verze kódové knihy; starší verze zůstávají jako historie."""
+        return self.filter(narrative_version__version=models.F("narrative__current_version"))
 
 
 class Label(models.Model):
@@ -136,6 +190,12 @@ class Label(models.Model):
     origin = models.CharField("zdroj štítku", max_length=10, choices=Origin.choices)
     confidence = models.FloatField("jistota", null=True, blank=True)
     model_name = models.CharField("model", max_length=100, blank=True)
+    details = models.JSONField(
+        "podrobnosti",
+        default=dict,
+        blank=True,
+        help_text="Proč model štítek přidělil: podobnost, signální slova, skóre postojů.",
+    )
     annotator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         verbose_name="anotátor",
@@ -145,6 +205,8 @@ class Label(models.Model):
         related_name="+",
     )
     created_at = models.DateTimeField("vytvořen", auto_now_add=True)
+
+    objects = LabelQuerySet.as_manager()
 
     class Meta:
         verbose_name = "štítek"
@@ -269,3 +331,62 @@ class NarrativeCandidate(TimeStampedModel):
 
     def __str__(self):
         return self.description[:80]
+
+
+class LabelDecision(models.Model):
+    """Решение модели по паре «документ × версия нарратива» (README §4, шаг 7).
+
+    Кандидатов отбирают эмбеддинги и сигнальные слова; решение (есть ли нарратив и какая
+    позиция) принимает LLM. Хранятся и отрицательные решения: они нужны для валидации
+    (precision/recall) и чтобы не платить за повторный вызов. Пустое `present` — кандидат
+    ждёт модель.
+    """
+
+    document = models.ForeignKey(
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="label_decisions"
+    )
+    narrative = models.ForeignKey(
+        Narrative, verbose_name="narativ", on_delete=models.CASCADE, related_name="decisions"
+    )
+    narrative_version = models.ForeignKey(
+        NarrativeVersion,
+        verbose_name="verze kódové knihy",
+        on_delete=models.CASCADE,
+        related_name="decisions",
+    )
+    text_hash = models.CharField("hash textu", max_length=64)
+    similarity = models.FloatField("podobnost s narativem")
+    cues = models.JSONField("nalezená signální slova", default=list, blank=True)
+    model_name = models.CharField("model", max_length=100, blank=True)
+    prompt_version = models.CharField("verze zadání", max_length=20, blank=True)
+    present = models.BooleanField("narativ přítomen", null=True, blank=True)
+    stance = models.CharField("postoj", max_length=10, choices=Stance.choices, blank=True)
+    confidence = models.FloatField("jistota", null=True, blank=True)
+    evidence = models.TextField("doklad (citace z textu)", blank=True)
+    carrier = models.CharField(
+        "kdo narativ v textu nese",
+        max_length=200,
+        blank=True,
+        help_text="Autor textu, nebo citovaná osoba či organizace (např. politik v článku).",
+    )
+    reason = models.TextField("zdůvodnění modelu", blank=True)
+    cost_usd = models.FloatField("cena (USD)", null=True, blank=True)
+    error = models.TextField("chyba", blank=True)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+    decided_at = models.DateTimeField("rozhodnuto", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "rozhodnutí modelu"
+        verbose_name_plural = "rozhodnutí modelu"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["document", "narrative_version", "text_hash"],
+                name="label_decision_unique",
+            ),
+        ]
+        indexes = [models.Index(fields=["present", "decided_at"])]
+
+    def __str__(self):
+        state = "čeká" if self.present is None else ("ano" if self.present else "ne")
+        return f"{self.document_id} × {self.narrative_version}: {state}"

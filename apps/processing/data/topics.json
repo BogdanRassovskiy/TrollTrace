@@ -135,5 +135,68 @@
       "fact-check",
       "factcheck"
     ]
+  },
+  {
+    "code": "bezpecnost",
+    "name": "Sabotáže a bezpečnost",
+    "description": "Sabotáže, diverze, žhářské útoky a výbuchy, útoky na infrastrukturu, hybridní hrozby, činnost zpravodajských služeb.",
+    "keywords": [
+      "sabotaz",
+      "diverz",
+      "zhar",
+      "podpal",
+      "utok na zeleznic",
+      "kriticka infrastruktur",
+      "hybridn hrozb",
+      "=bis",
+      "zpravodajsk sluzb",
+      "spionaz"
+    ]
+  },
+  {
+    "code": "volby",
+    "name": "Volby",
+    "description": "Volby v Česku a jejich průběh, volební kampaň, korespondenční hlasování ze zahraničí, důvěra ve volby.",
+    "keywords": [
+      "volb",
+      "volebn",
+      "korespondencn",
+      "hlasovan",
+      "kampan",
+      "volic"
+    ]
+  },
+  {
+    "code": "system",
+    "name": "Důvěra v systém a instituce",
+    "description": "Důvěra v demokratický systém, instituce a média, elity a „obyčejní lidé“, korupce, cenzura, neziskové organizace, neautentické sítě na sociálních sítích.",
+    "keywords": [
+      "elit",
+      "zkorumpova",
+      "nelegitim",
+      "cenzur",
+      "mainstream",
+      "neziskov",
+      "duver v instituc",
+      "neautentick",
+      "falesn ucet",
+      "dezinformac"
+    ]
+  },
+  {
+    "code": "historie",
+    "name": "Historie a paměť",
+    "description": "Konec druhé světové války a osvobození Československa, role SSSR a Rudé armády, výročí, pomníky a pietní akce.",
+    "keywords": [
+      "osvobozen",
+      "rud armad",
+      "rudoarmej",
+      "=sssr",
+      "sovetsk svaz",
+      "konec valk",
+      "druh svetov valk",
+      "pomnik",
+      "pietn"
+    ]
   }
 ]

@@ -612,6 +612,48 @@ docker compose exec web python manage.py process_documents --recenter      # п�
 
 Длина очереди — поле `processing_pending` в `/healthz/`.
 
+### Кодбук и разметка нарративов (этап 6)
+
+**Стартовый кодбук** — `apps/narratives/data/codebook.json`, по описанию BIS (výroční zpráva 2025). Определения на чешском, у каждого — позиции, примеры за и против, сигнальные слова и атрибуция:
+
+| Код | Нарратив | Примечание |
+|---|---|---|
+| `evropa-v-plamenech` | Evropa v plamenech | диверсии снимаются ради медиаконтента |
+| `pomoc-ukrajine-se-nevyplati` | Pomáhat Ukrajině se nevyplácí | вкл. «ustupte Rusku» |
+| `antisystemove-narativy` | Antisystémové a rozdělující narativy | сеть в TikTok перед выборами 2025; влияния на результат BIS не нашла |
+| `korespondencni-volba` | Korespondenční volba jako podvod | **BIS не приписывает России напрямую** |
+| `role-sssr-osvobozeni` | Role SSSR při osvobození | **тема влияния**, а не сформулированный нарратив (`kind = theme`) |
+
+Под них добавлены темы `bezpecnost`, `volby`, `system`, `historie` (`topics.json`). Любая правка нарратива — новая версия (`NarrativeVersion`).
+
+**Разметка — два шага** (`apps/processing/labeling.py`):
+1. **Кандидаты** (дёшево, в воронке обработки): релевантный документ ближе к нарративу, чем `labeling-candidate-similarity` (0,25), или ближе `labeling-cue-similarity` (0,15) и содержит ≥ 2 сигнальных слова. Пороги мягкие: пропуск дороже лишнего вызова. На 286 релевантных документах dev-базы — 166 документов-кандидатов.
+2. **Решение LLM** через OpenRouter (`labeling-model`, по умолчанию `anthropic/claude-haiku-5.5`): один вызов на документ по всем его кандидатам. Ответ по строгой JSON-схеме: есть ли нарратив, позиция документа (pro / proti / neutrálně), уверенность, дословная цитата-доказательство, **кто нарратив несёт** (автор или цитируемый политик) и обоснование по-чешски.
+
+**Почему не только эмбеддинги.** Близость эмбеддингов ловит тему, а не позицию: выше всего к нарративам оказались обычные новости об Украине и выборах в США. Локальная NLI-модель (mDeBERTa-xnli) не понимает чешского подтекста — фразу «posíláme miliardy na Ukrajinu a naši důchodci si nemohou dovolit topit» она сочла *подтверждением* пользы помощи. Поэтому эмбеддинги только сужают поток, а решение принимает LLM.
+
+**Хранение:**
+- `LabelDecision` («rozhodnutí modelu») — все решения, в том числе отрицательные: нужны для валидации (precision/recall) и чтобы повторно не платить. Пустое `present` — кандидат ждёт модель.
+- `Label` (origin = model) — только при уверенности ≥ `labeling-min-confidence` (0,5). Менее уверенные остаются решениями для ручной проверки. Ручные метки не трогаются.
+- `Label.objects.current()` — метки по текущей версии кодбука; метки старых версий остаются историей.
+
+**Ретроразметка.** Новая версия активного нарратива → задача «Zpětné anotování» (`Job`): кандидаты новой версии по всему релевантному архиву ставятся в очередь, по завершении — уведомление в панели.
+
+**Данные и расходы:**
+- Тексты публичных статей и постов уходят провайдеру через OpenRouter; в запросе требуются только провайдеры, которые не хранят данные и не обучаются на них (`provider.data_collection = deny`). Отметить в материалах для этической комиссии.
+- Месячный потолок `labeling-monthly-budget-usd` (5 USD): после него кандидаты ждут, приходит уведомление. Источник цифр — `usage.cost` из ответа OpenRouter.
+- Без `OPENROUTER_API_KEY` кандидаты копятся, разметка не идёт.
+
+```bash
+docker compose exec web python manage.py import_topics --update     # темы, в т. ч. новые
+docker compose exec web python manage.py import_codebook [--update] # кодбук
+docker compose exec web python manage.py label_narratives --queue   # кандидаты по всему корпусу
+docker compose exec web python manage.py label_narratives [--limit N] [--retry]
+docker compose exec web python manage.py label_narratives --compare anthropic/claude-haiku-5.5 openai/gpt-6-luna deepseek/deepseek-v4.1-flash --sample 30 --out /tmp/srovnani.json
+```
+
+`--compare` прогоняет модели на одной выборке без сохранения: доля «нарратив есть», распределение позиций, попарное согласие, цена и время. Выбор модели — по согласию с ручной разметкой (этап 10), а не только по цене.
+
 ### Деплой на сервер (этап 4)
 
 Нужен Linux-сервер с Docker (2 vCPU, 4 ГБ RAM, от 40 ГБ диска), домен с A-записью на сервер и открытые порты 80/443.
