@@ -164,6 +164,13 @@ class Actor(TimeStampedModel):
         "definice (bývalý prezident, starosta malé obce, často citovaný bývalý politik). "
         "Důvod uveďte v „důvod zařazení“.",
     )
+    added_automatically = models.BooleanField(
+        "přidán automaticky",
+        default=False,
+        db_index=True,
+        help_text="Starosta, zastupitel apod., jehož funkce je výslovně uvedena v textu "
+        "dokumentu (viz zmínky). Neověřeno výzkumníkem: chybně rozpoznané vyřaďte.",
+    )
     security_portfolio = models.BooleanField(
         "bezpečnostní resort",
         default=False,
@@ -399,3 +406,33 @@ class ActorAccount(models.Model):
     def save(self, *args, **kwargs):
         self.account_id = self.account_id.strip().removeprefix("@")
         super().save(*args, **kwargs)
+
+
+class ActorMention(models.Model):
+    """Zmínka o aktérovi a jeho funkci v textu dokumentu: doklad automatického přidání."""
+
+    actor = models.ForeignKey(
+        Actor, verbose_name="aktér", on_delete=models.CASCADE, related_name="mentions"
+    )
+    document = models.ForeignKey(
+        "documents.Document",
+        verbose_name="dokument",
+        on_delete=models.CASCADE,
+        related_name="actor_mentions",
+    )
+    title = models.CharField("funkce uvedená v textu", max_length=200)
+    quote = models.TextField("citace")
+    created_at = models.DateTimeField("nalezeno", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "zmínka v textu"
+        verbose_name_plural = "zmínky v textu"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["actor", "document", "title"], name="actor_mention_unique"
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.actor}: {self.title}"

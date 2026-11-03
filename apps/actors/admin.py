@@ -5,7 +5,14 @@ from django.utils.html import format_html
 from apps.ingestion.models import SourceFeed
 from apps.panel.audit import AuditedModelAdmin
 
-from .models import Actor, ActorAccount, ActorInclusionPeriod, ActorPosition, Source
+from .models import (
+    Actor,
+    ActorAccount,
+    ActorInclusionPeriod,
+    ActorMention,
+    ActorPosition,
+    Source,
+)
 
 
 class SourceFeedInline(admin.TabularInline):
@@ -53,6 +60,17 @@ class ActorPositionInline(admin.TabularInline):
     fields = ["kind", "title", "organization", "start_date", "end_date", "source_url"]
 
 
+class ActorMentionInline(admin.TabularInline):
+    model = ActorMention
+    extra = 0
+    fields = ["title", "document", "quote", "created_at"]
+    readonly_fields = fields
+    can_delete = False
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 class ActorAccountInline(admin.TabularInline):
     model = ActorAccount
     extra = 0
@@ -68,11 +86,14 @@ class ActorAdmin(AuditedModelAdmin):
     list_display_links = ["icon", "name"]
     readonly_fields = ["photo_preview", "office_status"]
     list_filter = [
-        "layer", "actor_type", "status", "office_status", "manual_inclusion", "is_hybrid",
+        "layer", "actor_type", "status", "office_status", "added_automatically", "manual_inclusion",
+        "is_hybrid",
         "security_portfolio", "activity_cohort", "party",
     ]  # fmt: skip
     search_fields = ["name", "party", "role", "positions__title", "accounts__account_id"]
-    inlines = [ActorPositionInline, ActorInclusionPeriodInline, ActorAccountInline]
+    inlines = [
+        ActorPositionInline, ActorInclusionPeriodInline, ActorMentionInline, ActorAccountInline,
+    ]  # fmt: skip
 
     def save_related(self, request, form, formsets, change):
         super().save_related(request, form, formsets, change)
@@ -101,3 +122,14 @@ class ActorPositionAdmin(AuditedModelAdmin):
     list_filter = ["kind", "end_date"]
     search_fields = ["actor__name", "title", "organization"]
     autocomplete_fields = ["actor"]
+
+
+@admin.register(ActorMention)
+class ActorMentionAdmin(admin.ModelAdmin):
+    list_display = ["actor", "title", "document", "created_at"]
+    list_filter = ["actor__added_automatically", "document__source"]
+    search_fields = ["actor__name", "title", "quote"]
+    readonly_fields = ["actor", "document", "title", "quote", "created_at"]
+
+    def has_add_permission(self, request):
+        return False

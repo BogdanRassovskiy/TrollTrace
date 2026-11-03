@@ -130,6 +130,8 @@ def actor_form(actor, **overrides):
         "inclusion_periods-INITIAL_FORMS": "0",
         "accounts-TOTAL_FORMS": "0",
         "accounts-INITIAL_FORMS": "0",
+        "mentions-TOTAL_FORMS": "0",
+        "mentions-INITIAL_FORMS": "0",
     }
     return data | overrides
 

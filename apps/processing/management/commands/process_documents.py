@@ -43,6 +43,6 @@ class Command(BaseCommand):
             self.style.SUCCESS(
                 f"Zpracováno {stats.processed}: relevantních {stats.relevant}, "
                 f"nerelevantních {stats.irrelevant}, nových embeddingů {stats.embedded}, "
-                f"nových převzetí {stats.links}."
+                f"nových převzetí {stats.links}, automaticky přidaných aktérů {stats.actors}."
             )
         )

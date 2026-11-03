@@ -5,6 +5,9 @@
 3. Релевантность: ключевые слова тем или близость к темам и нарративам кодбука.
 4. MinHash-подпись и LSH-пояса.
 5. Заимствования из слоя-источника: дословные (MinHash/LSH) и парафразы (kNN).
+6. Местные политики, функция которых прямо названа в тексте (starosta, zastupitel …), —
+   в акторы с пометкой «přidán automaticky» (apps/actors/discovery.py). Для всех документов,
+   в том числе нерелевантных: региональные рубрики тоже источник таких упоминаний.
 
 Новая редакция текста (DocumentVersion) сбрасывает processed_at — документ пройдёт снова.
 """
@@ -16,6 +19,7 @@ from dataclasses import dataclass
 from django.db import transaction
 from django.utils import timezone
 
+from apps.actors import discovery
 from apps.documents.models import Document
 from apps.panel.defaults import get_setting
 
@@ -34,6 +38,7 @@ class Stats:
     relevant: int = 0
     irrelevant: int = 0
     links: int = 0
+    actors: int = 0
 
     def add(self, other: "Stats"):
         for key in self.__dataclass_fields__:
@@ -63,6 +68,7 @@ def process_documents(documents: list[Document]) -> Stats:
             stats.links += _process_one(
                 document, reasons[document.pk], codebook, center, shingle_size
             )
+            stats.actors += discovery.record_document(document)
         stats.processed += 1
         if document.is_relevant:
             stats.relevant += 1
