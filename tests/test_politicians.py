@@ -67,7 +67,7 @@ def test_one_person_several_functions_without_duplicates():
     assert ActorPosition.objects.filter(kind="government").count() == 3
 
 
-def test_function_missing_from_list_is_closed_and_actor_without_functions_excluded():
+def test_function_missing_from_list_is_closed_but_former_politician_stays():
     metnar = deputy("Lubomír Metnar")
     records = registry.parse_government(GOVERNMENT_HTML)
     registry.apply_records(records, ActorPosition.Kind.GOVERNMENT)
@@ -76,9 +76,11 @@ def test_function_missing_from_list_is_closed_and_actor_without_functions_exclud
 
     zuna = Actor.objects.get(name="Jaromír Zůna")
     assert zuna.positions.get().end_date == today
-    assert zuna.status == Actor.Status.EXCLUDED  # žádná jiná funkce
+    assert zuna.status == Actor.Status.ACTIVE  # bývalý ministr je stále politik
+    assert zuna.office_status == Actor.OfficeStatus.NONE
+    assert zuna.role == "dříve místopředseda vlády a ministr obrany; bez veřejné funkce"
     metnar.refresh_from_db()
-    assert metnar.status == Actor.Status.ACTIVE and metnar.role == "poslanec PSP"  # mandát trvá
+    assert metnar.role == "poslanec PSP" and metnar.office_status == "office"  # mandát trvá
 
 
 def test_mep_records_from_ep_open_data():
@@ -153,16 +155,39 @@ def test_politician_without_public_office_is_tracked_and_honestly_marked(tmp_pat
     assert novak.manual_inclusion and novak.role == "bez veřejné funkce"
     assert novak.inclusion_periods.get().inclusion_reason == "Bývalý politik s vlastním publikem"
 
-    # Nedvěd přestal být předsedou: funkce se uzavře a bez funkce vypadne z výběru;
-    # Novák je zařazen rozhodnutím výzkumníka a zůstává.
+    assert nedved.office_status == "party_only" and novak.office_status == "none"
+
+    # Nedvěd přestal být předsedou: funkce se uzavře, ale politikem zůstává.
     write(path, [{"name": "Jan Novák", "party": "X", "source_url": "https://x.example/"}])
     registry.apply_manual(path, today=datetime.date(2027, 1, 1))
     nedved.refresh_from_db()
     novak.refresh_from_db()
-    assert (
-        nedved.status == "excluded" and nedved.role == "dříve předseda SOCDEM; bez veřejné funkce"
-    )
+    assert nedved.status == "active" and nedved.office_status == "none"
+    assert nedved.role == "dříve předseda SOCDEM; bez veřejné funkce"
     assert novak.status == "active"
+
+
+def test_former_president_with_past_function(tmp_path):
+    path = tmp_path / "people.json"
+    zeman = {"name": "Miloš Zeman", "criterion": "Bývalý prezident; veřejně se vyjadřuje",
+             "functions": [{"kind": "president", "title": "prezident republiky",
+                            "organization": "KPR", "start": "2013-03-08", "end": "2023-03-08",
+                            "source_url": "https://w.example/"}]}  # fmt: skip
+    write(path, [zeman])
+    registry.apply_manual(path)
+    registry.apply_manual(path)  # idempotentně
+
+    actor = Actor.objects.get(name="Miloš Zeman")
+    position = actor.positions.get()
+    assert (position.start_date, position.end_date) == (
+        datetime.date(2013, 3, 8),
+        datetime.date(2023, 3, 8),
+    )
+    assert actor.actor_type == "politician" and actor.manual_inclusion
+    assert (actor.status, actor.office_status) == ("active", "none")
+    assert actor.role == "dříve prezident republiky; bez veřejné funkce"
+    assert actor.inclusion_criterion == "Bývalý prezident; veřejně se vyjadřuje"
+    assert actor.inclusion_periods.count() == 1
 
 
 def test_party_function_keyed_by_party_and_several_kinds(tmp_path):

@@ -116,6 +116,11 @@ class Actor(TimeStampedModel):
         ACTIVE = "active", "Aktivní"
         EXCLUDED = "excluded", "Vyřazen"
 
+    class OfficeStatus(models.TextChoices):
+        OFFICE = "office", "Zastává veřejnou funkci"
+        PARTY_ONLY = "party_only", "Jen stranická funkce, bez veřejné funkce"
+        NONE = "none", "Bez funkce (bývalý politik nebo veřejná osoba)"
+
     class ActivityCohort(models.TextChoices):
         LOW = "low", "Nízká aktivita"
         MEDIUM = "medium", "Střední aktivita"
@@ -143,12 +148,21 @@ class Actor(TimeStampedModel):
         default=False,
         help_text="Formálně politik, komunikací blíže alternativní scéně.",
     )
+    office_status = models.CharField(
+        "současná funkce",
+        max_length=12,
+        choices=OfficeStatus.choices,
+        blank=True,
+        db_index=True,
+        help_text="Doplňuje se automaticky z funkcí. Bývalý politik zůstává politikem, ale "
+        "musí být jasně vidět, že teď žádnou skutečnou funkci nezastává.",
+    )
     manual_inclusion = models.BooleanField(
         "zařazen rozhodnutím výzkumníka",
         default=False,
-        help_text="Politik sledovaný i bez funkce podle institucionální definice (např. veřejně "
-        "aktivní bývalý politik). Synchronizace funkcí ho z výběru nevyřazuje; důvod uveďte "
-        "v „důvod zařazení“.",
+        help_text="Politik nebo veřejná osoba zařazená bez současné funkce podle institucionální "
+        "definice (bývalý prezident, starosta malé obce, často citovaný bývalý politik). "
+        "Důvod uveďte v „důvod zařazení“.",
     )
     security_portfolio = models.BooleanField(
         "bezpečnostní resort",
@@ -211,13 +225,22 @@ class Actor(TimeStampedModel):
             )
             if last is not None:
                 titles.append(f"dříve {last.title}")
-        if self.actor_type == self.Type.POLITICIAN and not self.holds_public_office:
+        office = self.holds_public_office
+        if self.actor_type == self.Type.POLITICIAN and not office:
             titles.append("bez veřejné funkce")
-        role = "; ".join(titles)[:300]
-        if titles and role != self.role:
-            self.role = role
+        if office:
+            status = self.OfficeStatus.OFFICE
+        elif positions.exists():
+            status = self.OfficeStatus.PARTY_ONLY
+        else:
+            status = self.OfficeStatus.NONE
+        if self.actor_type not in {self.Type.POLITICIAN, self.Type.OFFICIAL}:
+            status = ""  # média, kanály, instituce: pojem funkce se na ně nevztahuje
+        role = "; ".join(titles)[:300] if titles else self.role
+        if (role, status) != (self.role, self.office_status):
+            self.role, self.office_status = role, status
             if save:
-                self.save(update_fields=["role", "updated_at"])
+                self.save(update_fields=["role", "office_status", "updated_at"])
         return self.role
 
     def include(self, reason: str = "", on: datetime.date | None = None):
@@ -292,6 +315,7 @@ class ActorPosition(models.Model):
         CHAMBER = "chamber", "Funkce a členství v orgánech Sněmovny (informativně)"
         MEP = "mep", "Europoslanec"
         GOVERNMENT = "government", "Člen vlády"
+        PRESIDENT = "president", "Prezident republiky"
         SENATOR = "senator", "Senátor"
         REGIONAL = "regional", "Krajská nebo obecní funkce"
         OFFICIAL = "official", "Vedoucí bezpečnostní instituce"
@@ -301,8 +325,8 @@ class ActorPosition(models.Model):
 
     # Veřejné funkce. Stranické funkce politika nevylučují, ale veřejnou funkcí nejsou.
     PUBLIC_OFFICE_KINDS = [
-        Kind.DEPUTY, Kind.CHAMBER_LEADERSHIP, Kind.MEP, Kind.GOVERNMENT, Kind.SENATOR,
-        Kind.REGIONAL, Kind.OFFICIAL,
+        Kind.DEPUTY, Kind.CHAMBER_LEADERSHIP, Kind.MEP, Kind.GOVERNMENT, Kind.PRESIDENT,
+        Kind.SENATOR, Kind.REGIONAL, Kind.OFFICIAL,
     ]  # fmt: skip
     SUMMARY_ORDER = {kind: index for index, kind in enumerate(Kind.values)}
 

@@ -565,10 +565,13 @@ def test_sync_deputies(web):
     web.add(psp.OPEN_DATA_URL, registry_zip(end_kott="2026-06-18 00", club_change=True))
     web.requests.clear()
     result = sync_deputies(web.client())
-    assert (result.created, result.updated, result.photos) == (0, 2, 0)
+    assert (result.created, result.updated, result.photos) == (0, 1, 0)
     kott = ActorAccount.objects.get(account_id="6246").actor
-    assert kott.status == Actor.Status.EXCLUDED
-    assert kott.inclusion_periods.get().end_date == datetime.date(2026, 6, 18)
+    # Bývalý poslanec zůstává politikem: funkce končí, z výběru nevypadává.
+    assert kott.status == Actor.Status.ACTIVE
+    assert kott.inclusion_periods.get().end_date is None
+    assert kott.positions.get(kind="deputy").end_date == datetime.date(2026, 6, 18)
+    assert (kott.role, kott.office_status) == ("dříve poslanec PSP; bez veřejné funkce", "none")
     assert ActorAccount.objects.get(account_id="7000").actor.party == "ANO"
     assert not any(url.endswith(".jpg") for url in web.requests)
 

@@ -32,6 +32,7 @@ def run(only=None) -> dict[str, registry.SyncResult]:
     # Ручной список — последним: евродепутаты и министры к этому моменту уже заведены.
     if only in (None, MANUAL):
         results[MANUAL] = registry.apply_manual()
+    registry.refresh_roles()  # u bývalých politiků „dříve …; bez veřejné funkce“
     return results
 
 

@@ -8,8 +8,8 @@
 Один человек — один актор, у него может быть несколько функций одновременно (ActorPosition):
 депутат и министр, евродепутат и председатель партии. Существующий актор находится
 по имени среди политиков, дубль не создаётся. Функция, пропавшая из официального списка,
-закрывается датой синхронизации; актор без единой открытой функции исключается из выборки
-(его документы остаются).
+закрывается датой синхронизации; актор при этом остаётся в выборке как бывший политик
+с пометкой «bez veřejné funkce».
 """
 
 import datetime
@@ -53,6 +53,7 @@ class PersonRecord:
     external_id: str = ""
     party: str = ""
     note: str = ""
+    end: datetime.date | None = None  # прошлая функция (ручной список: бывший президент…)
 
 
 @dataclass
@@ -76,17 +77,28 @@ def find_politician(name: str) -> Actor | None:
 
 
 def sync_inclusion(actor: Actor, reason: str, on: datetime.date | None = None) -> None:
-    """Открытая функция есть — актор в выборке; нет ни одной — исключается
-    (кроме включённых решением исследователя: manual_inclusion)."""
+    """Новая открытая функция включает актора в выборку. Потеря функции не исключает:
+    бывший политик остаётся политиком (README §2 «Акторы»); исключает только исследователь.
+    Актор, исключённый исследователем, снова включается лишь новой функцией."""
     has_open = actor.positions.filter(end_date__isnull=True).exists()
-    if has_open and (actor.status != Actor.Status.ACTIVE or actor.open_period is None):
+    if has_open and actor.open_period is None:
         actor.include(reason, on=on)
-    elif not has_open and actor.status == Actor.Status.ACTIVE and not actor.manual_inclusion:
-        actor.exclude("Bez funkce podle institucionální definice (README §2)", on=on)
+
+
+def refresh_roles() -> None:
+    """Souhrn funkcí a stav funkce u všech politiků a vedoucích institucí."""
+    for actor in Actor.objects.filter(
+        actor_type__in=[Actor.Type.POLITICIAN, Actor.Type.OFFICIAL]
+    ).prefetch_related("positions"):
+        actor.refresh_role()
 
 
 def upsert_position(actor: Actor, record: PersonRecord) -> ActorPosition:
-    lookup = {"actor": actor, "kind": record.kind, "end_date__isnull": True}
+    lookup = {"actor": actor, "kind": record.kind}
+    if record.end is None:
+        lookup["end_date__isnull"] = True
+    else:
+        lookup["start_date"] = record.start  # прошлая функция — по дате начала
     if record.external_id:
         lookup["external_id"] = record.external_id
     else:
@@ -101,7 +113,7 @@ def upsert_position(actor: Actor, record: PersonRecord) -> ActorPosition:
     }
     if position is None:
         position = ActorPosition.objects.create(
-            actor=actor, kind=record.kind, start_date=record.start, **values
+            actor=actor, kind=record.kind, start_date=record.start, end_date=record.end, **values
         )
         audit.log_create(None, position, note=NOTE)
         return position
@@ -110,6 +122,8 @@ def upsert_position(actor: Actor, record: PersonRecord) -> ActorPosition:
         setattr(position, key, value)
     if record.start and position.start_date != record.start:
         position.start_date = record.start
+    if record.end is not None:
+        position.end_date = record.end
     position.save()
     audit.log_change(None, position, before, note=NOTE)
     return position
@@ -153,7 +167,6 @@ def apply_records(records: list[PersonRecord], kind: str, today=None) -> SyncRes
             position.end_date = max(today, position.start_date or today)
             position.save(update_fields=["end_date"])
             audit.log_change(None, position, before, note=NOTE)
-            sync_inclusion(position.actor, "", on=today)
             position.actor.refresh_role()
             result.closed += 1
     return result
@@ -266,6 +279,7 @@ def government_records(client) -> list[PersonRecord]:
 MANUAL_KINDS = [
     ActorPosition.Kind.PARTY_LEADER,
     ActorPosition.Kind.PARTY_FUNCTION,
+    ActorPosition.Kind.PRESIDENT,
     ActorPosition.Kind.SENATOR,
     ActorPosition.Kind.REGIONAL,
 ]
@@ -274,15 +288,17 @@ MANUAL_KINDS = [
 def manual_records(path: Path = PARTY_POLITICIANS_PATH) -> tuple[list[PersonRecord], list[dict]]:
     """Ruční seznam ověřený na webech stran: jednotný registr předsedů neexistuje.
 
-    Vrací (funkce, lidé bez funkce). Lidé bez funkce jsou politici sledovaní rozhodnutím
-    výzkumníka: zařazují se s manual_inclusion a v souhrnu mají „bez veřejné funkce“.
+    Vrací (funkce, lidé zařazení rozhodnutím výzkumníka). To jsou politici a veřejné osoby
+    bez současné funkce (bývalý prezident, často citovaný bývalý politik): zařazují se
+    s manual_inclusion a „criterion“ a v souhrnu mají „dříve …; bez veřejné funkce“.
     """
     data = json.loads(path.read_text(encoding="utf-8"))
     checked = f"Ověřeno {data.get('checked', '')}".strip()
     records, people = [], []
     for item in data["people"]:
         functions = item.get("functions", [])
-        if not functions:
+        # Без функции или только с прошлыми функциями — включение решением исследователя.
+        if item.get("criterion") or not functions:
             people.append(item)
         for function in functions:
             records.append(
@@ -296,6 +312,8 @@ def manual_records(path: Path = PARTY_POLITICIANS_PATH) -> tuple[list[PersonReco
                     external_id=function.get("organization", "") or function["title"],
                     party=item.get("party", ""),
                     note=" ".join(filter(None, [function.get("note", ""), checked])),
+                    start=_date(function.get("start")),
+                    end=_date(function.get("end")),
                 )
             )
     return records, people
@@ -337,7 +355,15 @@ def apply_manual(path: Path = PARTY_POLITICIANS_PATH, today=None) -> SyncResult:
                 if not actor.manual_inclusion:
                     before = audit.snapshot(actor)
                     actor.manual_inclusion = True
-                    actor.save(update_fields=["manual_inclusion", "updated_at"])
+                    actor.inclusion_criterion = actor.inclusion_criterion or criterion
+                    actor.save(
+                        update_fields=["manual_inclusion", "inclusion_criterion", "updated_at"]
+                    )
                     audit.log_change(None, actor, before, note=NOTE)
+                if not actor.inclusion_periods.exists():
+                    # Заведён этим же запуском по прошлой функции — основание из списка.
+                    actor.inclusion_criterion = criterion
+                    actor.save(update_fields=["inclusion_criterion", "updated_at"])
+                    actor.include(criterion, on=today or timezone.localdate())
             actor.refresh_role()
     return result

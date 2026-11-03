@@ -1,8 +1,9 @@
 """Синхронизация депутатов PSP с акторами (README §2 «Акторы»: институциональное определение).
 
-Идемпотентно: актор находится по ActorAccount(источник PSP, id_osoba). Мандаты созыва
-становятся периодами включения; конец мандата закрывает период и исключает актора (его
-документы остаются). Все изменения пишутся в журнал аудита от имени импорта.
+Идемпотентно: актор находится по ActorAccount(источник PSP, id_osoba). Мандаты и функции
+в органах Sněmovny становятся функциями актора (ActorPosition). Конец мандата закрывает
+функцию, но не исключает актора: бывший политик — тоже политик, в сводке он помечен
+«bez veřejné funkce». Все изменения пишутся в журнал аудита от имени импорта.
 """
 
 import io
@@ -141,44 +142,23 @@ def _sync_chamber_functions(actor: Actor, deputy: psp.Deputy) -> None:
             audit.log_change(None, position, before, note=NOTE)
 
 
-def _other_functions(actor: Actor) -> bool:
-    """Держит актора в выборке после конца мандата: другая функция или решение исследователя."""
-    return actor.manual_inclusion or (
-        actor.positions.filter(end_date__isnull=True)
-        .exclude(
-            kind__in=[
-                ActorPosition.Kind.DEPUTY,
-                ActorPosition.Kind.CHAMBER,
-                ActorPosition.Kind.CHAMBER_LEADERSHIP,
-            ]
-        )
-        .exists()
-    )
-
-
 def _sync_periods(actor: Actor, deputy: psp.Deputy, term_code: str) -> None:
-    existing = {p.start_date: p for p in actor.inclusion_periods.all()}
-    # Мандат закончился, но человек остаётся, например, министром — период не закрываем.
-    keep_open = _other_functions(actor)
-    for mandate in deputy.mandates:
-        if mandate.end and keep_open:
-            mandate = psp.Mandate(mandate.start, None)
-        period = existing.get(mandate.start)
-        if period is None:
-            period = ActorInclusionPeriod.objects.create(
-                actor=actor,
-                start_date=mandate.start,
-                end_date=mandate.end,
-                inclusion_reason=f"Poslanecký mandát PSP ({term_code})",
-                exclusion_reason="Mandát zanikl (registr psp.cz)" if mandate.end else "",
-            )
-            audit.log_create(None, period, note=NOTE)
-        elif period.end_date != mandate.end:
-            before = audit.snapshot(period)
-            period.end_date = mandate.end
-            period.exclusion_reason = "Mandát zanikl (registr psp.cz)" if mandate.end else ""
-            period.save()
-            audit.log_change(None, period, before, note=NOTE)
+    """Период включения открывается первым мандатом и мандатом не закрывается.
+
+    Бывший политик остаётся политиком (README §2 «Акторы»): конец мандата закрывает
+    только функцию «poslanec PSP», а в сводке появляется «dříve …; bez veřejné funkce».
+    Исключить актора из выборки может только исследователь.
+    """
+    if not deputy.mandates or actor.open_period is not None:
+        return
+    if actor.inclusion_periods.exists():
+        return  # исключён исследователем — синхронизация решение не отменяет
+    period = ActorInclusionPeriod.objects.create(
+        actor=actor,
+        start_date=deputy.mandates[0].start,
+        inclusion_reason=f"Poslanecký mandát PSP ({term_code})",
+    )
+    audit.log_create(None, period, note=NOTE)
 
 
 def sync_deputies(
@@ -203,9 +183,6 @@ def sync_deputies(
                 actor_type=Actor.Type.POLITICIAN,
                 layer=Layer.PARLIAMENT,
                 party=deputy.club,
-                status=Actor.Status.ACTIVE
-                if deputy.is_active or (account is not None and _other_functions(account.actor))
-                else Actor.Status.EXCLUDED,
                 inclusion_criterion=f"Poslanec PSP, volební období {term.code} (registr psp.cz)",
                 inclusion_reference=psp.DETAIL_URL.format(id=deputy.id_osoba),
             )

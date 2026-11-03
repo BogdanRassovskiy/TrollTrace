@@ -1,6 +1,6 @@
 {
   "checked": "2026-11-03",
-  "_comment": "Ruční seznam politiků podle stranických funkcí (README §2 «Акторы»): předsedové stran zastoupených v PSP nebo EP i neparlamentních stran, jejichž politici mají vlastní publikum. Ověřeno na webech stran k datu checked; ANO — web nedostupný (HTTP 403), proto Wikipedie. Osoba bez „functions“ = politik sledovaný rozhodnutím výzkumníka bez jakékoli funkce (uveďte „criterion“). Po úpravě: sync_politicians --only parties.",
+  "_comment": "Ruční seznam politiků a veřejných osob (README §2 «Акторы»): předsedové stran zastoupených v PSP nebo EP i neparlamentních stran, prezidenti a bývalí politici, kteří se k dění veřejně vyjadřují. Bývalý politik je stále politik; bez současné funkce je v souhrnu „bez veřejné funkce“. Funkce může mít „start“/„end“ (YYYY-MM-DD) — ukončená funkce se zobrazí jako „dříve …“. Osoba s „criterion“ je zařazena rozhodnutím výzkumníka (nevypadne ani bez současné funkce). Ověřeno na webech stran a institucí k datu checked; kde web nebyl dostupný (ANO — HTTP 403, hrad.cz — antibot), zdrojem je Wikipedie. Po úpravě: sync_politicians --only parties.",
   "people": [
     {
       "name": "Andrej Babiš",
@@ -197,6 +197,47 @@
           "organization": "Stačilo!",
           "source_url": "https://www.stacilo.cz/",
           "note": "Stačilo! nemá zvoleného předsedu; hnutí ji vyzývá k převzetí předsednictví a chystá sjezd."
+        }
+      ]
+    },
+    {
+      "name": "Petr Pavel",
+      "functions": [
+        {
+          "kind": "president",
+          "title": "prezident republiky",
+          "organization": "Kancelář prezidenta republiky",
+          "start": "2023-03-09",
+          "source_url": "https://cs.wikipedia.org/wiki/Prezident_%C4%8Cesk%C3%A9_republiky",
+          "note": "Prezident je politická osoba, ne instituce vrstvy I (README §2.1)."
+        }
+      ]
+    },
+    {
+      "name": "Miloš Zeman",
+      "criterion": "Bývalý prezident republiky; veřejně se vyjadřuje k politickému dění",
+      "functions": [
+        {
+          "kind": "president",
+          "title": "prezident republiky",
+          "organization": "Kancelář prezidenta republiky",
+          "start": "2013-03-08",
+          "end": "2023-03-08",
+          "source_url": "https://cs.wikipedia.org/wiki/Milo%C5%A1_Zeman"
+        }
+      ]
+    },
+    {
+      "name": "Václav Klaus",
+      "criterion": "Bývalý prezident republiky; veřejně se vyjadřuje k politickému dění (Institut Václava Klause)",
+      "functions": [
+        {
+          "kind": "president",
+          "title": "prezident republiky",
+          "organization": "Kancelář prezidenta republiky",
+          "start": "2003-03-07",
+          "end": "2013-03-07",
+          "source_url": "https://cs.wikipedia.org/wiki/V%C3%A1clav_Klaus"
         }
       ]
     }

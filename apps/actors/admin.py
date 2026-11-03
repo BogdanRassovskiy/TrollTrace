@@ -59,42 +59,24 @@ class ActorAccountInline(admin.TabularInline):
     autocomplete_fields = ["source"]
 
 
-class PublicOfficeFilter(admin.SimpleListFilter):
-    title = "veřejná funkce"
-    parameter_name = "public_office"
-
-    def lookups(self, request, model_admin):
-        return [("yes", "Zastává"), ("no", "Nezastává (jen stranická nebo žádná)")]
-
-    def queryset(self, request, queryset):
-        holders = ActorPosition.objects.filter(
-            end_date__isnull=True, kind__in=ActorPosition.PUBLIC_OFFICE_KINDS
-        ).values("actor_id")
-        if self.value() == "yes":
-            return queryset.filter(pk__in=holders)
-        if self.value() == "no":
-            return queryset.exclude(pk__in=holders)
-        return queryset
-
-
 @admin.register(Actor)
 class ActorAdmin(AuditedModelAdmin):
     list_display = [
-        "icon", "name", "actor_type", "layer", "party", "role", "public_office", "is_hybrid",
+        "icon", "name", "actor_type", "layer", "party", "role", "office_status", "is_hybrid",
         "status",
     ]  # fmt: skip
     list_display_links = ["icon", "name"]
-    readonly_fields = ["photo_preview"]
+    readonly_fields = ["photo_preview", "office_status"]
     list_filter = [
-        "layer", "actor_type", "status", PublicOfficeFilter, "manual_inclusion", "is_hybrid",
+        "layer", "actor_type", "status", "office_status", "manual_inclusion", "is_hybrid",
         "security_portfolio", "activity_cohort", "party",
     ]  # fmt: skip
     search_fields = ["name", "party", "role", "positions__title", "accounts__account_id"]
     inlines = [ActorPositionInline, ActorInclusionPeriodInline, ActorAccountInline]
 
-    @admin.display(description="veřejná funkce", boolean=True)
-    def public_office(self, actor):
-        return actor.holds_public_office
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        form.instance.refresh_role()  # funkce upravené v inline → souhrn a stav funkce
 
     @admin.display(description="")
     def icon(self, actor):
