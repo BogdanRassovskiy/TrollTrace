@@ -33,6 +33,11 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "Pravidlo přidání narativu: minimálně K nezávislých autorů.",
     ),
     "narrative-rule-window-days": (14, "Pravidlo přidání narativu: okno W (dní)."),
+    "event-window-before-days": (
+        14,
+        "Event study (vrstva I, H4): okno před událostí (dní). Fixuje se předem (README §2.1).",
+    ),
+    "event-window-after-days": (14, "Event study (vrstva I, H4): okno po události (dní)."),
     "actor-min-activity": (4, "Minimum dokumentů za období pro zařazení aktéra."),
     "chart-click-max-lines": (10, "N: do kolika čar otevře kliknutí na bod grafu příspěvky."),
     "embedding-model": ("intfloat/multilingual-e5-base", "Model embeddingů (README §4, krok 4)."),

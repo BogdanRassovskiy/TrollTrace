@@ -27,6 +27,10 @@ class Document(models.Model):
         METADATA = "meta", "Metadata"
         NONE = "none", "Nezjištěno"
 
+    class SpeakingRole(models.TextChoices):
+        POLITICAL = "political", "Politická"
+        INSTITUTIONAL = "institutional", "Resortní (vrstva I)"
+
     class Status(models.TextChoices):
         ACTIVE = "active", "Dostupný u zdroje"
         DELETED = "deleted", "Smazán u zdroje"
@@ -56,6 +60,14 @@ class Document(models.Model):
         db_index=True,
         help_text="Ne — rubrika mimo výzkum (sport, celebrity…), dokument není ve jmenovateli. "
         "Prázdné — rubriku se nepodařilo zjistit.",
+    )
+    speaking_role = models.CharField(
+        "role výpovědi",
+        max_length=15,
+        choices=SpeakingRole.choices,
+        blank=True,
+        help_text="Jen pro hraniční případy (ministr v rozhovoru): rozhoduje kanál a formát, "
+        "ne osoba (README §2.1). Prázdné — podle vrstvy zdroje.",
     )
     language = models.CharField("jazyk", max_length=8, blank=True)
 

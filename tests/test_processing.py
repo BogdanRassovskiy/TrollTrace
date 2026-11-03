@@ -225,6 +225,13 @@ def test_no_link_outside_window_between_other_layers_or_backwards_in_time():
     assert not ReuseLink.objects.exists()
 
 
+def test_layer_i_does_not_take_part_in_reuse():
+    make_doc(Layer.ATTRIBUTED, "Pravda", PRAVDA, days=0)
+    make_doc(Layer.SECURITY, "BIS", "BIS varuje: " + PRAVDA, days=1)  # cituje narativ
+    run()
+    assert not ReuseLink.objects.exists()
+
+
 def test_minhash_containment_formula():
     assert minhash.containment(1.0, 50, 50) == 1.0
     # B целиком внутри A: |A|=150, |B|=50 → J = 50/150.

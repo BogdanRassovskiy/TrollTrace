@@ -13,6 +13,7 @@ from django.db.models import Q, QuerySet
 from django.db.models.functions import Coalesce
 from pgvector.django import CosineDistance
 
+from apps.actors.models import ANALYSIS_LAYERS
 from apps.documents.models import Document, ReuseLink
 from apps.panel.defaults import get_setting
 
@@ -40,7 +41,11 @@ def counterparts(document: Document, layers: list[str] | None = None) -> tuple[Q
         Document.objects.annotate(moment=Coalesce("published_at", "collected_at"))
         .exclude(pk=document.pk)
         .exclude(actor_id=document.actor_id)
+        # Слой I говорит о нарративах, а не транслирует их — в заимствованиях не участвует.
+        .filter(source__layer__in=ANALYSIS_LAYERS)
     )
+    if document.source.layer not in ANALYSIS_LAYERS:
+        return queryset.none(), False
     if document.source.layer in layers:
         return (
             queryset.exclude(source__layer__in=layers).filter(

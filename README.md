@@ -513,6 +513,26 @@ docker compose exec web python manage.py update_scope [--source ID] [--reextract
 docker compose exec web python manage.py propose_golden_pages [--per-source 3]      # кандидаты в контрольные страницы — проверить в админке
 ```
 
+### Слой I: институты безопасности (этап 3.3)
+
+Приложение `apps/institutions`, правила — §2.1.
+
+- `Layer.SECURITY = "I"`. Константа `actors.models.ANALYSIS_LAYERS` (все слои, кроме I) — по ней агрегаты и сравнения слоёв по умолчанию не берут слой I. Поиск заимствований слой I тоже пропускает.
+- `Institution`: справочник из 10 органов таблицы §2.1 (`apps/institutions/data/institutions.json`), связанный с источниками и актором (`Actor.Type.INSTITUTION`).
+- `InstitutionalEvent` кодируется вручную в админке. Конкретное событие обязательно с нарративом и позицией, общее — без нарратива (проверка и в БД). Версия кодбука проставляется при сохранении, кто и когда кодировал — автоматически.
+- `EventWindowResult` — модель результатов event study. Расчёт появится на этапе анализа, окна задаются настройками `event-window-before-days` и `event-window-after-days` (14/14).
+- `Actor.security_portfolio` — у министров силовых и внешнеполитических ведомств. `Document.speaking_role` (политическая / ведомственная) — для пограничных случаев.
+- **Ленты органов** (`apps/ingestion/sources/security.json`):
+  - NÚKIB — RSS;
+  - BIS — список `/aktuality/`; дата только в тексте, поэтому `date_regex`;
+  - МВД — список `/zpravodajstvi`, ссылки по `listing_link_xpath`.
+  Сбор раз в 6 часов. Документы органов — кандидаты, из которых исследователь создаёт события.
+
+```bash
+docker compose exec web python manage.py import_sources apps/ingestion/sources/security.json
+docker compose exec web python manage.py import_institutions
+```
+
 ### Обработка: релевантность, эмбеддинги, заимствования (этап 5)
 
 Каждый новый документ (и каждая новая редакция текста) проходит воронку `apps/processing/pipeline.py`. Её раз в 2 минуты запускает beat, работу выполняет отдельный воркер `processor` (очередь `processing`, `-c 1`). Модель грузится один раз. Скорость на CPU ~5 док/с.

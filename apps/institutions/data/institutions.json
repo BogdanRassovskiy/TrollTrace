@@ -1,0 +1,14 @@
+{
+  "institutions": [
+    {"name": "Bezpečnostní informační služba", "abbreviation": "BIS", "group": "intelligence", "url": "https://www.bis.cz/", "sources": ["https://www.bis.cz/aktuality/"]},
+    {"name": "Vojenské zpravodajství", "abbreviation": "VZ", "group": "intelligence", "url": "https://www.vzcr.cz/"},
+    {"name": "Úřad pro zahraniční styky a informace", "abbreviation": "ÚZSI", "group": "intelligence", "url": "https://www.uzsi.cz/"},
+    {"name": "Národní úřad pro kybernetickou a informační bezpečnost", "abbreviation": "NÚKIB", "group": "cyber", "url": "https://nukib.gov.cz/", "sources": ["https://nukib.gov.cz/cs/infoservis/aktuality"]},
+    {"name": "Ministerstvo vnitra", "abbreviation": "MV", "group": "ministry", "url": "https://mv.gov.cz/", "sources": ["https://mv.gov.cz/zpravodajstvi"], "notes": "Včetně Centra proti hybridním hrozbám."},
+    {"name": "Ministerstvo obrany", "abbreviation": "MO", "group": "ministry", "url": "https://mo.gov.cz/"},
+    {"name": "Ministerstvo zahraničních věcí", "abbreviation": "MZV", "group": "ministry", "url": "https://mzv.gov.cz/", "notes": "Strategická komunikace."},
+    {"name": "Úřad vlády — sekretariát Bezpečnostní rady státu", "abbreviation": "BRS", "group": "coordination", "url": "https://vlada.gov.cz/", "notes": "Včetně poradce pro národní bezpečnost, pokud funkce v období výzkumu existuje."},
+    {"name": "Policie České republiky", "abbreviation": "PČR", "group": "force", "url": "https://policie.gov.cz/", "notes": "Včetně NCOZ."},
+    {"name": "Armáda České republiky / Generální štáb", "abbreviation": "AČR", "group": "force", "url": "https://acr.army.cz/"}
+  ]
+}

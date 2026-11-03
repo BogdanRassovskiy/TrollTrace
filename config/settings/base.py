@@ -37,6 +37,7 @@ LOCAL_APPS = [
     "apps.dashboard",  # рабочая часть (README §7.1)
     "apps.panel",  # панель исследователя (README §7.2)
     "apps.validation",  # ручная разметка и согласие разметчиков
+    "apps.institutions",  # слой I: институты безопасности, события, event study
 ]
 
 INSTALLED_APPS = DJANGO_APPS + LOCAL_APPS

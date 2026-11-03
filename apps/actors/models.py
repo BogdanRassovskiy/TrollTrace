@@ -22,6 +22,12 @@ class Layer(models.TextChoices):
     META = "F", "F. Facebook / Instagram"
     TIKTOK = "G", "G. TikTok"
     X = "H", "H. X"
+    SECURITY = "I", "I. Instituce bezpečnosti"
+
+
+# Слой I говорит *о* нарративах (метауровень) и в общие агрегаты по умолчанию не входит
+# (README §2.1). Агрегаты, сравнения слоёв и воронки по умолчанию берут только эти слои.
+ANALYSIS_LAYERS = [layer for layer in Layer.values if layer != Layer.SECURITY]
 
 
 class Platform(models.TextChoices):
@@ -103,6 +109,7 @@ class Actor(TimeStampedModel):
         MEDIA = "media", "Médium"
         CHANNEL = "channel", "Kanál"
         ATTRIBUTED_NETWORK = "attributed_network", "Atribuovaná síť"
+        INSTITUTION = "institution", "Instituce bezpečnosti"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Aktivní"
@@ -127,6 +134,12 @@ class Actor(TimeStampedModel):
         "hybridní aktér",
         default=False,
         help_text="Formálně politik, komunikací blíže alternativní scéně.",
+    )
+    security_portfolio = models.BooleanField(
+        "bezpečnostní resort",
+        default=False,
+        help_text="Ministr vnitra, obrany nebo zahraničí: jeho politická komunikace se "
+        "porovnává s resortní (vrstva I, README §2.1).",
     )
     activity_cohort = models.CharField(
         "kohorta aktivity", max_length=10, choices=ActivityCohort.choices, blank=True

@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from apps.documents.models import Document
 from apps.documents.utils import normalize_url
-from apps.ingestion.extract import extract_article, parse_dt
+from apps.ingestion.extract import PRAGUE, extract_article, parse_dt
 from apps.ingestion.http import RobotsDisallowed
 from apps.ingestion.models import SourceFeed
 from apps.ingestion.store import Item
@@ -88,13 +88,36 @@ def page_values(html: str, xpath: str) -> list[str]:
     return result
 
 
-def parse_listing(content: bytes, base_url: str, pattern: str = "", rubric: str = ""):
-    """Ссылки на статьи со страницы-списка: тот же сайт и (если задан) шаблон адреса."""
+def page_date(html: str, pattern: str) -> datetime.datetime | None:
+    """Дата по шаблону сайта (группы day, month, year; hour, minute — по желанию), время — пражское.
+
+    Для страниц, где дата есть только в тексте («Publikováno: 3.6.2025» у BIS), и htmldate
+    берёт вместо неё что-то другое.
+    """
+    match = re.search(pattern, html)
+    if match is None:
+        return None
+    parts = match.groupdict()
+    try:
+        return datetime.datetime(
+            int(parts["year"]), int(parts["month"]), int(parts["day"]),
+            int(parts.get("hour") or 0), int(parts.get("minute") or 0), tzinfo=PRAGUE,
+        )  # fmt: skip
+    except (KeyError, ValueError):
+        return None
+
+
+def parse_listing(
+    content: bytes, base_url: str, pattern: str = "", rubric: str = "", xpath: str = ""
+) -> list[FeedEntry]:
+    """Ссылки на статьи со страницы-списка: тот же сайт, (если задан) шаблон адреса
+    и XPath блока со списком (когда у статей нет общего префикса в адресе, как у МВД)."""
     root = lxml.html.fromstring(content)
     host = urlsplit(base_url).netloc
     regex = re.compile(pattern) if pattern else None
     entries, seen = [], set()
-    for href in root.xpath("//a/@href"):
+    for href in root.xpath(xpath or "//a/@href"):
+        href = str(href)
         url = urljoin(base_url, href.strip()).split("#")[0]
         parts = urlsplit(url)
         if parts.scheme not in {"http", "https"} or parts.netloc != host:
@@ -113,6 +136,8 @@ class WebCollector(Collector):
     """Настройки (collector_config): max_articles — сколько новых статей за запуск (100),
     max_child_sitemaps — сколько свежих вложенных sitemap читать из индекса (2),
     listing_link_pattern — регулярное выражение пути статьи для лент типа «listing»,
+    listing_link_xpath — XPath к атрибутам href ссылок на статьи (по умолчанию все ссылки),
+    date_regex — шаблон даты на странице, если htmldate её не находит (см. page_date),
     origin_xpath — XPath к адресам первоисточника на странице (у агрегаторов сети Pravda:
     Telegram-канал, откуда взят текст); сохраняются в meta["origin_urls"]."""
 
@@ -163,8 +188,13 @@ class WebCollector(Collector):
                 if feed.kind == SourceFeed.Kind.SITEMAP:
                     entries = self._read_sitemap(result.content, feed.rubric)
                 elif feed.kind == SourceFeed.Kind.LISTING:
-                    pattern = self.config.get("listing_link_pattern", "")
-                    entries = parse_listing(result.content, result.final_url, pattern, feed.rubric)
+                    entries = parse_listing(
+                        result.content,
+                        result.final_url,
+                        self.config.get("listing_link_pattern", ""),
+                        feed.rubric,
+                        self.config.get("listing_link_xpath", ""),
+                    )
                 else:
                     entries = parse_rss(result.content, feed.rubric)
                 feed.etag = result.headers.get("etag", "")[:300]
@@ -213,6 +243,10 @@ class WebCollector(Collector):
             return
         html = result.text
         extracted = extract_article(html, result.final_url, feed_published_at=entry.published_at)
+        if self.config.get("date_regex"):
+            found = page_date(html, self.config["date_regex"])
+            if found is not None:
+                extracted.published_at, extracted.date_source = found, Document.DateSource.PAGE
         meta = {"final_url": result.final_url} if result.final_url != entry.url else {}
         if self.config.get("origin_xpath"):
             origins = page_values(html, self.config["origin_xpath"])
