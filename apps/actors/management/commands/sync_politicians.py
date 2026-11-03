@@ -1,8 +1,9 @@
-"""Европарламент, правительство, председатели партий → политики-акторы с функциями
+"""Европарламент, правительство, партийные политики → политики-акторы с функциями
 (README §2 «Акторы»).
 
-python manage.py sync_politicians                # оба списка
+python manage.py sync_politicians                # все списки
 python manage.py sync_politicians --only meps    # только евродепутаты
+python manage.py sync_politicians --only parties # ручной список data/party_politicians.json
 """
 
 from django.core.management.base import BaseCommand, CommandError
@@ -14,12 +15,8 @@ from apps.ingestion.http import PoliteClient
 LISTS = {
     "meps": ("Europoslanci", registry.mep_records, ActorPosition.Kind.MEP),
     "government": ("Členové vlády", registry.government_records, ActorPosition.Kind.GOVERNMENT),
-    "party_leaders": (
-        "Předsedové stran",
-        registry.party_leader_records,
-        ActorPosition.Kind.PARTY_LEADER,
-    ),
 }
+MANUAL = "parties"  # ruční seznam: více druhů funkcí a lidé bez funkce
 
 
 def run(only=None) -> dict[str, registry.SyncResult]:
@@ -32,6 +29,9 @@ def run(only=None) -> dict[str, registry.SyncResult]:
             if not records:  # пустой ответ не должен закрыть все функции
                 raise RuntimeError(f"{key}: prázdný seznam")
             results[key] = registry.apply_records(records, kind)
+    # Ручной список — последним: евродепутаты и министры к этому моменту уже заведены.
+    if only in (None, MANUAL):
+        results[MANUAL] = registry.apply_manual()
     return results
 
 
@@ -42,7 +42,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("--only", choices=list(LISTS))
+        parser.add_argument("--only", choices=[*LISTS, MANUAL])
 
     def handle(self, *args, only, **options):
         try:
@@ -50,7 +50,8 @@ class Command(BaseCommand):
         except RuntimeError as exc:
             raise CommandError(str(exc)) from exc
         for key, result in results.items():
+            label = LISTS[key][0] if key in LISTS else "Stranické funkce a politici bez funkce"
             self.stdout.write(
-                f"{LISTS[key][0]}: nových aktérů {result.created}, nalezeno existujících "
+                f"{label}: nových aktérů {result.created}, nalezeno existujících "
                 f"{result.matched}, ukončených funkcí {result.closed}"
             )

@@ -1,6 +1,9 @@
 """Политики по институциональному определению (README §2 «Акторы»), кроме депутатов PSP:
 чешские евродепутаты (открытые данные Европарламента), члены правительства (vlada.gov.cz)
-и председатели партий (ручной список data/party_leaders.json, сверенный с сайтами партий).
+и партийные политики (ручной список data/party_politicians.json, сверенный с сайтами партий):
+председатели партий, в том числе непарламентских, и политики без публичной функции, которых
+исследователь отслеживает из-за их аудитории. Политиком они остаются, но в сводке функций
+честно указано «bez veřejné funkce».
 
 Один человек — один актор, у него может быть несколько функций одновременно (ActorPosition):
 депутат и министр, евродепутат и председатель партии. Существующий актор находится
@@ -32,7 +35,7 @@ EP_BODY = f"{EP_API}/corporate-bodies/{{id}}?format=application%2Fld%2Bjson&lang
 EP_PROFILE = "https://www.europarl.europa.eu/meps/cs/{id}"
 EP_PARLIAMENT_PREFIX = "org/ep-"
 GOVERNMENT_URL = "https://vlada.gov.cz/cz/vlada/"
-PARTY_LEADERS_PATH = Path(__file__).resolve().parent / "data" / "party_leaders.json"
+PARTY_POLITICIANS_PATH = Path(__file__).resolve().parent / "data" / "party_politicians.json"
 
 # Zkratky stran v datech EP → názvy klubů PSP, aby šly politiky srovnávat podle strany.
 # Nejednoznačné (např. společná kandidátka „TOP09/STAN“) zůstávají, jak jsou.
@@ -73,11 +76,12 @@ def find_politician(name: str) -> Actor | None:
 
 
 def sync_inclusion(actor: Actor, reason: str, on: datetime.date | None = None) -> None:
-    """Открытая функция есть — актор в выборке; нет ни одной — исключается."""
+    """Открытая функция есть — актор в выборке; нет ни одной — исключается
+    (кроме включённых решением исследователя: manual_inclusion)."""
     has_open = actor.positions.filter(end_date__isnull=True).exists()
     if has_open and (actor.status != Actor.Status.ACTIVE or actor.open_period is None):
         actor.include(reason, on=on)
-    elif not has_open and actor.status == Actor.Status.ACTIVE:
+    elif not has_open and actor.status == Actor.Status.ACTIVE and not actor.manual_inclusion:
         actor.exclude("Bez funkce podle institucionální definice (README §2)", on=on)
 
 
@@ -195,7 +199,9 @@ def mep_records(client) -> list[PersonRecord]:
             PersonRecord(
                 name=f"{detail.get('givenName', '')} {detail.get('familyName', '')}".strip(),
                 kind=ActorPosition.Kind.MEP,
-                title="europoslanec",
+                title="europoslankyně"
+                if str(detail.get("hasGender", "")).endswith("FEMALE")
+                else "europoslanec",
                 organization="Evropský parlament",
                 source_url=EP_PROFILE.format(id=mep_id),
                 start=start,
@@ -254,24 +260,84 @@ def government_records(client) -> list[PersonRecord]:
     return records
 
 
-# --- Předsedové stran ---------------------------------------------------------------------
+# --- Stranické funkce a politici mimo instituce --------------------------------------------
+
+# Druhy funkcí, které vede ruční seznam (data/party_politicians.json).
+MANUAL_KINDS = [
+    ActorPosition.Kind.PARTY_LEADER,
+    ActorPosition.Kind.PARTY_FUNCTION,
+    ActorPosition.Kind.SENATOR,
+    ActorPosition.Kind.REGIONAL,
+]
 
 
-def party_leader_records(client=None, path: Path = PARTY_LEADERS_PATH) -> list[PersonRecord]:
-    """Ruční seznam ověřený na webech stran: jednotný registr předsedů neexistuje."""
+def manual_records(path: Path = PARTY_POLITICIANS_PATH) -> tuple[list[PersonRecord], list[dict]]:
+    """Ruční seznam ověřený na webech stran: jednotný registr předsedů neexistuje.
+
+    Vrací (funkce, lidé bez funkce). Lidé bez funkce jsou politici sledovaní rozhodnutím
+    výzkumníka: zařazují se s manual_inclusion a v souhrnu mají „bez veřejné funkce“.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
-    return [
-        PersonRecord(
-            name=item["name"],
-            kind=ActorPosition.Kind.PARTY_LEADER,
-            title=item.get("title") or f"předseda strany {item['party']}",
-            organization=item["party"],
-            source_url=item["source_url"],
-            external_id=item[
-                "party"
-            ],  # ключ функции — партия: смена формулировки не плодит историю
-            party=item["party"],
-            note=f"Ověřeno {data.get('checked', '')}".strip(),
-        )
-        for item in data["leaders"]
-    ]
+    checked = f"Ověřeno {data.get('checked', '')}".strip()
+    records, people = [], []
+    for item in data["people"]:
+        functions = item.get("functions", [])
+        if not functions:
+            people.append(item)
+        for function in functions:
+            records.append(
+                PersonRecord(
+                    name=item["name"],
+                    kind=function["kind"],
+                    title=function["title"],
+                    organization=function.get("organization", ""),
+                    source_url=function["source_url"],
+                    # Ключ функции — орган или партия: смена формулировки не плодит историю.
+                    external_id=function.get("organization", "") or function["title"],
+                    party=item.get("party", ""),
+                    note=" ".join(filter(None, [function.get("note", ""), checked])),
+                )
+            )
+    return records, people
+
+
+def party_politician_records(client=None, path: Path = PARTY_POLITICIANS_PATH):
+    return manual_records(path)[0]
+
+
+def apply_manual(path: Path = PARTY_POLITICIANS_PATH, today=None) -> SyncResult:
+    records, people = manual_records(path)
+    result = SyncResult()
+    for kind in MANUAL_KINDS:
+        partial = apply_records([r for r in records if r.kind == kind], kind, today=today)
+        result.created += partial.created
+        result.matched += partial.matched
+        result.closed += partial.closed
+    with transaction.atomic():
+        for item in people:
+            actor = find_politician(item["name"])
+            criterion = (
+                item.get("criterion")
+                or "Politik bez veřejné funkce, sledován rozhodnutím výzkumníka"
+            )
+            if actor is None:
+                actor = Actor.objects.create(
+                    name=item["name"],
+                    actor_type=Actor.Type.POLITICIAN,
+                    party=item.get("party", "")[:100],
+                    manual_inclusion=True,
+                    inclusion_criterion=criterion,
+                    inclusion_reference=item.get("source_url", ""),
+                )
+                audit.log_create(None, actor, note=NOTE)
+                actor.include(criterion, on=today or timezone.localdate())
+                result.created += 1
+            else:
+                result.matched += 1
+                if not actor.manual_inclusion:
+                    before = audit.snapshot(actor)
+                    actor.manual_inclusion = True
+                    actor.save(update_fields=["manual_inclusion", "updated_at"])
+                    audit.log_change(None, actor, before, note=NOTE)
+            actor.refresh_role()
+    return result

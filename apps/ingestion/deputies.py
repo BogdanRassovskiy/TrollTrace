@@ -111,10 +111,47 @@ def _sync_positions(actor: Actor, deputy: psp.Deputy) -> None:
             audit.log_change(None, position, before, note=NOTE)
 
 
+def _sync_chamber_functions(actor: Actor, deputy: psp.Deputy) -> None:
+    """Функции и членство в органах Sněmovny — информативно, для полноты базы.
+    В сводку функций и в решение о выборке идёт только руководство Sněmovny."""
+    for function in deputy.functions:
+        kind = (
+            ActorPosition.Kind.CHAMBER_LEADERSHIP
+            if function.leadership
+            else ActorPosition.Kind.CHAMBER
+        )
+        position, created = ActorPosition.objects.get_or_create(
+            actor=actor,
+            kind=kind,
+            title=function.title[:200],
+            start_date=function.start,
+            defaults={
+                "organization": function.organ[:200],
+                "end_date": function.end,
+                "external_id": str(deputy.id_osoba),
+                "source_url": psp.DETAIL_URL.format(id=deputy.id_osoba),
+            },
+        )
+        if created:
+            audit.log_create(None, position, note=NOTE)
+        elif position.end_date != function.end:
+            before = audit.snapshot(position)
+            position.end_date = function.end
+            position.save(update_fields=["end_date"])
+            audit.log_change(None, position, before, note=NOTE)
+
+
 def _other_functions(actor: Actor) -> bool:
-    return (
+    """Держит актора в выборке после конца мандата: другая функция или решение исследователя."""
+    return actor.manual_inclusion or (
         actor.positions.filter(end_date__isnull=True)
-        .exclude(kind=ActorPosition.Kind.DEPUTY)
+        .exclude(
+            kind__in=[
+                ActorPosition.Kind.DEPUTY,
+                ActorPosition.Kind.CHAMBER,
+                ActorPosition.Kind.CHAMBER_LEADERSHIP,
+            ]
+        )
         .exists()
     )
 
@@ -193,6 +230,7 @@ def sync_deputies(
                 result.updated += bool(changed)
                 result.unchanged += not changed
             _sync_positions(actor, deputy)
+            _sync_chamber_functions(actor, deputy)
             _sync_periods(actor, deputy, term.code)
             actor.refresh_role()
 

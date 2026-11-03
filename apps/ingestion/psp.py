@@ -63,6 +63,29 @@ class Mandate:
 
 
 @dataclass
+class ChamberFunction:
+    """Funkce nebo členství v orgánu Sněmovny (výbor, komise, klub, delegace, vedení)."""
+
+    title: str
+    organ: str
+    leadership: bool  # předseda / místopředseda celé Sněmovny
+    start: datetime.date | None
+    end: datetime.date | None
+
+
+# Ženské tvary názvů funkcí (registr je uvádí jen v mužském rodě).
+FEMININE = {
+    "předseda": "předsedkyně", "místopředseda": "místopředsedkyně", "člen": "členka",
+    "ověřovatel": "ověřovatelka", "náhradník": "náhradnice", "ověřovatel výboru":
+    "ověřovatelka výboru", "ověřovatel komise": "ověřovatelka komise",
+}  # fmt: skip
+CHAMBER_GENITIVE = "Poslanecké sněmovny"
+LEADERSHIP_FUNCTIONS = {"předseda", "místopředseda"}
+# Orgány, u kterých se pro úplnost ukládá i prosté členství (cl_funkce=0).
+MEMBERSHIP_ORGAN_TYPES = {"2", "3", "4", "7", "13"}  # komise, výbor, podvýbor, delegace, MPS
+
+
+@dataclass
 class Deputy:
     id_osoba: int
     first_name: str
@@ -72,6 +95,7 @@ class Deputy:
     gender: str  # M / Z (или Ž)
     club: str
     mandates: list[Mandate] = field(default_factory=list)
+    functions: list[ChamberFunction] = field(default_factory=list)
     # Начала созывов, где человек был депутатом, от нового к старому: фото ищутся по ним
     # (у сложивших мандат в начале созыва фото есть только в каталоге прошлого созыва).
     term_starts: list[datetime.date] = field(default_factory=list)
@@ -82,8 +106,15 @@ class Deputy:
 
     @property
     def role(self) -> str:
-        # В реестре встречаются оба варианта: «Z» и «Ž».
-        return "Poslankyně PSP" if self.gender in {"Z", "Ž"} else "Poslanec PSP"
+        return "Poslankyně PSP" if self.is_female else "Poslanec PSP"
+
+    @property
+    def is_female(self) -> bool:
+        return self.gender in {"Z", "Ž"}  # в реестре встречаются оба варианта
+
+    def function_title(self, name: str) -> str:
+        name = name.strip().lower()
+        return FEMININE.get(name, name) if self.is_female else name
 
     @property
     def is_active(self) -> bool:
@@ -123,11 +154,29 @@ def parse_registry(zip_bytes: bytes, term_code: str | None = None) -> Term:
         if row[1] in deputy_ids and term_start_of.get(row[4]):
             starts_of.setdefault(row[1], set()).add(term_start_of[row[4]])
 
+    # Органы созыва: сама Sněmovna, её клубы, комитеты, комиссии, делегации и их подорганы.
+    term_organs = {o[0]: o for o in organs if o[0] == term_id or o[1] == term_id}
+    term_organs |= {o[0]: o for o in organs if o[1] in term_organs and o[0] not in term_organs}
+    functions_of = {r[0]: r for r in _rows(archive, "funkce")}
+    chamber: dict[str, list[ChamberFunction]] = {}
+
     mandates: dict[str, list[Mandate]] = {}
     memberships: dict[str, list[tuple[bool, datetime.date, str]]] = {}
     for id_osoba, id_of, cl_funkce, od, do, *_ in _rows(archive, "zarazeni"):
-        if cl_funkce != "0" or id_osoba not in deputy_ids:
-            continue  # cl_funkce=0 — членство в органе, а не функция
+        if id_osoba not in deputy_ids:
+            continue
+        if cl_funkce == "1":  # функция: id_of — строка таблицы funkce
+            function = functions_of.get(id_of)
+            organ = term_organs.get(function[1]) if function else None
+            if organ is not None:
+                chamber.setdefault(id_osoba, []).append((function[3], organ, _date(od), _date(do)))
+            continue
+        if cl_funkce != "0":
+            continue  # cl_funkce=0 — членство в органе
+        if id_of in term_organs and term_organs[id_of][2] in MEMBERSHIP_ORGAN_TYPES:
+            chamber.setdefault(id_osoba, []).append(
+                ("člen", term_organs[id_of], _date(od), _date(do))
+            )
         if id_of == term_id:
             mandates.setdefault(id_osoba, []).append(Mandate(_date(od), _date(do)))
         elif id_of in clubs:
@@ -141,19 +190,31 @@ def parse_registry(zip_bytes: bytes, term_code: str | None = None) -> Term:
     deputies = []
     for id_osoba in sorted(deputy_ids, key=int):
         person = people[id_osoba]
-        deputies.append(
-            Deputy(
-                id_osoba=int(id_osoba),
-                title_before=person[1].strip(),
-                last_name=person[2].strip(),
-                first_name=person[3].strip(),
-                title_after=person[4].strip(),
-                gender=person[6].strip(),
-                club=club_of.get(id_osoba, ""),
-                mandates=sorted(mandates.get(id_osoba, []), key=lambda m: m.start),
-                term_starts=sorted(starts_of.get(id_osoba, {term_start}), reverse=True),
-            )
+        deputy = Deputy(
+            id_osoba=int(id_osoba),
+            title_before=person[1].strip(),
+            last_name=person[2].strip(),
+            first_name=person[3].strip(),
+            title_after=person[4].strip(),
+            gender=person[6].strip(),
+            club=club_of.get(id_osoba, ""),
+            mandates=sorted(mandates.get(id_osoba, []), key=lambda m: m.start),
+            term_starts=sorted(starts_of.get(id_osoba, {term_start}), reverse=True),
         )
+        for name, organ, start, end in chamber.get(id_osoba, []):
+            title = deputy.function_title(name)
+            # Vedení Sněmovny — jen předseda a místopředsedové; ověřovatelé ne.
+            leadership = organ[0] == term_id and name.strip().lower() in LEADERSHIP_FUNCTIONS
+            deputy.functions.append(
+                ChamberFunction(
+                    title=f"{title} {CHAMBER_GENITIVE}" if leadership else f"{title} ({organ[4]})",
+                    organ=organ[4],
+                    leadership=leadership,
+                    start=start,
+                    end=end,
+                )
+            )
+        deputies.append(deputy)
     return Term(organ_id=term_id, code=term[3], start=term_start, deputies=deputies)
 
 

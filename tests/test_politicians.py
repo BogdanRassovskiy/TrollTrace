@@ -121,21 +121,67 @@ def test_mep_records_from_ep_open_data():
     assert actor.inclusion_periods.get().start_date == datetime.date(2024, 7, 16)
 
 
-def test_party_leaders_file_is_valid_and_keyed_by_party(tmp_path):
-    records = registry.party_leader_records()
-    parties = [r.external_id for r in records]
-    assert len(parties) == len(set(parties)) and "ODS" in parties
+def test_party_politicians_file_is_valid():
+    records, people = registry.manual_records()
+    assert {r.kind for r in records} <= set(registry.MANUAL_KINDS)
     assert all(r.source_url.startswith("https://") and r.title for r in records)
+    leaders = [r.external_id for r in records if r.kind == "party_leader"]
+    assert len(leaders) == len(set(leaders)) and {"ODS", "SOCDEM", "PRO", "Přísaha"} <= set(leaders)
 
-    path = tmp_path / "leaders.json"
-    path.write_text(json.dumps({"leaders": [{"name": "A B", "party": "X",
-                                             "source_url": "https://x/"}]}))  # fmt: skip
-    registry.apply_records(registry.party_leader_records(path=path), "party_leader")
-    path.write_text(json.dumps({"leaders": [{"name": "A B", "party": "X", "title": "předseda X",
-                                             "source_url": "https://x/"}]}))  # fmt: skip
-    registry.apply_records(registry.party_leader_records(path=path), "party_leader")
-    position = ActorPosition.objects.get(kind="party_leader")  # změna názvu ≠ nová funkce
-    assert position.title == "předseda X" and position.end_date is None
+
+def write(path, people):
+    path.write_text(json.dumps({"checked": "2026-11-03", "people": people}), encoding="utf-8")
+
+
+def test_politician_without_public_office_is_tracked_and_honestly_marked(tmp_path):
+    path = tmp_path / "people.json"
+    write(path, [
+        {"name": "Jiří Nedvěd", "party": "SOCDEM", "functions": [
+            {"kind": "party_leader", "title": "předseda SOCDEM", "organization": "SOCDEM",
+             "source_url": "https://socdem.example/"}]},
+        {"name": "Jan Novák", "party": "X", "criterion": "Bývalý politik s vlastním publikem",
+         "source_url": "https://x.example/"},
+    ])  # fmt: skip
+    registry.apply_manual(path)
+
+    nedved = Actor.objects.get(name="Jiří Nedvěd")
+    assert nedved.actor_type == "politician" and nedved.status == "active"
+    assert not nedved.holds_public_office
+    assert nedved.role == "předseda SOCDEM; bez veřejné funkce"
+
+    novak = Actor.objects.get(name="Jan Novák")
+    assert novak.manual_inclusion and novak.role == "bez veřejné funkce"
+    assert novak.inclusion_periods.get().inclusion_reason == "Bývalý politik s vlastním publikem"
+
+    # Nedvěd přestal být předsedou: funkce se uzavře a bez funkce vypadne z výběru;
+    # Novák je zařazen rozhodnutím výzkumníka a zůstává.
+    write(path, [{"name": "Jan Novák", "party": "X", "source_url": "https://x.example/"}])
+    registry.apply_manual(path, today=datetime.date(2027, 1, 1))
+    nedved.refresh_from_db()
+    novak.refresh_from_db()
+    assert (
+        nedved.status == "excluded" and nedved.role == "dříve předseda SOCDEM; bez veřejné funkce"
+    )
+    assert novak.status == "active"
+
+
+def test_party_function_keyed_by_party_and_several_kinds(tmp_path):
+    path = tmp_path / "people.json"
+    slachta = {"name": "Robert Šlachta", "party": "Přísaha", "functions": [
+        {"kind": "party_leader", "title": "předseda", "organization": "Přísaha",
+         "source_url": "https://p.example/"},
+        {"kind": "senator", "title": "senátor", "organization": "Senát PČR",
+         "source_url": "https://p.example/"}]}  # fmt: skip
+    write(path, [slachta])
+    registry.apply_manual(path)
+    slachta["functions"][0]["title"] = "předseda hnutí Přísaha"
+    write(path, [slachta])
+    registry.apply_manual(path)
+
+    actor = Actor.objects.get(name="Robert Šlachta")
+    assert actor.positions.filter(kind="party_leader").get().title == "předseda hnutí Přísaha"
+    assert actor.holds_public_office  # senátor
+    assert actor.role == "senátor; předseda hnutí Přísaha"
 
 
 def test_sync_politicians_refuses_empty_list(monkeypatch):

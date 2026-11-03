@@ -1,0 +1,204 @@
+{
+  "checked": "2026-11-03",
+  "_comment": "Ruční seznam politiků podle stranických funkcí (README §2 «Акторы»): předsedové stran zastoupených v PSP nebo EP i neparlamentních stran, jejichž politici mají vlastní publikum. Ověřeno na webech stran k datu checked; ANO — web nedostupný (HTTP 403), proto Wikipedie. Osoba bez „functions“ = politik sledovaný rozhodnutím výzkumníka bez jakékoli funkce (uveďte „criterion“). Po úpravě: sync_politicians --only parties.",
+  "people": [
+    {
+      "name": "Andrej Babiš",
+      "party": "ANO",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda hnutí ANO",
+          "organization": "ANO",
+          "source_url": "https://cs.wikipedia.org/wiki/ANO_2011"
+        }
+      ]
+    },
+    {
+      "name": "Martin Kupka",
+      "party": "ODS",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda ODS",
+          "organization": "ODS",
+          "source_url": "https://www.ods.cz/"
+        }
+      ]
+    },
+    {
+      "name": "Vít Rakušan",
+      "party": "STAN",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda STAN",
+          "organization": "STAN",
+          "source_url": "https://www.starostove-nezavisli.cz/lide/vedeni"
+        }
+      ]
+    },
+    {
+      "name": "Zdeněk Hřib",
+      "party": "Piráti",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda Pirátů",
+          "organization": "Piráti",
+          "source_url": "https://www.pirati.cz/lide/"
+        }
+      ]
+    },
+    {
+      "name": "Tomio Okamura",
+      "party": "SPD",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda hnutí SPD",
+          "organization": "SPD",
+          "source_url": "https://spd.cz/o-nas/predsednictvo-hnuti/"
+        }
+      ]
+    },
+    {
+      "name": "Petr Macinka",
+      "party": "Motoristé",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda Motoristů sobě",
+          "organization": "Motoristé",
+          "source_url": "https://www.motoristesobe.cz/"
+        }
+      ]
+    },
+    {
+      "name": "Jan Grolich",
+      "party": "KDU-ČSL",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda KDU-ČSL",
+          "organization": "KDU-ČSL",
+          "source_url": "https://www.kdu.cz/o-nas/nasi-lide/predsednictvo"
+        },
+        {
+          "kind": "regional",
+          "title": "hejtman Jihomoravského kraje",
+          "organization": "Jihomoravský kraj",
+          "source_url": "https://www.kdu.cz/o-nas/nasi-lide/predsednictvo"
+        }
+      ]
+    },
+    {
+      "name": "Matěj Ondřej Havel",
+      "party": "TOP 09",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda TOP 09",
+          "organization": "TOP 09",
+          "source_url": "https://www.top09.cz/kdo-jsme/predsednictvo/"
+        }
+      ]
+    },
+    {
+      "name": "Roman Roun",
+      "party": "KSČM",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda KSČM",
+          "organization": "KSČM",
+          "source_url": "https://www.kscm.cz/"
+        }
+      ]
+    },
+    {
+      "name": "Jindřich Rajchl",
+      "party": "PRO",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda strany PRO",
+          "organization": "PRO",
+          "source_url": "https://www.stranapro.cz/nasi-lide/",
+          "note": "Poslanec zvolený na kandidátce SPD."
+        }
+      ]
+    },
+    {
+      "name": "Zuzana Majerová",
+      "party": "Trikolora",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předsedkyně Trikolory",
+          "organization": "Trikolora",
+          "source_url": "https://volimtrikoloru.cz/nasi-lide/",
+          "note": "Poslankyně zvolená na kandidátce SPD."
+        }
+      ]
+    },
+    {
+      "name": "Libor Vondráček",
+      "party": "Svobodní",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda Svobodných",
+          "organization": "Svobodní",
+          "source_url": "https://www.svobodni.cz/",
+          "note": "Poslanec zvolený na kandidátce SPD."
+        }
+      ]
+    },
+    {
+      "name": "Jiří Nedvěd",
+      "party": "SOCDEM",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda SOCDEM",
+          "organization": "SOCDEM",
+          "source_url": "https://socdem.cz/gremium/",
+          "note": "Neparlamentní strana; bez veřejné funkce."
+        }
+      ]
+    },
+    {
+      "name": "Robert Šlachta",
+      "party": "Přísaha",
+      "functions": [
+        {
+          "kind": "party_leader",
+          "title": "předseda hnutí Přísaha",
+          "organization": "Přísaha",
+          "source_url": "https://www.prisaha.cz/",
+          "note": "Neparlamentní hnutí."
+        },
+        {
+          "kind": "senator",
+          "title": "senátor",
+          "organization": "Senát PČR",
+          "source_url": "https://www.prisaha.cz/"
+        }
+      ]
+    },
+    {
+      "name": "Kateřina Konečná",
+      "party": "KSČM",
+      "functions": [
+        {
+          "kind": "party_function",
+          "title": "volební lídryně hnutí Stačilo! (sněmovní volby 2025)",
+          "organization": "Stačilo!",
+          "source_url": "https://www.stacilo.cz/",
+          "note": "Stačilo! nemá zvoleného předsedu; hnutí ji vyzývá k převzetí předsednictví a chystá sjezd."
+        }
+      ]
+    }
+  ]
+}

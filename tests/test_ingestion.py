@@ -489,6 +489,12 @@ def registry_zip(end_kott="", club_change=False):
             ["174", "", "11", "PSP10", "Poslanecká sněmovna", "", "04.10.2025", "", "174", ""],
             ["1750", "174", "1", "ANO2011", "Klub ANO", "", "08.10.2025", "", "1", ""],
             ["1751", "174", "1", "ODS", "Klub ODS", "", "08.10.2025", "", "2", ""],
+            ["1760", "174", "3", "VB", "Výbor pro bezpečnost", "", "11.11.2025", "", "3", ""],
+        ],
+        "funkce": [
+            ["900", "174", "11", "Předseda", "1", ""],
+            ["901", "174", "12", "Ověřovatel", "5", ""],
+            ["902", "1760", "13", "Předseda", "1", ""],
         ],
         "osoby": [
             ["6621", "doc. Ing.", "Havlíček", "Karel", "Ph.D.", "1969", "M", "", ""],
@@ -509,6 +515,10 @@ def registry_zip(end_kott="", club_change=False):
             ["6246", "1750", "0", "2025-10-08 00", "", "", ""],
             ["7000", "1751", "0", "2025-10-08 00", "2026-03-01 00" if club_change else "", "", ""],
             *([["7000", "1750", "0", "2026-03-01 00", "", "", ""]] if club_change else []),
+            ["7000", "900", "1", "2025-11-05 00", "", "", ""],  # předsedkyně Sněmovny
+            ["6246", "901", "1", "2025-11-05 00", "", "", ""],  # ověřovatel — ne vedení
+            ["6621", "1760", "0", "2025-11-11 00", "", "", ""],  # člen výboru
+            ["6621", "902", "1", "2025-11-12 00", "", "", ""],  # předseda výboru
         ],
     }
     buffer = io.BytesIO()
@@ -540,13 +550,13 @@ def test_sync_deputies(web):
         "ANO",
         "poslanec PSP",
     )
-    assert havlicek.positions.get().kind == "deputy"  # mandát = funkce aktéra
+    assert havlicek.positions.get(kind="deputy").start_date == datetime.date(2025, 10, 4)
     assert havlicek.layer == "E" and havlicek.status == Actor.Status.ACTIVE
     assert havlicek.inclusion_periods.get().start_date == datetime.date(2025, 10, 4)
     assert "/2021ps/" in havlicek.photo_source_url
     with Image.open(havlicek.photo.path) as icon:
         assert icon.size == (ICON_SIZE, ICON_SIZE)
-    assert ActorAccount.objects.get(account_id="7000").actor.role == "poslankyně PSP"
+    assert ActorAccount.objects.get(account_id="7000").actor.role.startswith("poslankyně PSP")
     source = Source.objects.get(url=psp.SOURCE_URL)
     assert source.collector_config["term"] == "2025ps"
     assert AuditLog.objects.filter(action="create", content_type__model="actor").count() == 3
@@ -561,6 +571,28 @@ def test_sync_deputies(web):
     assert kott.inclusion_periods.get().end_date == datetime.date(2026, 6, 18)
     assert ActorAccount.objects.get(account_id="7000").actor.party == "ANO"
     assert not any(url.endswith(".jpg") for url in web.requests)
+
+
+def test_chamber_functions_are_informative_except_chamber_leadership(web):
+    web.add(psp.OPEN_DATA_URL, registry_zip())
+    sync_deputies(web.client(), photos=False)
+
+    nova = ActorAccount.objects.get(account_id="7000").actor
+    assert nova.role == "poslankyně PSP; předsedkyně Poslanecké sněmovny"
+    assert nova.positions.get(kind="chamber_leadership").title == (
+        "předsedkyně Poslanecké sněmovny"
+    )
+    havlicek = ActorAccount.objects.get(account_id="6621").actor
+    assert set(havlicek.positions.filter(kind="chamber").values_list("title", flat=True)) == {
+        "člen (Výbor pro bezpečnost)",
+        "předseda (Výbor pro bezpečnost)",
+    }
+    assert havlicek.role == "poslanec PSP"  # výbory jen informativně, ne v souhrnu
+    kott = ActorAccount.objects.get(account_id="6246").actor
+    assert kott.positions.get(kind="chamber").title == "ověřovatel (Poslanecká sněmovna)"
+
+    sync_deputies(web.client(), photos=False)  # idempotentně
+    assert havlicek.positions.count() == 3
 
 
 def test_deputy_role_recognizes_both_female_codes():
