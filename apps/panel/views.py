@@ -2,7 +2,8 @@ import datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg, Count, Max, Q
-from django.shortcuts import redirect
+from django.db.models.functions import TruncDate
+from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
@@ -114,6 +115,86 @@ class SourcesHealthView(ResearcherRequiredMixin, TemplateView):
             rows.append((source, health, incidents))
         context["rows"] = rows
         context["recent_incidents"] = SourceIncident.objects.select_related("source")[:30]
+        return context
+
+
+CHART_DAYS = 30
+
+
+def daily_series(source, days: int = CHART_DAYS) -> dict:
+    """Ряды по дням для графиков источника (README §4.2, §4.3): объём и оценка качества.
+
+    День — по времени сбора (collected_at) в часовом поясе проекта: именно оно показывает,
+    работает ли сбор; дата публикации для этого не годится.
+    """
+    from apps.documents.models import Document, DocumentQuality
+
+    tz = timezone.get_current_timezone()
+    today = timezone.localdate()
+    start = today - datetime.timedelta(days=days - 1)
+    since = datetime.datetime.combine(start, datetime.time.min, tzinfo=tz)
+    dates = [start + datetime.timedelta(days=i) for i in range(days)]
+    index = {d: i for i, d in enumerate(dates)}
+
+    volume = [0] * days
+    in_scope = [0] * days
+    rows = (
+        Document.objects.filter(source=source, collected_at__gte=since)
+        .annotate(day=TruncDate("collected_at", tzinfo=tz))
+        .values("day")
+        .annotate(n=Count("id"), scoped=Count("id", filter=~Q(in_scope=False)))
+    )
+    for row in rows:
+        volume[index[row["day"]]] = row["n"]
+        in_scope[index[row["day"]]] = row["scoped"]
+
+    scores = {score: [0] * days for score in range(1, 6)}
+    totals = [0] * days
+    sums = [0] * days
+    rows = (
+        DocumentQuality.objects.filter(
+            is_current=True, document__source=source, document__collected_at__gte=since
+        )
+        .annotate(day=TruncDate("document__collected_at", tzinfo=tz))
+        .values("day", "score")
+        .annotate(n=Count("id"))
+    )
+    for row in rows:
+        i = index[row["day"]]
+        scores[row["score"]][i] = row["n"]
+        totals[i] += row["n"]
+        sums[i] += row["n"] * row["score"]
+    mean = [round(sums[i] / totals[i], 2) if totals[i] else None for i in range(days)]
+    return {
+        "dates": [d.isoformat() for d in dates],
+        "volume": volume,
+        "in_scope": in_scope,
+        "mean_quality": mean,
+        "scores": {str(k): v for k, v in scores.items()},
+    }
+
+
+class SourceDetailView(ResearcherRequiredMixin, TemplateView):
+    """Источник: графики объёма и качества по дням, инциденты, проверки, контрольные страницы."""
+
+    template_name = "panel/source_detail.html"
+
+    def get_context_data(self, **kwargs):
+        from apps.actors.models import Source
+        from apps.ingestion import monitoring
+
+        context = super().get_context_data(**kwargs)
+        source = get_object_or_404(Source, pk=kwargs["pk"])
+        context.update(
+            source=source,
+            health=monitoring.health(source),
+            series=daily_series(source),
+            incidents=source.incidents.order_by("-started_at")[:50],
+            checks=source.health_checks.order_by("-checked_at")[:20],
+            golden_pages=source.golden_pages.all(),
+            feeds=source.feeds.all(),
+            runs=source.collection_runs.order_by("-started_at")[:10],
+        )
         return context
 
 

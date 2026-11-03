@@ -7,7 +7,7 @@
   <h1>Zdroje a stav sběru</h1>
   <p class="muted">
     Stav podle otevřených incidentů monitoringu (README §4.2): zelená — v normě, žlutá — varování,
-    červená — kritické. Kontroly probíhají jednou za hodinu. Zdroje se zatím upravují v administraci.
+    červená — kritické. Kontroly probíhají jednou za hodinu. Klikněte na název zdroje pro grafy objemu a kvality po dnech. Zdroje se zatím upravují v administraci.
   </p>
 
   <div class="table-wrap card">
@@ -19,7 +19,7 @@
         {% for source, health, incidents in rows %}
           <tr>
             <td><span class="health health-{{ health }}" title="{{ health }}"></span></td>
-            <td><a href="{% url 'admin:actors_source_change' source.pk %}">{{ source.name }}</a>{% if not source.is_active %} <span class="muted small">(vypnut)</span>{% endif %}</td>
+            <td><a href="{% url 'panel:source_detail' source.pk %}">{{ source.name }}</a>{% if not source.is_active %} <span class="muted small">(vypnut)</span>{% endif %}</td>
             <td>{{ source.layer }}</td>
             <td>{{ source.docs_day }}</td>
             <td>{{ source.docs_total }}</td>
@@ -47,7 +47,7 @@
       <tbody>
         {% for i in recent_incidents %}
           <tr>
-            <td>{{ i.source.name }}</td>
+            <td><a href="{% url 'panel:source_detail' i.source_id %}">{{ i.source.name }}</a></td>
             <td>{{ i.get_incident_type_display }}</td>
             <td><span class="badge level-{{ i.level }}">{{ i.get_level_display }}</span></td>
             <td class="nowrap">{{ i.started_at|date:"Y-m-d H:i" }}</td>

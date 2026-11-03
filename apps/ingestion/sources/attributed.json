@@ -1,0 +1,63 @@
+{
+  "sources": [
+    {
+      "name": "Pravda Česko (síť Portal Kombat / Pravda)",
+      "url": "https://czechia.news-pravda.com/",
+      "layer": "A",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "attribution_by": "VIGINUM (2024), DFRLab (2025)",
+      "attribution_url": "https://dfrlab.org/2025/02/24/russia-pravda-network-expands-worldwide/",
+      "notes": "Agregátor přebírající obsah ruských státních médií a prokremelských Telegram kanálů; cz.news-pravda.com přesměrovává sem. Vysoký objem (desítky článků za hodinu).",
+      "feeds": [
+        {
+          "url": "https://czechia.news-pravda.com/rss.xml"
+        }
+      ],
+      "actor": {
+        "name": "Síť Pravda (Portal Kombat)",
+        "type": "attributed_network",
+        "criterion": "Atribuováno VIGINUM (2024) a DFRLab (2025) jako ruská síť šíření propagandy",
+        "reference": "https://dfrlab.org/2025/02/24/russia-pravda-network-expands-worldwide/"
+      },
+      "collector_config": {
+        "max_articles": 100,
+        "origin_xpath": "//*[contains(@class, \"source-link\")]/@data-source-url"
+      }
+    },
+    {
+      "name": "42TCen",
+      "url": "https://42tcen.com/",
+      "layer": "A",
+      "platform": "web",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 5,
+      "expected_language": "",
+      "attribution_by": "BIS, výroční zpráva 2024",
+      "attribution_url": "https://www.bis.cz/public/site/bis.cz/content/vyrocni-zpravy/2024-vz-cj.pdf",
+      "notes": "Nástupce Sputniku podle BIS. RSS je prázdné a měsíční sitemapy mají v adrese „?“, který robots.txt zakazuje — sbírá se z výpisu na titulní stránce a v /archive/ (stránkování je také zakázáno, proto bez zpětného sběru). Publikuje česky i slovensky, jazyk se proto nekontroluje.",
+      "feeds": [
+        {
+          "url": "https://42tcen.com/",
+          "kind": "listing"
+        },
+        {
+          "url": "https://42tcen.com/archive/",
+          "kind": "listing"
+        }
+      ],
+      "actor": {
+        "name": "42TCen",
+        "type": "attributed_network",
+        "criterion": "BIS ve výroční zprávě 2024 uvádí jako nástupce Sputniku",
+        "reference": "https://www.bis.cz/public/site/bis.cz/content/vyrocni-zpravy/2024-vz-cj.pdf"
+      },
+      "collector_config": {
+        "listing_link_pattern": "^/entry/[^/]+$",
+        "max_articles": 50
+      }
+    }
+  ]
+}

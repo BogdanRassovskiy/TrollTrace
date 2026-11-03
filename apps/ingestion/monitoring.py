@@ -33,6 +33,11 @@ CheckType = SourceHealthCheck.CheckType
 
 HISTORY_DAYS = 14
 MIN_HISTORY_DAYS = 3  # меньше — нормы ещё нет
+# Недельный ритм: профиль по дням недели из 3–4 недель; «ритм» — самый тихий день
+# недели меньше половины самого активного (у медиа — выходные, у PSP — дни заседаний).
+WEEKLY_HISTORY_DAYS = 28
+WEEKLY_MIN_DAYS = 21
+WEEKLY_RHYTHM = 0.5
 MIN_DOCS = 5  # меньше документов за сутки — доли не считаются
 SHARE_ALERT = 0.5
 SHARE_JUMP = 0.3  # рост доли относительно нормы источника
@@ -98,7 +103,8 @@ def check_volume(source: Source, now) -> CheckResult:
 
     if first is None:
         return result
-    days = min(HISTORY_DAYS, (now - first).days)
+    available = (now - first).days
+    days = min(HISTORY_DAYS, available)
     if days < MIN_HISTORY_DAYS:
         result.details = f"Norma ještě není k dispozici: {days} dní historie."
         return result
@@ -108,23 +114,37 @@ def check_volume(source: Source, now) -> CheckResult:
 
     day = datetime.timedelta(days=1)
     today = count(now - day, now)
-    history = [count(now - (i + 1) * day, now - i * day) for i in range(1, days + 1)]
-    median = statistics.median(history)
+    # Окна по 24 ч назад; окно i·7 дней назад — тот же день недели, что и сегодняшнее.
+    span = min(WEEKLY_HISTORY_DAYS, available)
+    counts = {i: count(now - (i + 1) * day, now - i * day) for i in range(1, span + 1)}
+    median = statistics.median([counts[i] for i in range(1, days + 1)])
+    norm_kind = "den"
+    if span >= WEEKLY_MIN_DAYS:
+        # Выраженный недельный ритм (README §4.2): норма — медиана того же дня недели.
+        profile = [statistics.median([counts[i] for i in counts if i % 7 == k]) for k in range(7)]
+        if max(profile) > 0 and min(profile) < WEEKLY_RHYTHM * max(profile):
+            median, norm_kind = profile[0], "stejný den v týdnu"
+            result.metrics["weekday_profile"] = profile
     ratio = float(get_setting("monitoring-volume-ratio"))
-    result.metrics.update(n=today, median=median, history_days=days)
+    result.metrics.update(n=today, median=median, history_days=days, norm=norm_kind)
     if median <= 0:
         return result  # у источника нет ежедневного ритма (например, PSP между заседаниями)
     result.covers |= {Type.NO_DOCUMENTS, Type.LOW_VOLUME}
     if today == 0:
         result.signals.append(
-            Signal(Type.NO_DOCUMENTS, Level.CRITICAL, f"0 dokumentů za den (norma {median}).")
+            Signal(
+                Type.NO_DOCUMENTS,
+                Level.CRITICAL,
+                f"0 dokumentů za den (norma {median}, {norm_kind}).",
+            )
         )
     elif today < median * ratio:
         result.signals.append(
             Signal(
                 Type.LOW_VOLUME,
                 Level.WARNING,
-                f"{today} dokumentů za den při normě {median} (práh {ratio:.0%} normy).",
+                f"{today} dokumentů za den při normě {median} "
+                f"({norm_kind}; práh {ratio:.0%} normy).",
             )
         )
     return result

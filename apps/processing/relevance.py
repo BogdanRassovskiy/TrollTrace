@@ -88,10 +88,8 @@ def gate(document: Document) -> str | None:
     )
     if score == 1:
         return "kvalita 1 (prázdná nebo blokovaná stránka)"
-    excluded = (document.source.collector_config or {}).get("irrelevant_rubrics") or []
-    rubric = fold(document.rubric or "")
-    if rubric and any(fold(r) in rubric for r in excluded):
-        return f"vyloučená rubrika „{document.rubric}“"
+    if document.in_scope is False:  # рубрика вне исследования (apps.ingestion.scope)
+        return f"rubrika mimo výzkum „{document.rubric}“"
     return None
 
 

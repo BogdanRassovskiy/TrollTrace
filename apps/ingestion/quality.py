@@ -9,6 +9,7 @@ import datetime
 import re
 from collections import Counter
 
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.actors.models import Platform
@@ -150,8 +151,20 @@ def score(flags: dict, *, date_source: str, rubric_expected: bool, has_rubric: b
     return 5
 
 
-def open_incident_level(source) -> str:
-    levels = set(source.incidents.filter(ended_at__isnull=True).values_list("level", flat=True))
+def open_incident_level(source, at=None) -> str:
+    """Уровень инцидентов источника, открытых в момент at (по умолчанию — сейчас).
+
+    Пересчёт старых документов берёт момент их извлечения: нынешний инцидент
+    не должен задним числом снижать оценку документов, собранных до него.
+    """
+    incidents = source.incidents.all()
+    if at is None:
+        incidents = incidents.filter(ended_at__isnull=True)
+    else:
+        incidents = incidents.filter(started_at__lte=at).filter(
+            Q(ended_at__isnull=True) | Q(ended_at__gt=at)
+        )
+    levels = set(incidents.values_list("level", flat=True))
     if DocumentQuality.IncidentLevel.CRITICAL in levels:
         return DocumentQuality.IncidentLevel.CRITICAL
     if DocumentQuality.IncidentLevel.WARNING in levels:
@@ -161,11 +174,12 @@ def open_incident_level(source) -> str:
 
 def assess(document: Document, raw_html: str | None = None, incident_level: str | None = None):
     """Новая актуальная оценка документа (прежняя уходит в историю)."""
+    latest = document.versions.order_by("-version").first()
     if raw_html is None:
-        latest = document.versions.order_by("-version").first()
         raw_html = latest.raw_html if latest else ""
     if incident_level is None:
-        incident_level = open_incident_level(document.source)
+        extracted_at = latest.detected_at if latest else document.collected_at
+        incident_level = open_incident_level(document.source, at=extracted_at)
     flags = compute_flags(document, raw_html, incident_level)
     return DocumentQuality.objects.create(
         document=document,

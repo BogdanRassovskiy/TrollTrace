@@ -89,9 +89,7 @@ def test_cheap_filters_mark_irrelevant_without_embedding(topic):
         text_empty=False, lang_ok=True, boilerplate_dup=False, blocked_page=True,
         extraction_ratio_ok=True,
     )  # fmt: skip
-    sport = make_doc(Layer.MAINSTREAM, "Sport", PRAVDA, rubric="Sport / Fotbal")
-    sport.source.collector_config = {"irrelevant_rubrics": ["sport"]}
-    sport.source.save()
+    sport = make_doc(Layer.MAINSTREAM, "Sport", PRAVDA, rubric="Sport / Fotbal", in_scope=False)
 
     stats = run()
 

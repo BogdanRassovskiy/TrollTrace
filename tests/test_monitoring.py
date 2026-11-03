@@ -90,6 +90,16 @@ class TestQualityScore:
         _, doc = save(source, 1, **kwargs)
         assert current(doc).score == expected
 
+    def test_reassessment_uses_incident_at_extraction_time(self, source):
+        """Инцидент, открытый после сбора, не снижает оценку старого документа задним числом."""
+        _, doc = save(source, 1)
+        SourceIncident.objects.create(
+            source=source, incident_type="http_errors", level="warning",
+            started_at=timezone.now() + datetime.timedelta(minutes=1),
+        )  # fmt: skip
+        assert quality.assess(doc).score == 5
+        assert quality.open_incident_level(source) == "warning"
+
     def test_open_incident_lowers_score(self, source):
         SourceIncident.objects.create(
             source=source, incident_type="low_volume", level="warning", started_at=NOW
@@ -189,6 +199,29 @@ class TestVolume:
             r for r in monitoring.monitor_source(source, timezone.now()) if r.check_type == "volume"
         ]
         assert not result.signals and "Norma ještě není k dispozici" in result.details
+
+    def test_weekly_rhythm_uses_same_weekday_norm(self, source):
+        """Тихий день недели (выходные у медиа) — не поломка, если он тихий всегда."""
+        n = 0
+        for day in range(1, monitoring.WEEKLY_HISTORY_DAYS + 1):
+            for _ in range(1 if day % 7 == 0 else 6):
+                n += 1
+                backdate(save(source, n)[1], day)
+        save(source, n + 1)  # сегодня, как и в тот же день прошлых недель, — один документ
+        result = monitoring.check_volume(source, timezone.now())
+        assert result.metrics["norm"] == "stejný den v týdnu" and result.metrics["median"] == 1
+        assert not result.signals
+
+    def test_flat_history_keeps_daily_norm(self, source):
+        n = 0
+        for day in range(1, monitoring.WEEKLY_HISTORY_DAYS + 1):
+            for _ in range(6):
+                n += 1
+                backdate(save(source, n)[1], day)
+        save(source, n + 1)
+        result = monitoring.check_volume(source, timezone.now())
+        assert result.metrics["norm"] == "den"
+        assert [s.incident_type for s in result.signals] == ["low_volume"]
 
     def test_stale_feed(self, source):
         source.stale_after_hours = 12
@@ -308,8 +341,41 @@ def test_panel_pages(source, researcher_client):
     assert not Notification.objects.filter(is_read=False).exists()
 
 
+def test_source_detail_page_with_daily_series(source, researcher_client):
+    from apps.panel.views import CHART_DAYS, daily_series
+
+    save(source, 1)
+    save(source, 2, rubric="Sport")
+    Document.objects.filter(rubric="Sport").update(in_scope=False)
+    series = daily_series(source)
+    assert len(series["dates"]) == CHART_DAYS
+    assert (series["volume"][-1], series["in_scope"][-1]) == (2, 1)
+    assert series["scores"]["5"][-1] == 2 and series["mean_quality"][-1] == 5.0
+    GoldenPage.objects.create(
+        source=source, url="https://z.example/a/1", expected_title="Titulek 1",
+        expected_text_prefix="Vláda",
+    )  # fmt: skip
+    page = researcher_client.get(reverse("panel:source_detail", args=[source.pk]))
+    content = page.content.decode()
+    assert page.status_code == 200 and "source-series" in content
+    assert "Kontrolní stránky" in content and "https://z.example/a/1" in content
+
+
+def test_propose_golden_pages_from_clean_documents(source):
+    from django.core.management import call_command
+
+    for n in range(4):
+        _, doc = save(source, n, published_at=NOW - datetime.timedelta(days=n + 2))
+        backdate(doc, n + 2)
+    call_command("propose_golden_pages", stdout=open("/dev/null", "w"))  # noqa: SIM115
+    pages = GoldenPage.objects.filter(source=source)
+    assert pages.count() == 3
+    assert all(p.expected_text_prefix.startswith("Vláda") for p in pages)
+
+
 def test_panel_pages_closed_for_observer(observer_client):
     assert observer_client.get(reverse("panel:sources")).status_code == 403
+    assert observer_client.get(reverse("panel:source_detail", args=[1])).status_code == 403
     assert observer_client.get(reverse("panel:notifications")).status_code == 403
 
 

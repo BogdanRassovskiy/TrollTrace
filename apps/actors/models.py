@@ -72,7 +72,13 @@ class Source(TimeStampedModel):
     external_rating_source = models.CharField("externí hodnocení: kdo", max_length=200, blank=True)
 
     # Параметры мониторинга сбора (README §4.2), настраиваются per source.
-    expected_language = models.CharField("očekávaný jazyk", max_length=8, default="cs")
+    expected_language = models.CharField(
+        "očekávaný jazyk",
+        max_length=8,
+        default="cs",
+        blank=True,
+        help_text="Prázdné — jazyk se nekontroluje (zdroj publikuje ve více jazycích).",
+    )
     min_text_length = models.PositiveIntegerField("minimální délka textu", default=300)
     stale_after_hours = models.PositiveIntegerField(
         "upozornit, pokud nejsou nové dokumenty (h)", default=48

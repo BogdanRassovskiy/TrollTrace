@@ -2,9 +2,12 @@
 
 import calendar
 import datetime
+import re
 import xml.etree.ElementTree as ET
+from urllib.parse import urljoin, urlsplit
 
 import feedparser
+import lxml.html
 from django.utils import timezone
 
 from apps.documents.models import Document
@@ -72,9 +75,46 @@ def parse_sitemap(content: bytes, rubric: str = "") -> tuple[list[FeedEntry], li
     return entries, []
 
 
+def page_values(html: str, xpath: str) -> list[str]:
+    try:
+        values = lxml.html.fromstring(html).xpath(xpath)
+    except (ValueError, lxml.etree.ParserError, lxml.etree.XPathError):
+        return []
+    result = []
+    for value in values:
+        text = str(value if isinstance(value, str) else value.text_content()).strip()
+        if text and text not in result:
+            result.append(text)
+    return result
+
+
+def parse_listing(content: bytes, base_url: str, pattern: str = "", rubric: str = ""):
+    """Ссылки на статьи со страницы-списка: тот же сайт и (если задан) шаблон адреса."""
+    root = lxml.html.fromstring(content)
+    host = urlsplit(base_url).netloc
+    regex = re.compile(pattern) if pattern else None
+    entries, seen = [], set()
+    for href in root.xpath("//a/@href"):
+        url = urljoin(base_url, href.strip()).split("#")[0]
+        parts = urlsplit(url)
+        if parts.scheme not in {"http", "https"} or parts.netloc != host:
+            continue
+        # Абсолютные ссылки http:// на https-сайте — лишний редирект на каждую статью.
+        url = parts._replace(scheme=urlsplit(base_url).scheme).geturl()
+        if regex is not None and not regex.search(parts.path):
+            continue
+        if url not in seen and url.rstrip("/") != base_url.rstrip("/"):
+            seen.add(url)
+            entries.append(FeedEntry(url, rubric=rubric))
+    return entries
+
+
 class WebCollector(Collector):
     """Настройки (collector_config): max_articles — сколько новых статей за запуск (100),
-    max_child_sitemaps — сколько свежих вложенных sitemap читать из индекса (2)."""
+    max_child_sitemaps — сколько свежих вложенных sitemap читать из индекса (2),
+    listing_link_pattern — регулярное выражение пути статьи для лент типа «listing»,
+    origin_xpath — XPath к адресам первоисточника на странице (у агрегаторов сети Pravda:
+    Telegram-канал, откуда взят текст); сохраняются в meta["origin_urls"]."""
 
     def collect(self):
         account = (
@@ -122,6 +162,9 @@ class WebCollector(Collector):
             else:
                 if feed.kind == SourceFeed.Kind.SITEMAP:
                     entries = self._read_sitemap(result.content, feed.rubric)
+                elif feed.kind == SourceFeed.Kind.LISTING:
+                    pattern = self.config.get("listing_link_pattern", "")
+                    entries = parse_listing(result.content, result.final_url, pattern, feed.rubric)
                 else:
                     entries = parse_rss(result.content, feed.rubric)
                 feed.etag = result.headers.get("etag", "")[:300]
@@ -145,7 +188,11 @@ class WebCollector(Collector):
     def _read_sitemap(self, content: bytes, rubric: str) -> list[FeedEntry]:
         entries, children = parse_sitemap(content, rubric)
         for child in children[: int(self.config.get("max_child_sitemaps", 2))]:
-            result = self.client.get(child)
+            try:
+                result = self.client.get(child)
+            except RobotsDisallowed:
+                self.error(f"Sitemap {child}: zakázáno v robots.txt")
+                continue
             if result.ok:
                 entries.extend(parse_sitemap(result.content, rubric)[0])
             else:
@@ -166,6 +213,11 @@ class WebCollector(Collector):
             return
         html = result.text
         extracted = extract_article(html, result.final_url, feed_published_at=entry.published_at)
+        meta = {"final_url": result.final_url} if result.final_url != entry.url else {}
+        if self.config.get("origin_xpath"):
+            origins = page_values(html, self.config["origin_xpath"])
+            if origins:
+                meta["origin_urls"] = origins
         self.save(
             actor,
             Item(
@@ -175,8 +227,8 @@ class WebCollector(Collector):
                 raw_html=html,
                 published_at=extracted.published_at,
                 date_source=extracted.date_source,
-                rubric=entry.rubric or ", ".join(extracted.categories),
+                rubric=extracted.rubric or entry.rubric or ", ".join(extracted.categories),
                 language=extracted.language,
-                meta={"final_url": result.final_url} if result.final_url != entry.url else {},
+                meta=meta,
             ),
         )

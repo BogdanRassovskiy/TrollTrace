@@ -50,6 +50,13 @@ class Document(models.Model):
     text = models.TextField("text (poslední verze)", blank=True)
     text_hash = models.CharField("hash textu", max_length=64, editable=False, db_index=True)
     rubric = models.CharField("rubrika", max_length=200, blank=True)
+    in_scope = models.BooleanField(
+        "ve sledovaných rubrikách",
+        null=True,
+        db_index=True,
+        help_text="Ne — rubrika mimo výzkum (sport, celebrity…), dokument není ve jmenovateli. "
+        "Prázdné — rubriku se nepodařilo zjistit.",
+    )
     language = models.CharField("jazyk", max_length=8, blank=True)
 
     # Два времени (README §4.1): дата публикации не подменяется временем сбора.

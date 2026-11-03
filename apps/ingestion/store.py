@@ -19,6 +19,7 @@ from apps.documents.models import Document
 from apps.documents.utils import normalize_url, text_hash
 
 from . import quality
+from .scope import rubric_in_scope
 
 MAX_DUPLICATE_URLS = 10
 
@@ -61,7 +62,12 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             doc.last_checked_at = now
             if item.engagement:
                 doc.engagement = item.engagement
-            doc.save(update_fields=["last_checked_at", "engagement"])
+            fields = ["last_checked_at", "engagement"]
+            if item.rubric and not doc.rubric:
+                doc.rubric = item.rubric[:200]
+                doc.in_scope = rubric_in_scope(source, doc.rubric)
+                fields += ["rubric", "in_scope"]
+            doc.save(update_fields=fields)
             if version:
                 quality.assess(doc, raw_html=item.raw_html)
             return (Outcome.VERSION if version else Outcome.UNCHANGED), doc
@@ -91,6 +97,7 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             title=item.title,
             text=item.text,
             rubric=item.rubric[:200],
+            in_scope=rubric_in_scope(source, item.rubric[:200]),
             language=item.language or quality.detect_language(item.text),
             published_at=item.published_at,
             date_source=item.date_source,

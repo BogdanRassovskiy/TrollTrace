@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ source.name }} — stav sběru{% endblock %}
+
+{% block content %}
+  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> / <a href="{% url 'panel:sources' %}">Zdroje a stav sběru</a> /</p>
+  <h1><span class="health health-{{ health }}" title="{{ health }}"></span> {{ source.name }}</h1>
+  <p class="muted">
+    Vrstva {{ source.get_layer_display }} · {{ source.get_platform_display }} · <a href="{{ source.url }}" rel="noopener noreferrer">{{ source.url }}</a>
+    · interval sběru {{ source.collect_interval_minutes }} min{% if not source.is_active %} · <strong>sběr vypnut</strong>{% endif %}
+    · <a href="{% url 'admin:actors_source_change' source.pk %}">upravit v administraci</a>
+  </p>
+  {% if source.attribution_by %}
+    <p class="small">Atribuce: {{ source.attribution_by }}{% if source.attribution_url %} — <a href="{{ source.attribution_url }}" rel="noopener noreferrer">zpráva</a>{% endif %}</p>
+  {% endif %}
+
+  <section class="card">
+    <h2>Objem za den</h2>
+    <p class="muted small">Dokumenty podle dne sběru za posledních {{ series.dates|length }} dní; „ve sledovaných rubrikách“ — bez rubrik mimo výzkum (sport, celebrity…).</p>
+    <div id="volume-chart" class="chart" role="img" aria-label="Graf objemu dokumentů po dnech"></div>
+  </section>
+
+  <section class="card">
+    <h2>Hodnocení kvality dat</h2>
+    <p class="muted small">Rozložení hodnocení 1–5 a průměr po dnech (README §4.3). Prudký pokles podílu 5 a 4 obvykle znamená poruchu sběru.</p>
+    <div id="quality-chart" class="chart" role="img" aria-label="Graf hodnocení kvality po dnech"></div>
+  </section>
+
+  <h2>Kanály</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kanál</th><th>Typ</th><th>Rubrika</th><th>Aktivní</th><th>Poslední úspěch</th><th>Poslední chyba</th></tr></thead>
+      <tbody>
+        {% for f in feeds %}
+          <tr>
+            <td class="small"><a href="{{ f.url }}" rel="noopener noreferrer">{{ f.url|truncatechars:80 }}</a></td>
+            <td>{{ f.get_kind_display }}</td>
+            <td>{{ f.rubric|default:"—" }}</td>
+            <td>{{ f.is_active|yesno:"ano,ne" }}</td>
+            <td class="nowrap">{{ f.last_success_at|date:"Y-m-d H:i"|default:"—" }}</td>
+            <td class="small">{{ f.last_error|default:"—"|truncatechars:120 }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="6" class="muted">Bez kanálů (sběr podle aktérů nebo vlastního kolektoru).</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Kontrolní stránky</h2>
+  <p class="muted small">Vzory se zadávají v administraci; denně se porovnávají s novým stažením (README §4.2).</p>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>URL</th><th>Vzor: titulek</th><th>Poslední kontrola</th><th>Výsledek</th></tr></thead>
+      <tbody>
+        {% for g in golden_pages %}
+          <tr>
+            <td class="small"><a href="{% url 'admin:ingestion_goldenpage_change' g.pk %}">{{ g.url|truncatechars:70 }}</a>{% if not g.is_active %} <span class="muted">(vypnuto)</span>{% endif %}</td>
+            <td class="small">{{ g.expected_title|truncatechars:80 }}</td>
+            <td class="nowrap">{{ g.last_checked_at|date:"Y-m-d H:i"|default:"—" }}</td>
+            <td>{% if g.last_status %}<span class="badge level-{{ g.last_status }}">{{ g.get_last_status_display }}</span>{% else %}—{% endif %}</td>
+          </tr>
+        {% empty %}<tr><td colspan="4" class="muted">Zatím žádné kontrolní stránky.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Poslední spuštění sběru</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Začátek</th><th>Stav</th><th>Nalezeno</th><th>Nových</th><th>Verzí</th><th>Chyb</th><th>Požadavků</th></tr></thead>
+      <tbody>
+        {% for r in runs %}
+          <tr>
+            <td class="nowrap">{{ r.started_at|date:"Y-m-d H:i" }}</td><td>{{ r.get_status_display }}</td>
+            <td>{{ r.found }}</td><td>{{ r.new }}</td><td>{{ r.versions }}</td><td>{{ r.errors }}</td><td>{{ r.http_requests }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="muted">Zatím žádné spuštění.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Kontroly monitoringu</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Den</th><th>Kontrola</th><th>Výsledek</th><th>Metriky</th><th>Podrobnosti</th></tr></thead>
+      <tbody>
+        {% for c in checks %}
+          <tr>
+            <td class="nowrap">{{ c.date|date:"Y-m-d" }}</td><td>{{ c.get_check_type_display }}</td>
+            <td><span class="badge level-{{ c.status }}">{{ c.get_status_display }}</span></td>
+            <td class="small">{% for k, v in c.metrics.items %}{{ k }}: {{ v }}{% if not forloop.last %}; {% endif %}{% endfor %}</td>
+            <td class="small">{{ c.details|truncatechars:160 }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="5" class="muted">Zatím žádné kontroly.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Historie incidentů</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Typ</th><th>Úroveň</th><th>Začátek</th><th>Konec</th><th>Opakování</th><th>Popis</th></tr></thead>
+      <tbody>
+        {% for i in incidents %}
+          <tr>
+            <td>{{ i.get_incident_type_display }}</td>
+            <td><span class="badge level-{{ i.level }}">{{ i.get_level_display }}</span></td>
+            <td class="nowrap">{{ i.started_at|date:"Y-m-d H:i" }}</td>
+            <td class="nowrap">{{ i.ended_at|date:"Y-m-d H:i"|default:"otevřený" }}</td>
+            <td>{{ i.occurrences }}</td>
+            <td class="small">{{ i.description|truncatechars:200 }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="6" class="muted">Žádné incidenty.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {{ series|json_script:"source-series" }}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/source-charts.js' %}"></script>
+{% endblock %}

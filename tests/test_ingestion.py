@@ -22,6 +22,7 @@ from apps.ingestion.collectors.web import parse_sitemap
 from apps.ingestion.deputies import ICON_SIZE, sync_deputies
 from apps.ingestion.http import PoliteClient, RobotsDisallowed
 from apps.ingestion.models import CollectionRun, SourceFeed
+from apps.ingestion.store import Item, save_item
 from apps.ingestion.tasks import (
     collect_source,
     documents_to_recheck,
@@ -591,9 +592,151 @@ def test_import_sources_mainstream_is_idempotent():
     path = "apps/ingestion/sources/mainstream.json"
     call_command("import_sources", path, stdout=io.StringIO())
     call_command("import_sources", path, stdout=io.StringIO())
-    assert Source.objects.filter(layer="D").count() == 6
-    assert Actor.objects.filter(layer="D", actor_type="media").count() == 6
-    assert SourceFeed.objects.count() == 7
+    assert Source.objects.filter(layer="D").count() == 7
+    assert Actor.objects.filter(layer="D", actor_type="media").count() == 7
+    assert SourceFeed.objects.count() == 10
+    assert Source.objects.get(name="Novinky.cz").collector_config["rubrics_in_scope"]
     irozhlas = Source.objects.get(name="iROZHLAS")
     assert set(irozhlas.feeds.values_list("rubric", flat=True)) == {"Domov", "Svět"}
     assert irozhlas.accounts.get().actor.inclusion_periods.count() == 1
+
+
+# --- Рубрики и рамки исследования (этап 3.2) ---------------------------------------------
+
+BREADCRUMB_PAGE = """<html><head>
+<script type="application/ld+json">{"@type": "BreadcrumbList", "itemListElement": [
+ {"@type": "ListItem", "position": 1, "name": "Novinky.cz", "item": "https://www.novinky.cz/"},
+ {"@type": "ListItem", "position": 2, "name": "Zahraniční", "item": "https://www.novinky.cz/sekce/zahranicni-2"},
+ {"@type": "ListItem", "position": 3, "name": "Evropa", "item": "https://www.novinky.cz/sekce/zahranicni-evropa-5"},
+ {"@type": "ListItem", "position": 4, "name": "Fico ztratil většinu", "item": "https://www.novinky.cz/clanek/zahranicni-evropa-fico-1"}
+]}</script></head><body></body></html>"""  # noqa: E501
+
+
+def test_page_rubric_from_breadcrumbs_without_article_crumb():
+    from apps.ingestion.extract import page_rubric
+
+    url = "https://www.novinky.cz/clanek/zahranicni-evropa-fico-1"
+    assert page_rubric(BREADCRUMB_PAGE, "Fico ztratil většinu", url) == "Zahraniční / Evropa"
+    blesk = '<meta property="mrf:sections" content="Celebrity;StarDance">'
+    assert page_rubric(f"<html><head>{blesk}</head></html>") == "Celebrity / StarDance"
+    assert page_rubric("<html><body>bez rubriky</body></html>") == ""
+
+
+@pytest.mark.django_db
+def test_rubric_scope_include_exclude_and_unknown():
+    from apps.ingestion.scope import rubric_in_scope
+
+    source = Source(
+        collector_config={
+            "rubrics_in_scope": ["Domácí", "Byznys"],
+            "rubrics_out_of_scope": ["Byznys / Investice"],
+        }
+    )
+    assert rubric_in_scope(source, "Domácí / Politika") is True
+    assert rubric_in_scope(source, "domaci") is True  # без регистра и диакритики
+    assert rubric_in_scope(source, "Byznys / Investice / Akcie") is False
+    assert rubric_in_scope(source, "Sport / Hokej") is False
+    assert rubric_in_scope(source, "") is None
+    assert rubric_in_scope(Source(collector_config={}), "Sport") is True
+
+
+@pytest.mark.django_db
+def test_update_scope_reextracts_rubric_and_requeues():
+    source = Source.objects.create(
+        name="N", layer="D", platform="web", url="https://n.example/",
+        collector_config={"rubrics_in_scope": ["Zahraniční"]},
+    )  # fmt: skip
+    actor = Actor.objects.create(name="N", actor_type="media", layer="D")
+    ActorAccount.objects.create(actor=actor, source=source, account_id="")
+    url = "https://www.novinky.cz/clanek/zahranicni-evropa-fico-1"
+    _, doc = save_item(
+        source, actor, Item(url=url, title="Fico ztratil většinu", text="x" * 400,
+                            raw_html=BREADCRUMB_PAGE),
+    )  # fmt: skip
+    assert doc.rubric == "" and doc.in_scope is None
+    Document.objects.filter(pk=doc.pk).update(processed_at=timezone.now())
+    call_command("update_scope", "--reextract", stdout=io.StringIO())
+    doc.refresh_from_db()
+    assert (doc.rubric, doc.in_scope, doc.processed_at) == ("Zahraniční / Evropa", True, None)
+
+
+# --- Слой A: атрибутированные сети (этап 3.2) ---------------------------------------------
+
+MICRODATA_PAGE = """<html lang="en"><body>
+<ul itemscope itemtype="http://schema.org/BreadcrumbList">
+ <li itemprop="itemListElement" itemscope itemtype="http://schema.org/ListItem">
+  <meta itemprop="name" content="Síť"><meta itemprop="position" content="1"></li>
+ <li itemprop="itemListElement" itemscope itemtype="http://schema.org/ListItem">
+  <a itemprop="item" href="https://sit.example/russia"><i itemprop="name">Rusko</i></a>
+  <meta itemprop="position" content="2"></li>
+</ul>
+<div itemprop="articleSection">Ukrajina</div></body></html>"""
+
+
+def test_page_rubric_from_microdata_and_sections():
+    from apps.ingestion.extract import page_rubric
+
+    assert page_rubric(MICRODATA_PAGE) == "Rusko"
+    generic = MICRODATA_PAGE.replace("Rusko", "Novinka")
+    assert page_rubric(generic) == "Ukrajina"  # общая крошка → разделы статьи
+
+
+def test_parse_listing_same_host_pattern_and_scheme():
+    from apps.ingestion.collectors.web import parse_listing
+
+    html = b"""<a href="/entry/a">A</a><a href="http://sit.example/entry/b#x">B</a>
+    <a href="/tag/x">tag</a><a href="https://jiny.example/entry/c">C</a><a href="/entry/a">A</a>"""
+    entries = parse_listing(html, "https://sit.example/", r"^/entry/[^/]+$")
+    assert [e.url for e in entries] == [
+        "https://sit.example/entry/a",
+        "https://sit.example/entry/b",
+    ]
+
+
+def test_listing_feed_collects_with_origin_and_text_language(web):
+    source = web_source(
+        collector_config={
+            "listing_link_pattern": r"^/a/\d+$",
+            "origin_xpath": '//*[@class="source-link"]/@data-source-url',
+        }
+    )
+    source.feeds.update(url="https://zpravy.example/", kind=SourceFeed.Kind.LISTING)
+    web.add("https://zpravy.example/", '<a href="/a/1">1</a><a href="/o-nas">O nás</a>')
+    page = (
+        article_html()
+        .replace('lang="cs"', 'lang="en"')
+        .replace(
+            "</article>",
+            '<span class="source-link" data-source-url="https://t.me/kanal"></span></article>',
+        )
+    )
+    web.add("https://zpravy.example/a/1", page)
+    run = run_collector(source, web.client())
+
+    assert (run.status, run.found, run.new) == ("ok", 1, 1)
+    doc = Document.objects.get()
+    assert doc.meta["origin_urls"] == ["https://t.me/kanal"]
+    assert doc.language == "cs"  # шаблонный lang="en" не перебивает язык текста
+
+
+def test_disallowed_child_sitemap_does_not_drop_index(web):
+    source = web_source()
+    source.feeds.update(url="https://zpravy.example/index.xml", kind=SourceFeed.Kind.SITEMAP)
+    web.add("https://zpravy.example/robots.txt", "User-agent: *\nDisallow: /*?*\n")
+    web.add(
+        "https://zpravy.example/index.xml",
+        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<sitemap><loc>https://zpravy.example/sm.xml?m=1</loc></sitemap></sitemapindex>",
+    )
+    run = run_collector(source, web.client())
+    assert any("zakázáno v robots.txt" in e for e in run.details["errors"])
+    assert source.feeds.get().last_error == "Kanál je prázdný"
+
+
+def test_import_sources_attributed():
+    call_command("import_sources", "apps/ingestion/sources/attributed.json", stdout=io.StringIO())
+    sources = Source.objects.filter(layer="A")
+    assert sources.count() == 2
+    assert all(s.attribution_by and s.attribution_url for s in sources)
+    assert Actor.objects.filter(layer="A", actor_type="attributed_network").count() == 2
+    assert Source.objects.get(name="42TCen").feeds.filter(kind="listing").count() == 2

@@ -13,11 +13,17 @@ class Level(models.TextChoices):
 
 
 class SourceFeed(models.Model):
-    """RSS/Atom-лента или sitemap источника. У медиа — по ленте на политическую рубрику."""
+    """RSS/Atom-лента, sitemap или страница-список статей источника.
+
+    У медиа — по ленте на политическую рубрику. Страница-список — для сайтов без
+    пригодной ленты (42tcen.com: RSS пуст, вложенные sitemap запрещены в robots.txt);
+    ссылки на статьи отбираются по collector_config["listing_link_pattern"].
+    """
 
     class Kind(models.TextChoices):
         RSS = "rss", "RSS / Atom"
         SITEMAP = "sitemap", "Sitemap"
+        LISTING = "listing", "Stránka s výpisem článků"
 
     source = models.ForeignKey(
         Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="feeds"

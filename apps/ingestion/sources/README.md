@@ -4,13 +4,14 @@
 
 ```bash
 docker compose exec web python manage.py import_sources apps/ingestion/sources/mainstream.json
+docker compose exec web python manage.py import_sources apps/ingestion/sources/attributed.json
 docker compose exec web python manage.py import_psp_deputies   # слой E: депутаты + источник стенограмм
 ```
 
 | Файл | Слой | Статус |
 |---|---|---|
-| `mainstream.json` | D | ČT24, iROZHLAS, Seznam Zprávy, iDNES, Novinky, Blesk (ленты проверены 2026-11-02) |
-| — | A | список доменов чешской Pravda — открытый вопрос (README §11) |
+| `mainstream.json` | D | ČT24, iROZHLAS, Seznam Zprávy, iDNES, Novinky, Blesk, ČTK (ленты проверены 2026-11-02, ČTK — 2026-11-03) |
+| `attributed.json` | A | Pravda Česko (VIGINUM, DFRLab), 42TCen (BIS VZ 2024) — проверено 2026-11-03 |
 | — | B, C | списки альтернативных сайтов и Telegram-каналов составляет исследователь |
 
 ## Формат
@@ -49,6 +50,15 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
 
 - **Слой A** (атрибутированные сети): `layer: "A"`, `"actor": {"type": "attributed_network", …}`, плюс
   `attribution_by` и `attribution_url` — ссылка на внешний отчёт (собственной атрибуции нет, README §1).
+- Ленты (`feeds[].kind`): `rss` (по умолчанию), `sitemap` (в т. ч. индекс — читаются
+  `max_child_sitemaps` свежих), `listing` — HTML-страница со списком статей для сайтов без
+  пригодной ленты; ссылки отбираются по `collector_config.listing_link_pattern` (regex пути).
+- `collector_config`:
+  - `rubrics_in_scope` / `rubrics_out_of_scope` — начала рубрик (без регистра и диакритики)
+    для `Document.in_scope`; без списков в рамках всё;
+  - `max_articles` — новых статей за запуск (100);
+  - `origin_xpath` — XPath к адресу первоисточника на странице → `meta.origin_urls`.
+- `expected_language: ""` — язык не проверяется (сайт на нескольких языках).
 - Сайты: `actor` — сайт целиком как один актор. Telegram: один источник, по актору на канал.
 - Telegram собирается из публичного веб-превью `t.me/s/<канал>`: без логина и API-ключей, только
   открытые каналы. Канал с выключенным превью попадёт в ошибки запуска сбора.

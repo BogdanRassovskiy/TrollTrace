@@ -16,6 +16,13 @@
         "name": "ČT24",
         "type": "media",
         "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
+      },
+      "collector_config": {
+        "rubrics_in_scope": [
+          "Domácí",
+          "Svět",
+          "Ekonomika"
+        ]
       }
     },
     {
@@ -57,6 +64,19 @@
         "name": "Seznam Zprávy",
         "type": "media",
         "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
+      },
+      "collector_config": {
+        "rubrics_in_scope": [
+          "Domácí",
+          "Svět",
+          "Byznys",
+          "Volby",
+          "Komentáře"
+        ],
+        "rubrics_out_of_scope": [
+          "Byznys / Investice",
+          "Byznys / Magazín Byznys"
+        ]
       }
     },
     {
@@ -75,6 +95,13 @@
         "name": "iDNES.cz",
         "type": "media",
         "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
+      },
+      "collector_config": {
+        "rubrics_in_scope": [
+          "Zprávy - Domácí",
+          "Zprávy - Zahraničí",
+          "Ekonomika"
+        ]
       }
     },
     {
@@ -93,6 +120,16 @@
         "name": "Novinky.cz",
         "type": "media",
         "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
+      },
+      "collector_config": {
+        "rubrics_in_scope": [
+          "Domácí",
+          "Zahraniční",
+          "Ekonomika",
+          "Volby",
+          "Válka na Ukrajině",
+          "Komentáře"
+        ]
       }
     },
     {
@@ -111,6 +148,43 @@
         "name": "Blesk.cz",
         "type": "media",
         "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
+      },
+      "collector_config": {
+        "rubrics_in_scope": [
+          "Zprávy / Politika",
+          "Zprávy / Svět",
+          "Zprávy / Válka na Ukrajině",
+          "Zprávy / Epicentrum",
+          "Komunální volby"
+        ]
+      }
+    },
+    {
+      "name": "ČTK — České noviny",
+      "url": "https://www.ceskenoviny.cz/",
+      "layer": "D",
+      "platform": "web",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "notes": "Zpravodajská agentura jako událostní základna vrstvy D (README §2).",
+      "feeds": [
+        {
+          "url": "https://www.ceskenoviny.cz/sluzby/rss/cr.php",
+          "rubric": "Z domova"
+        },
+        {
+          "url": "https://www.ceskenoviny.cz/sluzby/rss/svet.php",
+          "rubric": "Ze světa"
+        },
+        {
+          "url": "https://www.ceskenoviny.cz/sluzby/rss/ekonomika.php",
+          "rubric": "Ekonomika"
+        }
+      ],
+      "actor": {
+        "name": "ČTK",
+        "type": "media",
+        "criterion": "Zpravodajská agentura, událostní základna vrstvy D (README §2)"
       }
     }
   ]
