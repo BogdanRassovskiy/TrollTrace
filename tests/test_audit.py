@@ -294,5 +294,5 @@ class TestUserAdminAudit:
         )
         assert response.status_code == 302, response.content.decode()[:2000]
         entry = entries(AuditLog.Action.UPDATE).get()
-        assert entry.note == "Пароль изменён" and entry.changes == {}
+        assert entry.note == "Heslo změněno" and entry.changes == {}
         assert "pbkdf2" not in str(list(AuditLog.objects.values_list("changes", flat=True)))

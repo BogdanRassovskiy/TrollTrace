@@ -392,7 +392,7 @@ class TestTelegram:
         )
         web.add("https://t.me/zmizely", "<html>channel</html>")
         run = run_collector(source, web.client())
-        assert "недоступен" in run.details["errors"][0]
+        assert "není dostupný" in run.details["errors"][0]
 
 
 # --- PSP ----------------------------------------------------------------------------------
@@ -457,7 +457,7 @@ def test_psp_collector(web):
 
     newcomer = Document.objects.get(external_id__endswith="#r2").actor
     assert newcomer.name == "Jan Neznámý" and newcomer.role == "Ministr vnitra"
-    assert "проверить" in newcomer.inclusion_criterion
+    assert "zkontrolovat" in newcomer.inclusion_criterion
 
     web.requests.clear()
     assert run_collector(source, web.client()).new == 0

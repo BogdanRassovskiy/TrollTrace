@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Уведомления{% endblock %}
+{% block title %}Upozornění{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Панель исследователя</a> /</p>
-  <h1>Уведомления</h1>
-  <p class="muted">Сигналы мониторинга сбора и другие события. Сигналы о поломках дублируются в Telegram-бот, если он настроен.</p>
+  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  <h1>Upozornění</h1>
+  <p class="muted">Signály monitoringu sběru a další události. Signály o poruchách se zároveň posílají do Telegram bota, pokud je nastaven.</p>
 
   <form method="post" action="{% url 'panel:notifications-read' %}" class="filters">
     {% csrf_token %}
-    <a href="?unread=1">Только непрочитанные</a> · <a href="{% url 'panel:notifications' %}">Все</a>
-    <button type="submit" class="button">Отметить все прочитанными</button>
+    <a href="?unread=1">Pouze nepřečtená</a> · <a href="{% url 'panel:notifications' %}">Všechna</a>
+    <button type="submit" class="button">Označit vše jako přečtené</button>
   </form>
 
   <div class="table-wrap card">
     <table class="table">
-      <thead><tr><th>Когда</th><th>Уровень</th><th>Уведомление</th><th>Telegram</th></tr></thead>
+      <thead><tr><th>Kdy</th><th>Úroveň</th><th>Upozornění</th><th>Telegram</th></tr></thead>
       <tbody>
         {% for n in notifications %}
           <tr{% if not n.is_read %} class="unread"{% endif %}>
@@ -27,13 +27,13 @@
             </td>
             <td>{% if n.sent_to_telegram %}✓{% else %}<span class="muted">—</span>{% endif %}</td>
           </tr>
-        {% empty %}<tr><td colspan="4" class="muted">Уведомлений нет.</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="4" class="muted">Žádná upozornění.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>
   {% if is_paginated %}
-    <p>{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← назад</a>{% endif %}
-       стр. {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
-       {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">дальше →</a>{% endif %}</p>
+    <p>{% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">← zpět</a>{% endif %}
+       str. {{ page_obj.number }} z {{ page_obj.paginator.num_pages }}
+       {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">dále →</a>{% endif %}</p>
   {% endif %}
 {% endblock %}

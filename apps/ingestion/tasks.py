@@ -31,7 +31,7 @@ def run_collector(source: Source, client: PoliteClient | None = None) -> Collect
     try:
         collector.collect()
     except Exception as exc:  # noqa: BLE001 — запуск фиксируется как упавший, а не теряется
-        logger.exception("Сбор %s упал", source)
+        logger.exception("Sběr %s selhal", source)
         collector.error(f"{type(exc).__name__}: {exc}")
         status = CollectionRun.Status.FAILED
     finally:
@@ -62,7 +62,7 @@ def run_collector(source: Source, client: PoliteClient | None = None) -> Collect
 def collect_source(source_id: int) -> dict:
     lock = f"ingestion:collect:{source_id}"
     if not cache.add(lock, "1", LOCK_TTL):
-        return {"source": source_id, "skipped": "уже выполняется"}
+        return {"source": source_id, "skipped": "už probíhá"}
     try:
         run = run_collector(Source.objects.get(pk=source_id))
         return {"source": source_id, "run": run.pk, "status": run.status, "new": run.new}
@@ -134,7 +134,7 @@ def recheck_document(doc: Document, client: PoliteClient) -> str:
 @shared_task
 def recheck_documents(limit: int = 200) -> dict:
     if not cache.add("ingestion:recheck", "1", LOCK_TTL):
-        return {"skipped": "уже выполняется"}
+        return {"skipped": "už probíhá"}
     counts: dict[str, int] = {}
     client = PoliteClient()
     try:
@@ -143,7 +143,7 @@ def recheck_documents(limit: int = 200) -> dict:
             try:
                 outcome = recheck_document(doc, client)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("Перепроверка %s: %s", doc.url, exc)
+                logger.warning("Kontrola %s: %s", doc.url, exc)
                 outcome = "error"
             counts[outcome] = counts.get(outcome, 0) + 1
     finally:
@@ -173,7 +173,7 @@ def monitor_sources() -> dict:
             results = monitoring.monitor_source(source)
             statuses[source.pk] = [r.status for r in results]
         except Exception:  # noqa: BLE001 — один источник не останавливает остальные
-            logger.exception("Мониторинг %s упал", source)
+            logger.exception("Monitoring %s selhal", source)
     return statuses
 
 

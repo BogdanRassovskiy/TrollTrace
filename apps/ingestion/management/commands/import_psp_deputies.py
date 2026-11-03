@@ -11,12 +11,14 @@ from apps.ingestion.http import PoliteClient
 
 
 class Command(BaseCommand):
-    help = "Импортирует депутатов Poslanecké sněmovny из открытых данных psp.cz."
+    help = "Importuje poslance Poslanecké sněmovny z otevřených dat psp.cz."
 
     def add_arguments(self, parser):
-        parser.add_argument("--term", help="Код созыва (PSP10). По умолчанию — последний.")
-        parser.add_argument("--no-photos", action="store_true", help="Не скачивать фото.")
-        parser.add_argument("--refresh-photos", action="store_true", help="Перекачать все фото.")
+        parser.add_argument("--term", help="Kód volebního období (PSP10). Výchozí je poslední.")
+        parser.add_argument("--no-photos", action="store_true", help="Nestahovat fotografie.")
+        parser.add_argument(
+            "--refresh-photos", action="store_true", help="Znovu stáhnout všechny fotografie."
+        )
 
     def handle(self, *args, term, no_photos, refresh_photos, **options):
         with PoliteClient(delay=1.0) as client:
@@ -25,9 +27,9 @@ class Command(BaseCommand):
             )
         self.stdout.write(
             self.style.SUCCESS(
-                f"Создано: {result.created}, обновлено: {result.updated}, "
-                f"без изменений: {result.unchanged}, фото: {result.photos}."
+                f"Vytvořeno: {result.created}, aktualizováno: {result.updated}, "
+                f"beze změn: {result.unchanged}, fotografií: {result.photos}."
             )
         )
         for error in result.photo_errors:
-            self.stderr.write(f"Фото: {error}")
+            self.stderr.write(f"Foto: {error}")

@@ -7,10 +7,10 @@ from apps.ingestion import quality
 
 
 class Command(BaseCommand):
-    help = "Оценка качества 1–5 для документов без актуальной оценки текущих правил."
+    help = "Hodnocení kvality 1–5 pro dokumenty bez aktuálního hodnocení podle platných pravidel."
 
     def add_arguments(self, parser):
-        parser.add_argument("--all", action="store_true", help="Пересчитать все документы")
+        parser.add_argument("--all", action="store_true", help="Přepočítat všechny dokumenty")
 
     def handle(self, *args, all, **options):
         docs = Document.objects.select_related("source")
@@ -26,4 +26,4 @@ class Command(BaseCommand):
                 levels[doc.source_id] = quality.open_incident_level(doc.source)
             quality.assess(doc, incident_level=levels[doc.source_id])
             done += 1
-        self.stdout.write(f"Оценено документов: {done} (правила {quality.RULES_VERSION}).")
+        self.stdout.write(f"Ohodnoceno dokumentů: {done} (pravidla {quality.RULES_VERSION}).")

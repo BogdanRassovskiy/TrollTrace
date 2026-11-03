@@ -8,9 +8,11 @@
 from django.contrib.auth.mixins import AccessMixin
 from django.contrib.auth.models import Group, Permission
 
-RESEARCHER = "Исследователь"
-OBSERVER = "Наблюдатель"
+RESEARCHER = "Výzkumník"
+OBSERVER = "Pozorovatel"
 ROLES = {"researcher": RESEARCHER, "observer": OBSERVER}
+# Прежние (русские) названия групп: при migrate переименовываются, участники сохраняются.
+LEGACY_NAMES = {"Исследователь": RESEARCHER, "Наблюдатель": OBSERVER}
 
 # Приложения с исследовательскими данными: исследователю на них даются все права.
 RESEARCH_APPS = [
@@ -48,11 +50,14 @@ def role_label(user) -> str:
         return RESEARCHER
     if _in_group(user, OBSERVER):
         return OBSERVER
-    return "Без роли"
+    return "Bez role"
 
 
 def ensure_roles(**kwargs) -> None:
     """Создаёт группы и выставляет их права. Идемпотентно, вызывается после migrate."""
+    for old, new in LEGACY_NAMES.items():
+        if not Group.objects.filter(name=new).exists():
+            Group.objects.filter(name=old).update(name=new)
     researcher, _ = Group.objects.get_or_create(name=RESEARCHER)
     observer, _ = Group.objects.get_or_create(name=OBSERVER)
 

@@ -39,7 +39,7 @@ def test_dashboard_renders_with_echarts(observer_client):
     response = observer_client.get(reverse("dashboard:index"))
     assert response.status_code == 200
     content = response.content.decode()
-    assert "Рабочая часть" in content
+    assert "Pracovní část" in content
     assert "vendor/echarts.min.js" in content
 
 
@@ -47,7 +47,7 @@ def test_dashboard_renders_with_echarts(observer_client):
 def test_panel_renders_sections(researcher_client):
     response = researcher_client.get(reverse("panel:index"))
     assert response.status_code == 200
-    assert "Журнал аудита" in response.content.decode()
+    assert "Auditní protokol" in response.content.decode()
 
 
 @pytest.mark.django_db

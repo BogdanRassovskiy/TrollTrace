@@ -14,14 +14,14 @@ from .models import AuditLog, Notification
 
 # Разделы панели исследователя (README §7.2): название, этап, ссылка (если раздел уже есть).
 SECTIONS = [
-    ("Акторы", "Этап 9", None),
-    ("Источники и здоровье сбора", "Готово (3.1)", reverse_lazy("panel:sources")),
-    ("Кодбук", "Этап 6 / 9", None),
-    ("Настройки", "Этап 9", None),
-    ("Валидация", "Этап 10", None),
-    ("Задачи", "Этап 9", None),
-    ("Уведомления", "Готово (3.1)", reverse_lazy("panel:notifications")),
-    ("Журнал аудита", "Готово", reverse_lazy("panel:audit")),
+    ("Aktéři", "Etapa 9", None),
+    ("Zdroje a stav sběru", "Hotovo (3.1)", reverse_lazy("panel:sources")),
+    ("Kódová kniha", "Etapa 6 / 9", None),
+    ("Nastavení", "Etapa 9", None),
+    ("Validace", "Etapa 10", None),
+    ("Úlohy", "Etapa 9", None),
+    ("Upozornění", "Hotovo (3.1)", reverse_lazy("panel:notifications")),
+    ("Auditní protokol", "Hotovo", reverse_lazy("panel:audit")),
 ]
 
 

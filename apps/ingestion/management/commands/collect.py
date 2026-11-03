@@ -12,14 +12,16 @@ from apps.ingestion.tasks import run_collector
 
 
 class Command(BaseCommand):
-    help = "Собирает документы из указанных источников сейчас и печатает итог."
+    help = "Okamžitě sebere dokumenty z uvedených zdrojů a vypíše souhrn."
 
     def add_arguments(self, parser):
-        parser.add_argument("--source", type=int, action="append", help="ID источника.")
-        parser.add_argument("--layer", help="Все активные источники слоя (A–E).")
-        parser.add_argument("--all", action="store_true", help="Все активные источники.")
+        parser.add_argument("--source", type=int, action="append", help="ID zdroje.")
+        parser.add_argument("--layer", help="Všechny aktivní zdroje vrstvy (A–E).")
+        parser.add_argument("--all", action="store_true", help="Všechny aktivní zdroje.")
         parser.add_argument(
-            "--max-articles", type=int, help="Предел новых документов (страниц PSP) за запуск."
+            "--max-articles",
+            type=int,
+            help="Limit nových dokumentů (stránek PSP) na jedno spuštění.",
         )
 
     def handle(self, *args, source, layer, all, max_articles, **options):
@@ -29,7 +31,7 @@ class Command(BaseCommand):
         elif layer:
             sources = sources.filter(layer=layer.upper())
         elif not all:
-            raise CommandError("Укажите --source, --layer или --all.")
+            raise CommandError("Zadejte --source, --layer nebo --all.")
         for src in sources:
             if max_articles:
                 # Только на этот запуск, в БД не сохраняется.
@@ -41,9 +43,9 @@ class Command(BaseCommand):
                 }
             run = run_collector(src)
             self.stdout.write(
-                f"{src.name}: {run.status} — найдено {run.found}, новых {run.new}, "
-                f"версий {run.versions}, дублей {run.duplicates}, пропущено {run.skipped}, "
-                f"ошибок {run.errors}, запросов {run.http_requests}"
+                f"{src.name}: {run.status} — nalezeno {run.found}, nových {run.new}, "
+                f"verzí {run.versions}, duplikátů {run.duplicates}, přeskočeno {run.skipped}, "
+                f"chyb {run.errors}, požadavků {run.http_requests}"
             )
             for error in run.details.get("errors", [])[:5]:
                 self.stdout.write(f"  ! {error}")

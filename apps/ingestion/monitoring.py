@@ -91,8 +91,8 @@ def check_volume(source: Source, now) -> CheckResult:
                 Signal(
                     Type.STALE_FEED,
                     Level.WARNING,
-                    f"Новых документов нет {result.metrics['hours_since_last_document']} ч "
-                    f"(порог {source.stale_after_hours} ч).",
+                    f"Žádné nové dokumenty {result.metrics['hours_since_last_document']} h "
+                    f"(práh {source.stale_after_hours} h).",
                 )
             )
 
@@ -100,7 +100,7 @@ def check_volume(source: Source, now) -> CheckResult:
         return result
     days = min(HISTORY_DAYS, (now - first).days)
     if days < MIN_HISTORY_DAYS:
-        result.details = f"Норма ещё не набрана: {days} дн. истории."
+        result.details = f"Norma ještě není k dispozici: {days} dní historie."
         return result
 
     def count(start, end):
@@ -117,14 +117,14 @@ def check_volume(source: Source, now) -> CheckResult:
     result.covers |= {Type.NO_DOCUMENTS, Type.LOW_VOLUME}
     if today == 0:
         result.signals.append(
-            Signal(Type.NO_DOCUMENTS, Level.CRITICAL, f"0 документов за сутки (норма {median}).")
+            Signal(Type.NO_DOCUMENTS, Level.CRITICAL, f"0 dokumentů za den (norma {median}).")
         )
     elif today < median * ratio:
         result.signals.append(
             Signal(
                 Type.LOW_VOLUME,
                 Level.WARNING,
-                f"{today} документов за сутки при норме {median} (порог {ratio:.0%} нормы).",
+                f"{today} dokumentů za den při normě {median} (práh {ratio:.0%} normy).",
             )
         )
     return result
@@ -156,25 +156,25 @@ def check_extraction(source: Source, now) -> CheckResult:
     # Заглушки и капча видны и на малом числе документов.
     result.covers |= {Type.BOILERPLATE, Type.BLOCKED}
     for flag, incident_type, text in (
-        ("boilerplate_dup", Type.BOILERPLATE, "одинаковый текст у разных URL"),
-        ("blocked_page", Type.BLOCKED, "капча / антибот / согласие / ошибка вместо статьи"),
+        ("boilerplate_dup", Type.BOILERPLATE, "stejný text u různých URL"),
+        ("blocked_page", Type.BLOCKED, "captcha / antibot / souhlas / chyba místo článku"),
     ):
         bad = Document.objects.filter(
             pk__in=recent.filter(**{flag: True}).values("document_id")
         ).order_by("-collected_at")
         if len(bad[:2]) >= 2:
             result.signals.append(
-                Signal(incident_type, Level.CRITICAL, f"{bad.count()} док. за сутки: {text}.",
+                Signal(incident_type, Level.CRITICAL, f"{bad.count()} dok. za den: {text}.",
                        _examples(bad))
             )  # fmt: skip
 
     if shares["n"] < MIN_DOCS:
-        result.details = f"Документов за сутки меньше {MIN_DOCS} — доли не оцениваются."
+        result.details = f"Dokumentů za den je méně než {MIN_DOCS} — podíly se nehodnotí."
         return result
     result.covers |= {Type.EXTRACTION, Type.LANGUAGE}
-    labels = {"no_date": "без даты", "no_title": "без заголовка", "short": "с коротким текстом"}
+    labels = {"no_date": "bez data", "no_title": "bez titulku", "short": "s krátkým textem"}
     problems = [
-        f"{labels[k]} {shares[k]:.0%} (норма {norm[k]:.0%})"
+        f"{labels[k]} {shares[k]:.0%} (norma {norm[k]:.0%})"
         for k in labels
         if shares[k] >= SHARE_ALERT and (norm["n"] < MIN_DOCS or shares[k] >= norm[k] + SHARE_JUMP)
     ]
@@ -183,7 +183,7 @@ def check_extraction(source: Source, now) -> CheckResult:
             Q(has_published_at=False) | Q(has_title=False) | Q(text_short=True) | Q(text_empty=True)
         ).select_related("document")
         result.signals.append(
-            Signal(Type.EXTRACTION, Level.WARNING, "Документы " + ", ".join(problems) + ".",
+            Signal(Type.EXTRACTION, Level.WARNING, "Dokumenty " + ", ".join(problems) + ".",
                    [q.document.url for q in flagged[:MAX_EXAMPLES]])
         )  # fmt: skip
     if shares["lang"] >= SHARE_ALERT:
@@ -191,8 +191,8 @@ def check_extraction(source: Source, now) -> CheckResult:
             Signal(
                 Type.LANGUAGE,
                 Level.WARNING,
-                f"Язык не совпадает с ожидаемым ({source.expected_language}) "
-                f"у {shares['lang']:.0%} документов.",
+                f"Jazyk neodpovídá očekávanému ({source.expected_language}) "
+                f"u {shares['lang']:.0%} dokumentů.",
             )
         )
     return result
@@ -225,13 +225,13 @@ def check_quality(source: Source, now) -> CheckResult:
             Signal(
                 Type.QUALITY_DROP,
                 Level.WARNING,
-                f"Средняя оценка качества за сутки {mean:.2f} (порог {threshold}).",
+                f"Průměrné hodnocení kvality za den {mean:.2f} (práh {threshold}).",
             )
         )
     return result
 
 
-UNAVAILABLE = re.compile(r"недоступен|закрыт для превью")
+UNAVAILABLE = re.compile(r"není dostupný|vypnutý náhled")
 
 
 def check_http(source: Source, now) -> CheckResult:
@@ -239,7 +239,7 @@ def check_http(source: Source, now) -> CheckResult:
     runs = list(source.collection_runs.filter(started_at__gte=now - datetime.timedelta(days=1)))
     finished = [r for r in runs if r.status != r.Status.RUNNING]
     if not finished:
-        result.details = "Запусков сбора за сутки нет."
+        result.details = "Za den neproběhlo žádné spuštění sběru."
         return result
     result.covers |= {Type.HTTP_ERRORS, Type.CHANNEL_UNAVAILABLE}
 
@@ -269,24 +269,24 @@ def check_http(source: Source, now) -> CheckResult:
     if unavailable:
         result.signals.append(
             Signal(Type.CHANNEL_UNAVAILABLE, Level.CRITICAL,
-                   "Канал недоступен, переименован или удалён.", sorted(set(unavailable))[:5])
+                   "Kanál není dostupný, přejmenován nebo smazán.", sorted(set(unavailable))[:5])
         )  # fmt: skip
 
     problems = []
     if requests and errors / requests >= HTTP_ERROR_SHARE:
-        problems.append(f"ошибок HTTP {errors / requests:.0%} запросов")
+        problems.append(f"chyb HTTP {errors / requests:.0%} požadavků")
     if len(failed) * 2 >= len(finished):
-        problems.append(f"упало {len(failed)} из {len(finished)} запусков")
+        problems.append(f"selhalo {len(failed)} z {len(finished)} spuštění")
     if timeouts >= 3:
-        problems.append(f"таймаутов {timeouts}")
+        problems.append(f"časových limitů {timeouts}")
     if offsite >= 3:
-        problems.append(f"редиректов на другой домен {offsite}")
+        problems.append(f"přesměrování na jinou doménu {offsite}")
     if robots:
-        problems.append(f"запрещено robots.txt: {robots}")
+        problems.append(f"zakázáno v robots.txt: {robots}")
     broken_feeds = list(source.feeds.filter(is_active=True).exclude(last_error=""))
     if broken_feeds:
         problems.append(
-            "ленты с ошибкой: " + ", ".join(f"{f.url} ({f.last_error})" for f in broken_feeds)
+            "kanály s chybou: " + ", ".join(f"{f.url} ({f.last_error})" for f in broken_feeds)
         )
     if problems:
         level = Level.CRITICAL if len(failed) == len(finished) else Level.WARNING
@@ -304,16 +304,16 @@ def compare_golden(page: GoldenPage, html: str) -> list[str]:
     extracted = extract_article(html, page.url)
     problems = []
     if _normalize(extracted.title) != _normalize(page.expected_title):
-        problems.append(f"заголовок «{extracted.title[:80]}»")
+        problems.append(f"titulek „{extracted.title[:80]}»")
     prefix = _normalize(page.expected_text_prefix)[:150]
     # trafilatura иногда кладёт в начало текста заголовок — ищем эталон в первых символах.
     if prefix and prefix not in _normalize(extracted.text)[: len(prefix) + 300]:
-        problems.append("начало текста")
+        problems.append("začátek textu")
     if page.expected_published_at and (
         extracted.published_at is None
         or abs(extracted.published_at - page.expected_published_at) > datetime.timedelta(days=1)
     ):
-        problems.append(f"дата {extracted.published_at}")
+        problems.append(f"datum {extracted.published_at}")
     return problems
 
 
@@ -340,7 +340,7 @@ def check_golden(source: Source, now, client: PoliteClient) -> CheckResult | Non
     if mismatches:
         result.signals.append(
             Signal(Type.GOLDEN_MISMATCH, Level.WARNING,
-                   "Извлечение не совпадает с эталоном — вероятно, поменялась вёрстка.",
+                   "Extrakce neodpovídá vzoru — pravděpodobně se změnilo rozvržení stránky.",
                    mismatches[:MAX_EXAMPLES])
         )  # fmt: skip
     return result
@@ -392,7 +392,7 @@ def raise_signal(source: Source, signal: Signal, now) -> SourceIncident:
         incident.level = Level.CRITICAL
     incident.save(update_fields=["occurrences", "description", "examples", "level"])
     if escalated:
-        notify(source, Level.CRITICAL, f"{source.name}: {label} — стало критично",
+        notify(source, Level.CRITICAL, f"{source.name}: {label} — nyní kritické",
                _with_examples(signal), incident)  # fmt: skip
     return incident
 
@@ -414,8 +414,8 @@ def resolve(source: Source, incident_type: str, now) -> SourceIncident | None:
     notify(
         source,
         Notification.Level.INFO,
-        f"{source.name}: снова в норме",
-        f"{incident.get_incident_type_display()} — закрыто, длилось {hours:.1f} ч.",
+        f"{source.name}: opět v normě",
+        f"{incident.get_incident_type_display()} — uzavřeno, trvalo {hours:.1f} h.",
         incident,
     )
     return incident

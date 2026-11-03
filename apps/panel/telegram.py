@@ -51,7 +51,7 @@ def send(notification: Notification, transport: httpx.BaseTransport | None = Non
             )
             response.raise_for_status()
     except httpx.HTTPError as exc:
-        logger.warning("Telegram: уведомление %s не отправлено: %s", notification.pk, exc)
+        logger.warning("Telegram: upozornění %s nebylo odesláno: %s", notification.pk, exc)
         return False
     notification.sent_to_telegram = True
     notification.save(update_fields=["sent_to_telegram"])

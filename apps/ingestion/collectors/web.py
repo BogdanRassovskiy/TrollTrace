@@ -81,9 +81,7 @@ class WebCollector(Collector):
             self.active_accounts().filter(account_id="").first() or self.active_accounts().first()
         )
         if account is None:
-            self.error(
-                "У источника нет активного актора (ActorAccount) — собирать не от чьего имени."
-            )
+            self.error("Zdroj nemá aktivního aktéra (ActorAccount) — není komu sběr přiřadit.")
             return
         actor = account.actor
 
@@ -120,7 +118,7 @@ class WebCollector(Collector):
                 feed.last_success_at, feed.last_error = feed.last_fetched_at, ""
             elif not result.ok:
                 feed.last_error = f"HTTP {result.status}"
-                self.error(f"Лента {feed.url}: HTTP {result.status}")
+                self.error(f"Kanál {feed.url}: HTTP {result.status}")
             else:
                 if feed.kind == SourceFeed.Kind.SITEMAP:
                     entries = self._read_sitemap(result.content, feed.rubric)
@@ -134,13 +132,13 @@ class WebCollector(Collector):
                     "",
                 )
                 if not entries:
-                    feed.last_error = "Лента пуста"
+                    feed.last_error = "Kanál je prázdný"
         except RobotsDisallowed:
-            feed.last_error = "Запрещено robots.txt"
-            self.error(f"Лента {feed.url}: запрещено robots.txt")
+            feed.last_error = "Zakázáno v robots.txt"
+            self.error(f"Kanál {feed.url}: zakázáno v robots.txt")
         except Exception as exc:  # noqa: BLE001 — одна лента не должна валить весь источник
             feed.last_error = f"{type(exc).__name__}: {exc}"[:1000]
-            self.error(f"Лента {feed.url}: {feed.last_error}")
+            self.error(f"Kanál {feed.url}: {feed.last_error}")
         feed.save()
         return entries
 

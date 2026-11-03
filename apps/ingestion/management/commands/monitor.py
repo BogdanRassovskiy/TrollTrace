@@ -9,11 +9,11 @@ from apps.ingestion.http import PoliteClient
 
 
 class Command(BaseCommand):
-    help = "Проверки мониторинга сбора по источникам (README §4.2)."
+    help = "Kontroly monitoringu sběru podle zdrojů (README §4.2)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--source", type=int, help="ID источника; по умолчанию все активные")
-        parser.add_argument("--golden", action="store_true", help="Ещё и контрольные страницы")
+        parser.add_argument("--source", type=int, help="ID zdroje; výchozí jsou všechny aktivní")
+        parser.add_argument("--golden", action="store_true", help="Také kontrolní stránky")
 
     def handle(self, *args, source, golden, **options):
         sources = Source.objects.filter(is_active=True)

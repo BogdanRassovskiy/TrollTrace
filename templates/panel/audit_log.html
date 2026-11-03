@@ -1,37 +1,37 @@
 {% extends "base.html" %}
 
-{% block title %}Журнал аудита{% endblock %}
+{% block title %}Auditní protokol{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Панель исследователя</a> /</p>
-  <h1>Журнал аудита</h1>
+  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  <h1>Auditní protokol</h1>
   <p class="muted">
-    Все изменения в панели и админке: кто, когда, что изменил, старое и новое значение.
-    Записи нельзя изменить или удалить (README §7.2).
+    Všechny změny v panelu a administraci: kdo, kdy, co změnil, stará a nová hodnota.
+    Záznamy nelze měnit ani mazat (README §7.2).
   </p>
 
   <form method="get" class="filters">
-    <select name="user" aria-label="Пользователь">
-      <option value="">Все пользователи</option>
+    <select name="user" aria-label="Uživatel">
+      <option value="">Všichni uživatelé</option>
       {% for name in usernames %}<option value="{{ name }}" {% if filters.user == name %}selected{% endif %}>{{ name }}</option>{% endfor %}
     </select>
-    <select name="action" aria-label="Действие">
-      <option value="">Все действия</option>
+    <select name="action" aria-label="Akce">
+      <option value="">Všechny akce</option>
       {% for value, label in actions %}<option value="{{ value }}" {% if filters.action == value %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
-    <select name="type" aria-label="Тип объекта">
-      <option value="">Все объекты</option>
+    <select name="type" aria-label="Typ objektu">
+      <option value="">Všechny objekty</option>
       {% for ct in content_types %}<option value="{{ ct.pk }}" {% if filters.type == ct.pk|stringformat:"s" %}selected{% endif %}>{{ ct.name|capfirst }}</option>{% endfor %}
     </select>
-    <input type="search" name="q" value="{{ filters.q|default:'' }}" placeholder="Объект…" aria-label="Поиск по объекту">
-    <button type="submit" class="button">Показать</button>
-    {% if querystring %}<a href="{% url 'panel:audit' %}">Сбросить</a>{% endif %}
+    <input type="search" name="q" value="{{ filters.q|default:'' }}" placeholder="Objekt…" aria-label="Hledat podle objektu">
+    <button type="submit" class="button">Zobrazit</button>
+    {% if querystring %}<a href="{% url 'panel:audit' %}">Zrušit filtr</a>{% endif %}
   </form>
 
   <div class="table-wrap card">
     <table class="table">
       <thead>
-        <tr><th>Когда</th><th>Кто</th><th>Действие</th><th>Объект</th><th>Изменения</th></tr>
+        <tr><th>Kdy</th><th>Kdo</th><th>Akce</th><th>Objekt</th><th>Změny</th></tr>
       </thead>
       <tbody>
         {% for e in entries %}
@@ -60,7 +60,7 @@
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="5" class="muted">Записей нет.</td></tr>
+          <tr><td colspan="5" class="muted">Žádné záznamy.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -68,9 +68,9 @@
 
   {% if is_paginated %}
     <nav class="pager">
-      {% if page_obj.has_previous %}<a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">← Новее</a>{% endif %}
-      <span class="muted">Страница {{ page_obj.number }} из {{ paginator.num_pages }} · {{ paginator.count }} записей</span>
-      {% if page_obj.has_next %}<a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Старее →</a>{% endif %}
+      {% if page_obj.has_previous %}<a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}">← Novější</a>{% endif %}
+      <span class="muted">Stránka {{ page_obj.number }} z {{ paginator.num_pages }} · {{ paginator.count }} záznamů</span>
+      {% if page_obj.has_next %}<a href="?{{ querystring }}&page={{ page_obj.next_page_number }}">Starší →</a>{% endif %}
     </nav>
   {% endif %}
 {% endblock %}

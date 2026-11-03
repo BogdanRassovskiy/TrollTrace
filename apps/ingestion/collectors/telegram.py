@@ -111,7 +111,7 @@ class TelegramCollector(Collector):
                 return
             if "/s/" not in result.final_url:
                 # Telegram отправляет на t.me/<канал>, если канала нет или превью выключено.
-                self.error(f"@{handle}: канал недоступен или закрыт для превью")
+                self.error(f"@{handle}: kanál není dostupný nebo má vypnutý náhled")
                 return
             messages = parse_channel_page(result.text)
             if not messages:

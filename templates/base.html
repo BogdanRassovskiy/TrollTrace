@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="{{ LANGUAGE_CODE|default:'ru' }}">
+<html lang="{{ LANGUAGE_CODE|default:'cs' }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -13,20 +13,20 @@
     <nav class="nav">
       {% with ns=request.resolver_match.namespace %}
       {% if user_can_view_dashboard %}
-        <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Рабочая часть</a>
+        <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Pracovní část</a>
       {% endif %}
       {% if user_is_researcher %}
-        <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Панель исследователя</a>
+        <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Panel výzkumníka</a>
       {% endif %}
       {% endwith %}
     </nav>
     {% if open_access_guest %}
-      <span class="userbox"><span class="badge badge-warn" title="Вход отключён (OPEN_ACCESS)">Открытый доступ</span></span>
+      <span class="userbox"><span class="badge badge-warn" title="Přihlášení vypnuto (OPEN_ACCESS)">Otevřený přístup</span></span>
     {% elif user.is_authenticated %}
       <form method="post" action="{% url 'logout' %}" class="userbox">
         {% csrf_token %}
         <span>{{ user.get_username }} <span class="badge">{{ user_role }}</span></span>
-        <button type="submit" class="link-button">Выйти</button>
+        <button type="submit" class="link-button">Odhlásit</button>
       </form>
     {% endif %}
   </header>
@@ -41,7 +41,7 @@
   </main>
 
   <footer class="footer">
-    TrollTrace v{{ PROJECT_VERSION }} · исследовательский инструмент, UJEP
+    TrollTrace v{{ PROJECT_VERSION }} · výzkumný nástroj, UJEP
   </footer>
 
   {% block scripts %}{% endblock %}

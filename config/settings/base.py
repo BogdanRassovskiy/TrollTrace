@@ -104,7 +104,7 @@ SESSION_COOKIE_AGE = 60 * 60 * 12  # рабочий день; база закр�
 
 # --- Локализация --------------------------------------------------------------
 
-LANGUAGE_CODE = "ru"
+LANGUAGE_CODE = "cs"
 LANGUAGES = [("ru", "Русский"), ("cs", "Čeština"), ("en", "English")]
 LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "Europe/Prague"

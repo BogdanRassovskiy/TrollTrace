@@ -14,14 +14,14 @@ class Setting(VersionedModel):
 
     VERSIONED_FIELDS = ("value",)
 
-    key = models.SlugField("ключ", max_length=100, unique=True)
-    value = models.JSONField("значение")
-    description = models.TextField("описание", blank=True)
-    updated_at = models.DateTimeField("изменено", auto_now=True)
+    key = models.SlugField("klíč", max_length=100, unique=True)
+    value = models.JSONField("hodnota")
+    description = models.TextField("popis", blank=True)
+    updated_at = models.DateTimeField("změněno", auto_now=True)
 
     class Meta:
-        verbose_name = "настройка"
-        verbose_name_plural = "настройки"
+        verbose_name = "nastavení"
+        verbose_name_plural = "nastavení"
         ordering = ["key"]
 
     def __str__(self):
@@ -39,13 +39,13 @@ class Setting(VersionedModel):
 
 class SettingVersion(VersionRecord):
     setting = models.ForeignKey(
-        Setting, verbose_name="настройка", on_delete=models.CASCADE, related_name="versions"
+        Setting, verbose_name="nastavení", on_delete=models.CASCADE, related_name="versions"
     )
-    value = models.JSONField("значение")
+    value = models.JSONField("hodnota")
 
     class Meta(VersionRecord.Meta):
-        verbose_name = "версия настройки"
-        verbose_name_plural = "история настроек"
+        verbose_name = "verze nastavení"
+        verbose_name_plural = "historie nastavení"
         constraints = [
             models.UniqueConstraint(
                 fields=["setting", "version"], name="setting_version_unique_number"
@@ -60,46 +60,46 @@ class Notification(models.Model):
     """Уведомление для исследователя: кандидаты, всплески, ошибки сбора, завершение задач."""
 
     class Type(models.TextChoices):
-        NARRATIVE_CANDIDATE = "candidate", "Новый кандидат в нарративы"
-        SPIKE = "spike", "Всплеск у актора"
-        COLLECTION = "collection", "Сбор данных"
-        JOB = "job", "Фоновая задача"
-        OTHER = "other", "Другое"
+        NARRATIVE_CANDIDATE = "candidate", "Nový kandidát na narativ"
+        SPIKE = "spike", "Výkyv u aktéra"
+        COLLECTION = "collection", "Sběr dat"
+        JOB = "job", "Úloha na pozadí"
+        OTHER = "other", "Jiné"
 
     class Level(models.TextChoices):
-        INFO = "info", "Информация"
-        WARNING = "warning", "Предупреждение"
-        CRITICAL = "critical", "Критично"
+        INFO = "info", "Informace"
+        WARNING = "warning", "Varování"
+        CRITICAL = "critical", "Kritické"
 
-    notification_type = models.CharField("тип", max_length=12, choices=Type.choices)
-    level = models.CharField("уровень", max_length=10, choices=Level.choices, default=Level.INFO)
-    title = models.CharField("заголовок", max_length=300)
-    text = models.TextField("текст", blank=True)
-    url = models.CharField("ссылка в панели", max_length=500, blank=True)
+    notification_type = models.CharField("typ", max_length=12, choices=Type.choices)
+    level = models.CharField("úroveň", max_length=10, choices=Level.choices, default=Level.INFO)
+    title = models.CharField("titulek", max_length=300)
+    text = models.TextField("text", blank=True)
+    url = models.CharField("odkaz v panelu", max_length=500, blank=True)
 
     content_type = models.ForeignKey(
-        ContentType, verbose_name="тип объекта", on_delete=models.CASCADE, null=True, blank=True
+        ContentType, verbose_name="typ objektu", on_delete=models.CASCADE, null=True, blank=True
     )
-    object_id = models.CharField("ID объекта", max_length=64, blank=True)
+    object_id = models.CharField("ID objektu", max_length=64, blank=True)
     target = GenericForeignKey("content_type", "object_id")
 
     recipient = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="получатель",
+        verbose_name="příjemce",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="notifications",
-        help_text="Пусто — всем исследователям.",
+        help_text="Prázdné — všem výzkumníkům.",
     )
-    is_read = models.BooleanField("прочитано", default=False)
-    read_at = models.DateTimeField("когда прочитано", null=True, blank=True)
-    sent_to_telegram = models.BooleanField("отправлено в Telegram", default=False)
-    created_at = models.DateTimeField("создано", auto_now_add=True)
+    is_read = models.BooleanField("přečteno", default=False)
+    read_at = models.DateTimeField("kdy přečteno", null=True, blank=True)
+    sent_to_telegram = models.BooleanField("odesláno do Telegramu", default=False)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
 
     class Meta:
-        verbose_name = "уведомление"
-        verbose_name_plural = "уведомления"
+        verbose_name = "upozornění"
+        verbose_name_plural = "upozornění"
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["is_read", "-created_at"])]
 
@@ -111,45 +111,43 @@ class Job(models.Model):
     """Фоновая задача (сбор, ретроразметка, пересчёт агрегатов) и её статус."""
 
     class Type(models.TextChoices):
-        COLLECT = "collect", "Сбор"
-        RETRO_COLLECT = "retro_collect", "Ретроспективный сбор"
-        EMBED = "embed", "Эмбеддинги"
-        RELABEL = "relabel", "Ретроразметка"
-        AGGREGATE = "aggregate", "Пересчёт агрегатов"
-        QUALITY = "quality", "Пересчёт оценок качества"
-        OTHER = "other", "Другое"
+        COLLECT = "collect", "Sběr"
+        RETRO_COLLECT = "retro_collect", "Retrospektivní sběr"
+        EMBED = "embed", "Embeddingy"
+        RELABEL = "relabel", "Zpětné anotování"
+        AGGREGATE = "aggregate", "Přepočet agregátů"
+        QUALITY = "quality", "Přepočet hodnocení kvality"
+        OTHER = "other", "Jiné"
 
     class Status(models.TextChoices):
-        PENDING = "pending", "В очереди"
-        RUNNING = "running", "Выполняется"
-        SUCCEEDED = "succeeded", "Готово"
-        FAILED = "failed", "Ошибка"
-        CANCELLED = "cancelled", "Отменено"
+        PENDING = "pending", "Ve frontě"
+        RUNNING = "running", "Probíhá"
+        SUCCEEDED = "succeeded", "Hotovo"
+        FAILED = "failed", "Chyba"
+        CANCELLED = "cancelled", "Zrušeno"
 
-    job_type = models.CharField("тип", max_length=15, choices=Type.choices)
-    status = models.CharField(
-        "статус", max_length=10, choices=Status.choices, default=Status.PENDING
-    )
-    celery_task_id = models.CharField("ID задачи Celery", max_length=64, blank=True)
-    params = models.JSONField("параметры", default=dict, blank=True)
-    progress = models.FloatField("прогресс", default=0)
-    message = models.TextField("сообщение", blank=True)
-    result = models.JSONField("результат", default=dict, blank=True)
+    job_type = models.CharField("typ", max_length=15, choices=Type.choices)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.PENDING)
+    celery_task_id = models.CharField("ID úlohy Celery", max_length=64, blank=True)
+    params = models.JSONField("parametry", default=dict, blank=True)
+    progress = models.FloatField("průběh", default=0)
+    message = models.TextField("zpráva", blank=True)
+    result = models.JSONField("výsledek", default=dict, blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="кто запустил",
+        verbose_name="kdo spustil",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
-    created_at = models.DateTimeField("создано", auto_now_add=True)
-    started_at = models.DateTimeField("начато", null=True, blank=True)
-    finished_at = models.DateTimeField("завершено", null=True, blank=True)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+    started_at = models.DateTimeField("zahájeno", null=True, blank=True)
+    finished_at = models.DateTimeField("dokončeno", null=True, blank=True)
 
     class Meta:
-        verbose_name = "фоновая задача"
-        verbose_name_plural = "фоновые задачи"
+        verbose_name = "úloha na pozadí"
+        verbose_name_plural = "úlohy na pozadí"
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(
@@ -169,45 +167,45 @@ class AuditLog(models.Model):
     """
 
     class Action(models.TextChoices):
-        CREATE = "create", "Создание"
-        UPDATE = "update", "Изменение"
-        ARCHIVE = "archive", "Архивация"
-        RESTORE = "restore", "Восстановление"
-        DELETE = "delete", "Удаление"
-        DECISION = "decision", "Решение по кандидату"
-        RUN = "run", "Запуск задачи"
-        ROLE = "role", "Изменение роли"
-        LOGIN = "login", "Вход"
-        LOGOUT = "logout", "Выход"
-        LOGIN_FAILED = "login_failed", "Неудачный вход"
+        CREATE = "create", "Vytvoření"
+        UPDATE = "update", "Změna"
+        ARCHIVE = "archive", "Archivace"
+        RESTORE = "restore", "Obnovení"
+        DELETE = "delete", "Smazání"
+        DECISION = "decision", "Rozhodnutí o kandidátovi"
+        RUN = "run", "Spuštění úlohy"
+        ROLE = "role", "Změna role"
+        LOGIN = "login", "Přihlášení"
+        LOGOUT = "logout", "Odhlášení"
+        LOGIN_FAILED = "login_failed", "Neúspěšné přihlášení"
 
-    timestamp = models.DateTimeField("когда", auto_now_add=True, db_index=True)
+    timestamp = models.DateTimeField("kdy", auto_now_add=True, db_index=True)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="пользователь",
+        verbose_name="uživatel",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
     username = models.CharField(
-        "имя пользователя", max_length=150, blank=True, help_text="Сохраняется на случай удаления."
+        "uživatelské jméno", max_length=150, blank=True, help_text="Uchovává se pro případ smazání."
     )
-    action = models.CharField("действие", max_length=12, choices=Action.choices)
+    action = models.CharField("akce", max_length=12, choices=Action.choices)
     content_type = models.ForeignKey(
-        ContentType, verbose_name="тип объекта", on_delete=models.PROTECT, null=True, blank=True
+        ContentType, verbose_name="typ objektu", on_delete=models.PROTECT, null=True, blank=True
     )
-    object_id = models.CharField("ID объекта", max_length=64, blank=True)
-    object_repr = models.CharField("объект", max_length=300, blank=True)
+    object_id = models.CharField("ID objektu", max_length=64, blank=True)
+    object_repr = models.CharField("objekt", max_length=300, blank=True)
     changes = models.JSONField(
-        "изменения", default=dict, blank=True, help_text='{"поле": [старое, новое]}'
+        "změny", default=dict, blank=True, help_text='{"pole": [staré, nové]}'
     )
-    note = models.TextField("комментарий", blank=True)
+    note = models.TextField("komentář", blank=True)
     ip_address = models.GenericIPAddressField("IP", null=True, blank=True)
 
     class Meta:
-        verbose_name = "запись журнала аудита"
-        verbose_name_plural = "журнал аудита"
+        verbose_name = "záznam auditního protokolu"
+        verbose_name_plural = "auditní protokol"
         ordering = ["-timestamp"]
         indexes = [models.Index(fields=["content_type", "object_id"])]
 
@@ -216,10 +214,10 @@ class AuditLog(models.Model):
 
     def save(self, *args, **kwargs):
         if not self._state.adding:
-            raise PermissionError("Журнал аудита только дополняется.")
+            raise PermissionError("Auditní protokol lze pouze doplňovat.")
         if self.user is not None and not self.username:
             self.username = self.user.get_username()
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        raise PermissionError("Журнал аудита только дополняется.")
+        raise PermissionError("Auditní protokol lze pouze doplňovat.")

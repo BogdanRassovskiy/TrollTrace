@@ -88,6 +88,6 @@ class AuditedUserAdmin(AuditedModelAdmin, UserAdmin):
         response = super().user_change_password(request, id, form_url)
         if request.method == "POST" and response.status_code == 302:
             audit.log(
-                request, AuditLog.Action.UPDATE, self.get_object(request, id), note="Пароль изменён"
+                request, AuditLog.Action.UPDATE, self.get_object(request, id), note="Heslo změněno"
             )
         return response

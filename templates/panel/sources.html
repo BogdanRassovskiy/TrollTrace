@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 
-{% block title %}Источники и здоровье сбора{% endblock %}
+{% block title %}Zdroje a stav sběru{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Панель исследователя</a> /</p>
-  <h1>Источники и здоровье сбора</h1>
+  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  <h1>Zdroje a stav sběru</h1>
   <p class="muted">
-    Статус по открытым инцидентам мониторинга (README §4.2): зелёный — норма, жёлтый — предупреждение,
-    красный — критично. Проверки идут раз в час. Редактирование источников пока в админке.
+    Stav podle otevřených incidentů monitoringu (README §4.2): zelená — v normě, žlutá — varování,
+    červená — kritické. Kontroly probíhají jednou za hodinu. Zdroje se zatím upravují v administraci.
   </p>
 
   <div class="table-wrap card">
     <table class="table">
       <thead>
-        <tr><th></th><th>Источник</th><th>Слой</th><th>За сутки</th><th>Всего</th><th>Ср. оценка (сутки)</th><th>Последний сбор</th><th>Открытые инциденты</th></tr>
+        <tr><th></th><th>Zdroj</th><th>Vrstva</th><th>Za den</th><th>Celkem</th><th>Prům. hodnocení (den)</th><th>Poslední sběr</th><th>Otevřené incidenty</th></tr>
       </thead>
       <tbody>
         {% for source, health, incidents in rows %}
           <tr>
             <td><span class="health health-{{ health }}" title="{{ health }}"></span></td>
-            <td><a href="{% url 'admin:actors_source_change' source.pk %}">{{ source.name }}</a>{% if not source.is_active %} <span class="muted small">(выключен)</span>{% endif %}</td>
+            <td><a href="{% url 'admin:actors_source_change' source.pk %}">{{ source.name }}</a>{% if not source.is_active %} <span class="muted small">(vypnut)</span>{% endif %}</td>
             <td>{{ source.layer }}</td>
             <td>{{ source.docs_day }}</td>
             <td>{{ source.docs_total }}</td>
@@ -28,22 +28,22 @@
             <td>
               {% for i in incidents %}
                 <div><span class="badge level-{{ i.level }}">{{ i.get_level_display }}</span> {{ i.get_incident_type_display }}
-                  <div class="muted small">{{ i.description|truncatechars:160 }} · с {{ i.started_at|date:"Y-m-d H:i" }}{% if i.occurrences > 1 %} · повторов {{ i.occurrences }}{% endif %}</div></div>
+                  <div class="muted small">{{ i.description|truncatechars:160 }} · od {{ i.started_at|date:"Y-m-d H:i" }}{% if i.occurrences > 1 %} · opakování {{ i.occurrences }}{% endif %}</div></div>
               {% empty %}<span class="muted">—</span>{% endfor %}
             </td>
           </tr>
         {% empty %}
-          <tr><td colspan="8" class="muted">Источников пока нет.</td></tr>
+          <tr><td colspan="8" class="muted">Zatím žádné zdroje.</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 
-  <h2>История инцидентов</h2>
-  <p class="muted small">Периоды поломок учитываются в анализе и методологии: пробел в сборе — не «актор замолчал».</p>
+  <h2>Historie incidentů</h2>
+  <p class="muted small">Období poruch se zohledňují v analýze a metodologii: výpadek sběru neznamená, že „aktér zmlkl“.</p>
   <div class="table-wrap card">
     <table class="table">
-      <thead><tr><th>Источник</th><th>Тип</th><th>Уровень</th><th>Начало</th><th>Конец</th><th>Описание</th></tr></thead>
+      <thead><tr><th>Zdroj</th><th>Typ</th><th>Úroveň</th><th>Začátek</th><th>Konec</th><th>Popis</th></tr></thead>
       <tbody>
         {% for i in recent_incidents %}
           <tr>
@@ -51,10 +51,10 @@
             <td>{{ i.get_incident_type_display }}</td>
             <td><span class="badge level-{{ i.level }}">{{ i.get_level_display }}</span></td>
             <td class="nowrap">{{ i.started_at|date:"Y-m-d H:i" }}</td>
-            <td class="nowrap">{{ i.ended_at|date:"Y-m-d H:i"|default:"открыт" }}</td>
+            <td class="nowrap">{{ i.ended_at|date:"Y-m-d H:i"|default:"otevřený" }}</td>
             <td class="small">{{ i.description|truncatechars:200 }}</td>
           </tr>
-        {% empty %}<tr><td colspan="6" class="muted">Инцидентов не было.</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="6" class="muted">Žádné incidenty.</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

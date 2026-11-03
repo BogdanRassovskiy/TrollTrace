@@ -16,7 +16,7 @@ class SourceFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Source
 
-    name = factory.Sequence(lambda n: f"Источник {n}")
+    name = factory.Sequence(lambda n: f"Zdroj {n}")
     layer = Layer.ALTERNATIVE
     platform = Platform.WEB
     url = factory.Sequence(lambda n: f"https://source-{n}.example/")
@@ -26,7 +26,7 @@ class ActorFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Actor
 
-    name = factory.Sequence(lambda n: f"Актор {n}")
+    name = factory.Sequence(lambda n: f"Aktér {n}")
     actor_type = Actor.Type.MEDIA
     layer = Layer.ALTERNATIVE
 
@@ -59,7 +59,7 @@ class TopicFactory(factory.django.DjangoModelFactory):
         model = Topic
 
     code = factory.Sequence(lambda n: f"topic-{n}")
-    name = factory.Sequence(lambda n: f"Тема {n}")
+    name = factory.Sequence(lambda n: f"Téma {n}")
 
 
 class NarrativeFactory(factory.django.DjangoModelFactory):
@@ -70,8 +70,8 @@ class NarrativeFactory(factory.django.DjangoModelFactory):
 
     code = factory.Sequence(lambda n: f"N{n:03d}")
     topic = factory.SubFactory(TopicFactory)
-    name = factory.Sequence(lambda n: f"Нарратив {n}")
-    definition = "Определение нарратива."
+    name = factory.Sequence(lambda n: f"Narativ {n}")
+    definition = "Definice narativu."
 
 
 class LabelFactory(factory.django.DjangoModelFactory):

@@ -82,11 +82,11 @@ TOPICS = [
 ]
 # (код, тема, формулировка, тип: event — H1, cultural — H2, пик доли)
 NARRATIVES = [
-    ("N001", "ukrajina", "Помощь Украине разоряет чешских граждан", "event", 0.22),
-    ("N002", "eu", "Брюссель диктует Чехии свою волю", "cultural", 0.12),
-    ("N003", "eu", "Евро разорит чехов", "cultural", 0.08),
-    ("N004", "energetika", "Санкции против России вызвали энергетический кризис", "event", 0.18),
-    ("N005", "migrace", "Миграционный пакт навяжет Чехии мигрантов", "event", 0.15),
+    ("N001", "ukrajina", "Pomoc Ukrajině ožebračuje české občany", "event", 0.22),
+    ("N002", "eu", "Brusel diktuje Česku svou vůli", "cultural", 0.12),
+    ("N003", "eu", "Euro zruinuje Čechy", "cultural", 0.08),
+    ("N004", "energetika", "Sankce proti Rusku způsobily energetickou krizi", "event", 0.18),
+    ("N005", "migrace", "Migrační pakt vnutí Česku migranty", "event", 0.15),
 ]
 # Задержка появления по слоям в неделях от старта нарратива.
 ONSET_LAG = {
@@ -107,38 +107,38 @@ ONSET_LAG = {
 }
 QUALITY_RULES_VERSION = "demo-1"
 DEMO_HOST = "demo.example"
-DEMO_CRITERION = "Демо-данные"
+DEMO_CRITERION = "Demo data"
 DEMO_PREFIX = "demo-"
 
 
 class Command(BaseCommand):
-    help = "Заполняет БД демо-данными для разработки (вымышленные акторы и синтетические агрегаты)."
+    help = "Naplní DB demo daty pro vývoj (smyšlení aktéři a syntetické agregáty)."
 
     def add_arguments(self, parser):
+        parser.add_argument("--actors", type=int, default=350, help="Počet aktérů (výchozí 350).")
+        parser.add_argument("--weeks", type=int, default=26, help="Počet týdnů (výchozí 26).")
         parser.add_argument(
-            "--actors", type=int, default=350, help="Число акторов (по умолчанию 350)."
-        )
-        parser.add_argument("--weeks", type=int, default=26, help="Число недель (по умолчанию 26).")
-        parser.add_argument(
-            "--seed", type=int, default=42, help="Зерно генератора случайных чисел."
+            "--seed", type=int, default=42, help="Semínko generátoru náhodných čísel."
         )
         parser.add_argument(
-            "--reset", action="store_true", help="Удалить прежние демо-данные и создать заново."
+            "--reset", action="store_true", help="Smazat dosavadní demo data a vytvořit je znovu."
         )
         parser.add_argument(
-            "--clear", action="store_true", help="Только удалить демо-данные (реальные остаются)."
+            "--clear", action="store_true", help="Pouze smazat demo data (skutečná zůstanou)."
         )
 
     def handle(self, *args, actors, weeks, seed, reset, clear, **options):
         if clear:
             with transaction.atomic():
                 self._reset()
-            self.stdout.write(self.style.SUCCESS("Демо-данные удалены."))
+            self.stdout.write(self.style.SUCCESS("Demo data smazána."))
             return
         if actors < 10 or weeks < 8:
-            raise CommandError("Нужно минимум 10 акторов и 8 недель.")
+            raise CommandError("Je potřeba alespoň 10 aktérů a 8 týdnů.")
         if Actor.objects.filter(inclusion_criterion=DEMO_CRITERION).exists() and not reset:
-            raise CommandError("Демо-данные уже есть. Запустите с --reset, чтобы пересоздать их.")
+            raise CommandError(
+                "Demo data už existují. Spusťte s --reset pro jejich znovuvytvoření."
+            )
 
         self.rng = random.Random(seed)
         today = timezone.localdate()
@@ -159,9 +159,9 @@ class Command(BaseCommand):
 
         self.stdout.write(
             self.style.SUCCESS(
-                f"Готово: {len(actor_list)} акторов, {Source.objects.count()} источников, "
-                f"{len(narratives)} нарративов, {len(documents)} документов, "
-                f"{WeeklyAggregate.objects.count()} строк агрегатов за {weeks} недель."
+                f"Hotovo: {len(actor_list)} aktérů, {Source.objects.count()} zdrojů, "
+                f"{len(narratives)} narativů, {len(documents)} dokumentů, "
+                f"{WeeklyAggregate.objects.count()} řádků agregátů za {weeks} týdnů."
             )
         )
 
@@ -177,14 +177,14 @@ class Command(BaseCommand):
         documents = Document.objects.filter(Q(source__in=sources) | Q(actor__in=actors))
         WeeklyAggregate.objects.filter(Q(actor__in=actors) | Q(narrative__in=narratives)).delete()
         Label.objects.filter(Q(document__in=documents) | Q(narrative__in=narratives)).delete()
-        NarrativeCandidate.objects.filter(description__startswith="Демо").delete()
+        NarrativeCandidate.objects.filter(description__startswith="Demo").delete()
         documents.delete()  # версии, оценки качества и заимствования — каскадом
         Actor.objects.filter(pk__in=list(actors.values_list("pk", flat=True))).delete()
         sources.delete()  # ленты, запуски, проверки, инциденты — каскадом
         narratives.delete()
         Topic.objects.filter(code__startswith=DEMO_PREFIX).delete()
-        Notification.objects.filter(text__startswith="Демо").delete()
-        Job.objects.filter(message__startswith="Демо").delete()
+        Notification.objects.filter(text__startswith="Demo").delete()
+        Job.objects.filter(message__startswith="Demo").delete()
 
     # --- Источники и акторы --------------------------------------------------------------
 
@@ -210,16 +210,16 @@ class Command(BaseCommand):
                     url=f"https://{slug}-{i}.demo.example/",
                 )
                 if layer == Layer.ATTRIBUTED:
-                    source.attribution_by = "Demo: внешняя атрибуция"
+                    source.attribution_by = "Demo: externí atribuce"
                     source.attribution_url = "https://attribution.demo.example/report"
                 if layer == Layer.ALTERNATIVE:
                     source.external_rating = "demo-rating"
-                    source.external_rating_source = "Demo: внешний рейтинг"
+                    source.external_rating_source = "Demo: externí hodnocení"
                 source.save()
                 SourceFeed.objects.create(source=source, url=f"{source.url}rss")
                 sources["sites"][layer].append(source)
         sources["telegram"] = Source.objects.create(
-            name="Telegram (публичные каналы)",
+            name="Telegram (veřejné kanály)",
             layer=Layer.TELEGRAM,
             platform=Platform.TELEGRAM,
             url="https://telegram.demo.example/",
@@ -227,7 +227,7 @@ class Command(BaseCommand):
             min_text_length=80,
         )
         sources["psp"] = Source.objects.create(
-            name="Стенограммы Poslanecké sněmovny (демо)",
+            name="Stenoprotokoly Poslanecké sněmovny (demo)",
             layer=Layer.PARLIAMENT,
             platform=Platform.PARLIAMENT,
             url="https://psp.demo.example/",
@@ -289,12 +289,12 @@ class Command(BaseCommand):
         # Периоды включения: все с первой недели; часть исключена по ходу, часть возвращена.
         start = self.weeks[0]
         for actor in actors:
-            actor.include("Демо: начальная выборка", on=start)
+            actor.include("Demo: počáteční výběr", on=start)
             if rng.random() < 0.03:
                 out_week = rng.randrange(len(self.weeks) // 3, len(self.weeks) - 2)
-                actor.exclude("Демо: исключён из выборки", on=self.weeks[out_week])
+                actor.exclude("Demo: vyřazen z výběru", on=self.weeks[out_week])
                 if rng.random() < 0.35:
-                    actor.include("Демо: повторное включение", on=self.weeks[out_week + 2])
+                    actor.include("Demo: opětovné zařazení", on=self.weeks[out_week + 2])
         return actors
 
     # --- Кодбук --------------------------------------------------------------------------
@@ -309,23 +309,23 @@ class Command(BaseCommand):
                 code=DEMO_PREFIX + code.lower(),
                 topic=topics[topic],
                 name=name,
-                definition=f"Демо-определение: {name.lower()}. Позиция фиксируется отдельно.",
-                examples=[f"Пример формулировки для {code}"],
+                definition=f"Demo definice: {name.lower()}. Postoj se zaznamenává zvlášť.",
+                examples=[f"Příklad formulace pro {code}"],
             )
-            narrative.save(change_note="Демо: начальная версия кодбука")
+            narrative.save(change_note="Demo: počáteční verze kódové knihy")
             onset = self.rng.randrange(2, max(3, len(self.weeks) // 3))
             narratives.append({"obj": narrative, "kind": kind, "peak": peak, "onset": onset})
 
         # Пример правки кодбука: у N003 будет две версии.
         n003 = narratives[2]["obj"]
-        n003.definition += " Уточнено: включая выход из еврозоны как альтернативу."
-        n003.save(change_note="Демо: уточнение определения")
+        n003.definition += " Upřesněno: včetně odchodu z eurozóny jako alternativy."
+        n003.save(change_note="Demo: upřesnění definice")
 
         Debunk.objects.create(
             narrative=narratives[0]["obj"],
             organization=Debunk.Organization.OTHER,
             url="https://factcheck.demo.example/n001",
-            title="Демо-ссылка на внешнее опровержение",
+            title="Demo odkaz na externí vyvrácení",
         )
         return narratives
 
@@ -631,7 +631,7 @@ class Command(BaseCommand):
             incident_type=SourceIncident.Type.STALE_FEED,
             level=Level.WARNING,
             started_at=timezone.now() - datetime.timedelta(days=2),
-            description="Демо: RSS не обновлялся 48 часов.",
+            description="Demo: RSS se 48 hodin neaktualizovalo.",
         )
         recovered = sources["sites"][Layer.MAINSTREAM][0]
         SourceIncident.objects.create(
@@ -640,7 +640,7 @@ class Command(BaseCommand):
             level=Level.CRITICAL,
             started_at=timezone.now() - datetime.timedelta(days=20),
             ended_at=timezone.now() - datetime.timedelta(days=18),
-            description="Демо: смена вёрстки, селектор даты не находился два дня.",
+            description="Demo: změna rozvržení, selektor data se dva dny nenacházel.",
         )
         for i in (1, 2):
             GoldenPage.objects.create(
@@ -654,25 +654,25 @@ class Command(BaseCommand):
         Notification.objects.create(
             notification_type=Notification.Type.COLLECTION,
             level=Notification.Level.WARNING,
-            title="Источник не обновлялся 48 ч",
-            text="Демо-уведомление об инциденте сбора.",
+            title="Zdroj se neaktualizoval 48 h",
+            text="Demo upozornění na incident sběru.",
         )
         Notification.objects.create(
             notification_type=Notification.Type.SPIKE,
-            title=f"Всплеск по {narratives[0]['obj'].code}",
-            text="Демо-уведомление о всплеске у актора.",
+            title=f"Výkyv u {narratives[0]['obj'].code}",
+            text="Demo upozornění na výkyv u aktéra.",
         )
         Job.objects.create(
             job_type=Job.Type.AGGREGATE,
             status=Job.Status.SUCCEEDED,
             progress=1,
-            message="Демо: пересчёт агрегатов",
+            message="Demo: přepočet agregátů",
             started_at=timezone.now() - datetime.timedelta(minutes=3),
             finished_at=timezone.now(),
         )
         window_end = self.weeks[-1]
         candidate = NarrativeCandidate.objects.create(
-            description="Демо-кластер: «Чехия потеряет суверенитет из-за общего долга ЕС»",
+            description="Demo shluk: „Česko přijde o suverenitu kvůli společnému dluhu EU“",
             keywords=["dluh", "EU", "suverenita"],
             n_documents=27,
             n_authors=9,

@@ -4,6 +4,10 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+admin.site.site_header = "TrollTrace — administrace"
+admin.site.site_title = "TrollTrace"
+admin.site.index_title = "Správa výzkumných dat"
+
 urlpatterns = [
     path("", include("apps.core.urls")),
     path("dashboard/", include("apps.dashboard.urls")),

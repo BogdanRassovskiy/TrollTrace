@@ -31,7 +31,7 @@ class PspCollector(Collector):
 
         index = self.client.get(base + "index.htm")
         if not index.ok:
-            self.error(f"Оглавление {base}: HTTP {index.status}")
+            self.error(f"Obsah {base}: HTTP {index.status}")
             return
         done_pages = set(
             Document.objects.filter(source=self.source)
@@ -115,15 +115,15 @@ class PspCollector(Collector):
                 actor_type=Actor.Type.POLITICIAN,
                 layer=Layer.PARLIAMENT,
                 role=" ".join(speech.speaker_label.split()[:-2])[:100],
-                inclusion_criterion="Автоматически: выступление в Poslanecké sněmovně "
-                "(не из реестра депутатов — проверить)",
+                inclusion_criterion="Automaticky: vystoupení v Poslanecké sněmovně "
+                "(není v registru poslanců — zkontrolovat)",
                 inclusion_reference=psp.DETAIL_URL.format(id=key),
             )
             account = ActorAccount.objects.create(
                 actor=actor, source=self.source, account_id=key, url=psp.DETAIL_URL.format(id=key)
             )
-            actor.include("Первое выступление в стенограмме", on=date or datetime.date.today())
-            audit.log_create(None, actor, note="Сбор стенограмм PSP")
-            audit.log_create(None, account, note="Сбор стенограмм PSP")
+            actor.include("První vystoupení ve stenoprotokolu", on=date or datetime.date.today())
+            audit.log_create(None, actor, note="Sběr stenoprotokolů PSP")
+            audit.log_create(None, account, note="Sběr stenoprotokolů PSP")
             self._actors[key] = actor
         return self._actors[key]

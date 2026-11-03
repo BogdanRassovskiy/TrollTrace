@@ -3,34 +3,34 @@
 from .models import Setting
 
 DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
-    "aggregation-window": ("week", "Окно агрегации (README §5)."),
+    "aggregation-window": ("week", "Okno agregace (README §5)."),
     "analysis-min-quality": (
         3,
-        "Минимальная оценка качества документа для агрегатов (README §4.3).",
+        "Minimální hodnocení kvality dokumentu pro agregáty (README §4.3).",
     ),
     "relevance-threshold": (
         0.35,
-        "Порог сходства эмбеддинга с описаниями нарративов (README §4, шаг 3).",
+        "Práh podobnosti embeddingu s popisy narativů (README §4, krok 3).",
     ),
-    "reuse-verbatim-jaccard": (0.6, "Порог Jaccard по MinHash для дословного заимствования."),
-    "reuse-paraphrase-cosine": (0.85, "Порог косинусного сходства для пересказа (kNN)."),
-    "minhash-shingle-size": (5, "Размер шингла в словах (5–7)."),
-    "narrative-rule-min-posts": (20, "Правило добавления нарратива: минимум N постов."),
+    "reuse-verbatim-jaccard": (0.6, "Práh Jaccard podle MinHash pro doslovné převzetí."),
+    "reuse-paraphrase-cosine": (0.85, "Práh kosinové podobnosti pro parafrázi (kNN)."),
+    "minhash-shingle-size": (5, "Velikost šindele ve slovech (5–7)."),
+    "narrative-rule-min-posts": (20, "Pravidlo přidání narativu: minimálně N příspěvků."),
     "narrative-rule-min-authors": (
         5,
-        "Правило добавления нарратива: минимум K независимых авторов.",
+        "Pravidlo přidání narativu: minimálně K nezávislých autorů.",
     ),
-    "narrative-rule-window-days": (14, "Правило добавления нарратива: окно W (дней)."),
-    "actor-min-activity": (4, "Минимум документов за период для включения актора."),
-    "chart-click-max-lines": (10, "N: до скольких линий клик по точке графика открывает посты."),
-    "embedding-model": ("intfloat/multilingual-e5-base", "Модель эмбеддингов (README §4, шаг 4)."),
+    "narrative-rule-window-days": (14, "Pravidlo přidání narativu: okno W (dní)."),
+    "actor-min-activity": (4, "Minimum dokumentů za období pro zařazení aktéra."),
+    "chart-click-max-lines": (10, "N: do kolika čar otevře kliknutí na bod grafu příspěvky."),
+    "embedding-model": ("intfloat/multilingual-e5-base", "Model embeddingů (README §4, krok 4)."),
     "monitoring-volume-ratio": (
         0.33,
-        "Мониторинг: сигнал, если документов за сутки меньше этой доли медианы (README §4.2).",
+        "Monitoring: signál, pokud je dokumentů za den méně než tento podíl mediánu (README §4.2).",
     ),
     "monitoring-min-mean-quality": (
         3.5,
-        "Мониторинг: сигнал, если средняя оценка качества за сутки ниже (README §4.3).",
+        "Monitoring: signál, pokud je průměrné hodnocení kvality za den nižší (README §4.3).",
     ),
 }
 
@@ -47,7 +47,7 @@ def ensure_default_settings() -> int:
     for key, (value, description) in DEFAULT_SETTINGS.items():
         if not Setting.objects.filter(key=key).exists():
             Setting(key=key, value=value, description=description).save(
-                change_note="Стартовое значение"
+                change_note="Výchozí hodnota"
             )
             created += 1
     return created

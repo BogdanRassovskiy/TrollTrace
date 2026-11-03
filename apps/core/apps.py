@@ -12,7 +12,7 @@ def _ensure_roles(app_config, **kwargs):
 
 class CoreConfig(AppConfig):
     name = "apps.core"
-    verbose_name = "Ядро"
+    verbose_name = "Jádro"
 
     def ready(self):
         post_migrate.connect(_ensure_roles, dispatch_uid="trolltrace_ensure_roles")

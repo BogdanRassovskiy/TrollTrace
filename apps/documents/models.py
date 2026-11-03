@@ -20,67 +20,65 @@ class Document(models.Model):
     """Пост, статья или выступление. Хранится полный текст (README §6)."""
 
     class DateSource(models.TextChoices):
-        PAGE = "page", "Страница"
+        PAGE = "page", "Stránka"
         FEED = "feed", "RSS / API"
-        METADATA = "meta", "Метаданные"
-        NONE = "none", "Не извлечена"
+        METADATA = "meta", "Metadata"
+        NONE = "none", "Nezjištěno"
 
     class Status(models.TextChoices):
-        ACTIVE = "active", "Доступен у источника"
-        DELETED = "deleted", "Удалён у источника"
+        ACTIVE = "active", "Dostupný u zdroje"
+        DELETED = "deleted", "Smazán u zdroje"
 
     actor = models.ForeignKey(
-        Actor, verbose_name="актор", on_delete=models.PROTECT, related_name="documents"
+        Actor, verbose_name="aktér", on_delete=models.PROTECT, related_name="documents"
     )
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.PROTECT, related_name="documents"
+        Source, verbose_name="zdroj", on_delete=models.PROTECT, related_name="documents"
     )
     external_id = models.CharField(
-        "внешний ID",
+        "externí ID",
         max_length=200,
         blank=True,
-        help_text="ID сообщения Telegram, стенограммы PSP…",
+        help_text="ID zprávy Telegramu, stenoprotokolu PSP…",
     )
-    url = models.URLField("исходный URL", max_length=2000)
-    url_normalized = models.CharField("нормализованный URL", max_length=2000, editable=False)
+    url = models.URLField("původní URL", max_length=2000)
+    url_normalized = models.CharField("normalizované URL", max_length=2000, editable=False)
 
-    title = models.TextField("заголовок", blank=True)
-    text = models.TextField("текст (последняя версия)", blank=True)
-    text_hash = models.CharField("хэш текста", max_length=64, editable=False, db_index=True)
-    rubric = models.CharField("рубрика", max_length=200, blank=True)
-    language = models.CharField("язык", max_length=8, blank=True)
+    title = models.TextField("titulek", blank=True)
+    text = models.TextField("text (poslední verze)", blank=True)
+    text_hash = models.CharField("hash textu", max_length=64, editable=False, db_index=True)
+    rubric = models.CharField("rubrika", max_length=200, blank=True)
+    language = models.CharField("jazyk", max_length=8, blank=True)
 
     # Два времени (README §4.1): дата публикации не подменяется временем сбора.
-    published_at = models.DateTimeField("опубликовано", null=True, blank=True)
+    published_at = models.DateTimeField("publikováno", null=True, blank=True)
     date_source = models.CharField(
-        "откуда дата", max_length=4, choices=DateSource.choices, default=DateSource.NONE
+        "zdroj data", max_length=4, choices=DateSource.choices, default=DateSource.NONE
     )
-    collected_at = models.DateTimeField("собрано")
-    last_checked_at = models.DateTimeField("последняя перепроверка", null=True, blank=True)
+    collected_at = models.DateTimeField("sebráno")
+    last_checked_at = models.DateTimeField("poslední kontrola", null=True, blank=True)
 
-    status = models.CharField(
-        "статус", max_length=10, choices=Status.choices, default=Status.ACTIVE
-    )
-    deleted_at = models.DateTimeField("удалён у источника", null=True, blank=True)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    deleted_at = models.DateTimeField("smazán u zdroje", null=True, blank=True)
 
     is_relevant = models.BooleanField(
-        "релевантен", null=True, help_text="Пусто — фильтр ещё не применялся."
+        "relevantní", null=True, help_text="Prázdné — filtr zatím nebyl použit."
     )
     engagement = models.JSONField(
-        "метрики отклика", default=dict, blank=True, help_text="Просмотры, реакции, репосты."
+        "metriky odezvy", default=dict, blank=True, help_text="Zobrazení, reakce, sdílení."
     )
     meta = models.JSONField(
-        "метаданные источника",
+        "metadata zdroje",
         default=dict,
         blank=True,
-        help_text="Рубрика ленты, пересылка Telegram, оратор и страница стенограммы…",
+        help_text="Rubrika kanálu, přeposlání v Telegramu, řečník a stránka stenoprotokolu…",
     )
-    embedding = VectorField("эмбеддинг", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
-    minhash = models.BinaryField("MinHash-подпись", null=True, blank=True)
+    embedding = VectorField("embedding", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
+    minhash = models.BinaryField("MinHash podpis", null=True, blank=True)
 
     class Meta:
-        verbose_name = "документ"
-        verbose_name_plural = "документы"
+        verbose_name = "dokument"
+        verbose_name_plural = "dokumenty"
         ordering = ["-published_at"]
         constraints = [
             models.UniqueConstraint(
@@ -145,20 +143,23 @@ class DocumentVersion(models.Model):
     """Версия документа. Правки и удаления сами по себе могут быть данными (README §4.1)."""
 
     document = models.ForeignKey(
-        Document, verbose_name="документ", on_delete=models.CASCADE, related_name="versions"
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="versions"
     )
-    version = models.PositiveIntegerField("версия")
-    title = models.TextField("заголовок", blank=True)
-    text = models.TextField("текст", blank=True)
-    text_hash = models.CharField("хэш текста", max_length=64, editable=False)
+    version = models.PositiveIntegerField("verze")
+    title = models.TextField("titulek", blank=True)
+    text = models.TextField("text", blank=True)
+    text_hash = models.CharField("hash textu", max_length=64, editable=False)
     raw_html_compressed = models.BinaryField(
-        "сырой HTML (zlib)", null=True, blank=True, help_text="Для перепарсинга без скачивания."
+        "surové HTML (zlib)",
+        null=True,
+        blank=True,
+        help_text="Pro opakované zpracování bez stahování.",
     )
-    detected_at = models.DateTimeField("обнаружена", auto_now_add=True)
+    detected_at = models.DateTimeField("zjištěno", auto_now_add=True)
 
     class Meta:
-        verbose_name = "версия документа"
-        verbose_name_plural = "версии документов"
+        verbose_name = "verze dokumentu"
+        verbose_name_plural = "verze dokumentů"
         ordering = ["document", "version"]
         constraints = [
             models.UniqueConstraint(
@@ -192,33 +193,33 @@ class DocumentQuality(models.Model):
     """
 
     class IncidentLevel(models.TextChoices):
-        NONE = "", "Нет"
-        WARNING = "warning", "Предупреждение"
-        CRITICAL = "critical", "Критично"
+        NONE = "", "Ne"
+        WARNING = "warning", "Varování"
+        CRITICAL = "critical", "Kritické"
 
     document = models.ForeignKey(
-        Document, verbose_name="документ", on_delete=models.CASCADE, related_name="quality_scores"
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="quality_scores"
     )
-    score = models.PositiveSmallIntegerField("оценка")
-    quality_rules_version = models.CharField("версия правил", max_length=20)
-    computed_at = models.DateTimeField("рассчитано", auto_now_add=True)
-    is_current = models.BooleanField("актуальная", default=True)
+    score = models.PositiveSmallIntegerField("hodnocení")
+    quality_rules_version = models.CharField("verze pravidel", max_length=20)
+    computed_at = models.DateTimeField("vypočteno", auto_now_add=True)
+    is_current = models.BooleanField("aktuální", default=True)
 
-    has_title = models.BooleanField("есть заголовок")
-    has_published_at = models.BooleanField("есть дата публикации")
-    date_plausible = models.BooleanField("дата правдоподобна")
-    text_ok = models.BooleanField("длина текста в норме")
-    text_short = models.BooleanField("текст короткий")
-    text_empty = models.BooleanField("текст пустой")
-    lang_ok = models.BooleanField("язык совпадает")
-    boilerplate_dup = models.BooleanField("текст-заглушка у разных URL")
-    blocked_page = models.BooleanField("капча / paywall / согласие / ошибка")
+    has_title = models.BooleanField("má titulek")
+    has_published_at = models.BooleanField("má datum publikace")
+    date_plausible = models.BooleanField("datum je věrohodné")
+    text_ok = models.BooleanField("délka textu v normě")
+    text_short = models.BooleanField("text je krátký")
+    text_empty = models.BooleanField("text je prázdný")
+    lang_ok = models.BooleanField("jazyk odpovídá")
+    boilerplate_dup = models.BooleanField("zástupný text u různých URL")
+    blocked_page = models.BooleanField("captcha / paywall / souhlas / chyba")
     selectors_ok = models.BooleanField(
-        "селекторы найдены", null=True, help_text="Пусто — собственные селекторы не используются."
+        "selektory nalezeny", null=True, help_text="Prázdné — vlastní selektory se nepoužívají."
     )
-    extraction_ratio_ok = models.BooleanField("соотношение текст/HTML в норме")
+    extraction_ratio_ok = models.BooleanField("poměr text/HTML v normě")
     incident_level = models.CharField(
-        "открытый инцидент источника",
+        "otevřený incident zdroje",
         max_length=10,
         choices=IncidentLevel.choices,
         blank=True,
@@ -226,8 +227,8 @@ class DocumentQuality(models.Model):
     )
 
     class Meta:
-        verbose_name = "оценка качества"
-        verbose_name_plural = "оценки качества"
+        verbose_name = "hodnocení kvality"
+        verbose_name_plural = "hodnocení kvality"
         ordering = ["document", "-computed_at"]
         constraints = [
             models.CheckConstraint(
@@ -260,42 +261,42 @@ class ReuseLink(models.Model):
     """Пара документов с заимствованием: от более раннего (source) к более позднему (target)."""
 
     class Type(models.TextChoices):
-        VERBATIM = "verbatim", "Дословно"
-        PARAPHRASE = "paraphrase", "Пересказ"
-        REPOST = "repost", "Репост"
-        QUOTE = "quote", "Цитата"
+        VERBATIM = "verbatim", "Doslovně"
+        PARAPHRASE = "paraphrase", "Parafráze"
+        REPOST = "repost", "Sdílení"
+        QUOTE = "quote", "Citace"
 
     class Method(models.TextChoices):
         MINHASH = "minhash", "MinHash / LSH"
-        KNN = "knn", "kNN по эмбеддингам"
-        MANUAL = "manual", "Вручную"
+        KNN = "knn", "kNN podle embeddingů"
+        MANUAL = "manual", "Ručně"
 
     source_document = models.ForeignKey(
-        Document, verbose_name="оригинал", on_delete=models.CASCADE, related_name="reused_by"
+        Document, verbose_name="originál", on_delete=models.CASCADE, related_name="reused_by"
     )
     target_document = models.ForeignKey(
-        Document, verbose_name="заимствование", on_delete=models.CASCADE, related_name="reuses"
+        Document, verbose_name="převzetí", on_delete=models.CASCADE, related_name="reuses"
     )
-    link_type = models.CharField("тип", max_length=12, choices=Type.choices)
-    method = models.CharField("метод", max_length=10, choices=Method.choices)
-    similarity = models.FloatField("сходство")
+    link_type = models.CharField("typ", max_length=12, choices=Type.choices)
+    method = models.CharField("metoda", max_length=10, choices=Method.choices)
+    similarity = models.FloatField("podobnost")
     is_confirmed = models.BooleanField(
-        "подтверждено вручную", null=True, help_text="Пусто — не проверялось."
+        "ručně potvrzeno", null=True, help_text="Prázdné — nekontrolováno."
     )
     confirmed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="кто проверил",
+        verbose_name="kdo zkontroloval",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
-    confirmed_at = models.DateTimeField("когда проверено", null=True, blank=True)
-    created_at = models.DateTimeField("найдено", auto_now_add=True)
+    confirmed_at = models.DateTimeField("kdy zkontrolováno", null=True, blank=True)
+    created_at = models.DateTimeField("nalezeno", auto_now_add=True)
 
     class Meta:
-        verbose_name = "заимствование"
-        verbose_name_plural = "заимствования"
+        verbose_name = "převzetí"
+        verbose_name_plural = "převzetí"
         constraints = [
             models.UniqueConstraint(
                 fields=["source_document", "target_document", "link_type"],

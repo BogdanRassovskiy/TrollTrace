@@ -173,7 +173,7 @@ class TestVolume:
         monitoring.monitor_source(source, timezone.now())
         incident.refresh_from_db()
         assert incident.ended_at is not None
-        assert Notification.objects.filter(title__contains="снова в норме").count() == 1
+        assert Notification.objects.filter(title__contains="opět v normě").count() == 1
         assert monitoring.health(source) == "green"
 
     def test_low_volume(self, source):
@@ -188,7 +188,7 @@ class TestVolume:
         [result] = [
             r for r in monitoring.monitor_source(source, timezone.now()) if r.check_type == "volume"
         ]
-        assert not result.signals and "Норма ещё не набрана" in result.details
+        assert not result.signals and "Norma ještě není k dispozici" in result.details
 
     def test_stale_feed(self, source):
         source.stale_after_hours = 12
@@ -205,7 +205,7 @@ class TestExtractionAndHttp:
             save(source, n, published_at=None, date_source="none", title="")
         results = {r.check_type: r for r in monitoring.monitor_source(source, timezone.now())}
         assert [s.incident_type for s in results["extraction"].signals] == ["extraction"]
-        assert "без даты 100%" in results["extraction"].signals[0].description
+        assert "bez data 100%" in results["extraction"].signals[0].description
         assert results["quality"].metrics["mean"] == 3.0
         assert [s.incident_type for s in results["quality"].signals] == ["quality_drop"]
 
@@ -221,13 +221,13 @@ class TestExtractionAndHttp:
             CollectionRun.objects.create(
                 source=source, status="failed", http_requests=4, finished_at=NOW,
                 details={"http": {"http_503": 4}, "timeouts": 0, "redirect_offsite": 2,
-                         "errors": ["@kanal: канал недоступен или закрыт для превью"]},
+                         "errors": ["@kanal: kanál není dostupný nebo má vypnutý náhled"]},
             )  # fmt: skip
         result = monitoring.check_http(source, NOW)
         types = {s.incident_type: s for s in result.signals}
         assert set(types) == {"http_errors", "channel_unavailable"}
         assert types["http_errors"].level == "critical"
-        assert "ошибок HTTP 100%" in types["http_errors"].description
+        assert "chyb HTTP 100%" in types["http_errors"].description
 
     def test_monitor_task_skips_sources_without_runs(self, source):
         from apps.ingestion.tasks import monitor_sources
@@ -248,7 +248,7 @@ def test_golden_page(source):
     )
     assert monitoring.compare_golden(page, html) == []
     broken = html.replace(CZECH, "Přijměte prosím cookies, abychom mohli zobrazit obsah. " * 5)
-    assert monitoring.compare_golden(page, broken) == ["начало текста"]
+    assert monitoring.compare_golden(page, broken) == ["začátek textu"]
 
 
 # --- Telegram и панель ----------------------------------------------------------------------
@@ -263,14 +263,14 @@ def test_telegram_send(settings):
         return httpx.Response(200, json={"ok": True})
 
     n = Notification.objects.create(
-        notification_type="collection", level="critical", title="ČT24: Нет документов",
-        text="0 документов", url="/admin/actors/source/1/change/",
+        notification_type="collection", level="critical", title="ČT24: Žádné dokumenty",
+        text="0 dokumentů", url="/admin/actors/source/1/change/",
     )  # fmt: skip
     assert telegram.send(n, httpx.MockTransport(handler))
     url, body = sent[0]
     assert url == "https://api.telegram.org/bot123:abc/sendMessage" and body["chat_id"] == "42"
     assert (
-        body["text"].startswith("🔴 ČT24: Нет документов")
+        body["text"].startswith("🔴 ČT24: Žádné dokumenty")
         and "/admin/actors/source/1/" in body["text"]
     )
     n.refresh_from_db()
@@ -295,15 +295,15 @@ def test_telegram_not_configured(settings):
 def test_panel_pages(source, researcher_client):
     SourceIncident.objects.create(
         source=source, incident_type="stale_feed", level="warning", started_at=NOW,
-        description="Лента молчит",
+        description="Kanál mlčí",
     )  # fmt: skip
     Notification.objects.create(
-        notification_type="collection", level="warning", title="Zprávy: тишина"
+        notification_type="collection", level="warning", title="Zprávy: ticho"
     )
     page = researcher_client.get(reverse("panel:sources"))
     assert page.status_code == 200 and "health-yellow" in page.content.decode()
     page = researcher_client.get(reverse("panel:notifications"))
-    assert "Zprávy: тишина" in page.content.decode()
+    assert "Zprávy: ticho" in page.content.decode()
     researcher_client.post(reverse("panel:notifications-read"))
     assert not Notification.objects.filter(is_read=False).exists()
 

@@ -6,7 +6,7 @@
 
   const chart = echarts.init(el, null, { renderer: "canvas" });
   const weeks = Array.from({ length: 26 }, (_, i) => `W${i + 1}`);
-  const series = ["Слой A", "Слой B", "Слой D"].map((name, s) => ({
+  const series = ["Vrstva A", "Vrstva B", "Vrstva D"].map((name, s) => ({
     name,
     type: "line",
     showSymbol: false,

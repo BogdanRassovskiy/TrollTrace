@@ -13,21 +13,21 @@ from apps.documents.models import Document
 class Stance(models.TextChoices):
     """Метка = нарратив + позиция (README §3)."""
 
-    PRO = "pro", "За"
-    CONTRA = "contra", "Против"
-    NEUTRAL = "neutral", "Нейтрально"
+    PRO = "pro", "Pro"
+    CONTRA = "contra", "Proti"
+    NEUTRAL = "neutral", "Neutrálně"
 
 
 class Topic(TimeStampedModel):
     """Стабильная тема. «Евро» — тема, «евро разорит чехов» — нарратив."""
 
-    code = models.SlugField("код", max_length=50, unique=True)
-    name = models.CharField("название", max_length=200)
-    description = models.TextField("описание", blank=True)
+    code = models.SlugField("kód", max_length=50, unique=True)
+    name = models.CharField("název", max_length=200)
+    description = models.TextField("popis", blank=True)
 
     class Meta:
-        verbose_name = "тема"
-        verbose_name_plural = "темы"
+        verbose_name = "téma"
+        verbose_name_plural = "témata"
         ordering = ["name"]
 
     def __str__(self):
@@ -35,9 +35,9 @@ class Topic(TimeStampedModel):
 
 
 class NarrativeStatus(models.TextChoices):
-    CANDIDATE = "candidate", "Кандидат"
-    ACTIVE = "active", "Активный"
-    ARCHIVED = "archived", "Архив"
+    CANDIDATE = "candidate", "Kandidát"
+    ACTIVE = "active", "Aktivní"
+    ARCHIVED = "archived", "Archiv"
 
 
 class Narrative(VersionedModel):
@@ -47,19 +47,19 @@ class Narrative(VersionedModel):
 
     code = models.SlugField("ID", max_length=50, unique=True)
     topic = models.ForeignKey(
-        Topic, verbose_name="тема", on_delete=models.PROTECT, related_name="narratives"
+        Topic, verbose_name="téma", on_delete=models.PROTECT, related_name="narratives"
     )
-    name = models.CharField("краткая формулировка", max_length=300)
-    definition = models.TextField("определение")
-    examples = models.JSONField("примеры", default=list, blank=True)
+    name = models.CharField("stručná formulace", max_length=300)
+    definition = models.TextField("definice")
+    examples = models.JSONField("příklady", default=list, blank=True)
     status = models.CharField(
-        "статус", max_length=10, choices=NarrativeStatus.choices, default=NarrativeStatus.ACTIVE
+        "stav", max_length=10, choices=NarrativeStatus.choices, default=NarrativeStatus.ACTIVE
     )
-    added_at = models.DateTimeField("добавлен в кодбук", auto_now_add=True)
+    added_at = models.DateTimeField("přidán do kódové knihy", auto_now_add=True)
 
     class Meta:
-        verbose_name = "нарратив"
-        verbose_name_plural = "нарративы"
+        verbose_name = "narativ"
+        verbose_name_plural = "narativy"
         ordering = ["code"]
 
     def __str__(self):
@@ -83,19 +83,19 @@ class NarrativeVersion(VersionRecord):
     """Снимок нарратива. Метки ссылаются на конкретную версию — это и есть «версия кодбука»."""
 
     narrative = models.ForeignKey(
-        Narrative, verbose_name="нарратив", on_delete=models.CASCADE, related_name="versions"
+        Narrative, verbose_name="narativ", on_delete=models.CASCADE, related_name="versions"
     )
     topic = models.ForeignKey(
-        Topic, verbose_name="тема", on_delete=models.PROTECT, related_name="+"
+        Topic, verbose_name="téma", on_delete=models.PROTECT, related_name="+"
     )
-    name = models.CharField("краткая формулировка", max_length=300)
-    definition = models.TextField("определение")
-    examples = models.JSONField("примеры", default=list, blank=True)
-    status = models.CharField("статус", max_length=10, choices=NarrativeStatus.choices)
+    name = models.CharField("stručná formulace", max_length=300)
+    definition = models.TextField("definice")
+    examples = models.JSONField("příklady", default=list, blank=True)
+    status = models.CharField("stav", max_length=10, choices=NarrativeStatus.choices)
 
     class Meta(VersionRecord.Meta):
-        verbose_name = "версия нарратива"
-        verbose_name_plural = "история кодбука"
+        verbose_name = "verze narativu"
+        verbose_name_plural = "historie kódové knihy"
         constraints = [
             models.UniqueConstraint(
                 fields=["narrative", "version"], name="narrative_version_unique_number"
@@ -110,38 +110,38 @@ class Label(models.Model):
     """Метка документа: нарратив + позиция, кто поставил и по какой версии кодбука."""
 
     class Origin(models.TextChoices):
-        MODEL = "model", "Модель"
-        HUMAN = "human", "Человек"
+        MODEL = "model", "Model"
+        HUMAN = "human", "Člověk"
 
     document = models.ForeignKey(
-        Document, verbose_name="документ", on_delete=models.CASCADE, related_name="labels"
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="labels"
     )
     narrative = models.ForeignKey(
-        Narrative, verbose_name="нарратив", on_delete=models.PROTECT, related_name="labels"
+        Narrative, verbose_name="narativ", on_delete=models.PROTECT, related_name="labels"
     )
     narrative_version = models.ForeignKey(
         NarrativeVersion,
-        verbose_name="версия кодбука",
+        verbose_name="verze kódové knihy",
         on_delete=models.PROTECT,
         related_name="labels",
     )
-    stance = models.CharField("позиция", max_length=10, choices=Stance.choices)
-    origin = models.CharField("источник метки", max_length=10, choices=Origin.choices)
-    confidence = models.FloatField("уверенность", null=True, blank=True)
-    model_name = models.CharField("модель", max_length=100, blank=True)
+    stance = models.CharField("postoj", max_length=10, choices=Stance.choices)
+    origin = models.CharField("zdroj štítku", max_length=10, choices=Origin.choices)
+    confidence = models.FloatField("jistota", null=True, blank=True)
+    model_name = models.CharField("model", max_length=100, blank=True)
     annotator = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="разметчик",
+        verbose_name="anotátor",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
-    created_at = models.DateTimeField("создана", auto_now_add=True)
+    created_at = models.DateTimeField("vytvořen", auto_now_add=True)
 
     class Meta:
-        verbose_name = "метка"
-        verbose_name_plural = "метки"
+        verbose_name = "štítek"
+        verbose_name_plural = "štítky"
         constraints = [
             models.UniqueConstraint(
                 fields=["document", "narrative_version", "origin"],
@@ -165,7 +165,7 @@ class Label(models.Model):
 
     def clean(self):
         if self.narrative_version_id and self.narrative_version.narrative_id != self.narrative_id:
-            raise ValidationError("Версия кодбука относится к другому нарративу.")
+            raise ValidationError("Verze kódové knihy patří k jinému narativu.")
 
 
 class Debunk(models.Model):
@@ -176,19 +176,19 @@ class Debunk(models.Model):
         MANIPULATORI = "manipulatori", "Manipulátoři"
         AFP = "afp", "AFP Fakty"
         EUVSDISINFO = "euvsdisinfo", "EUvsDisinfo"
-        OTHER = "other", "Другая"
+        OTHER = "other", "Jiná"
 
     narrative = models.ForeignKey(
-        Narrative, verbose_name="нарратив", on_delete=models.CASCADE, related_name="debunks"
+        Narrative, verbose_name="narativ", on_delete=models.CASCADE, related_name="debunks"
     )
-    organization = models.CharField("организация", max_length=20, choices=Organization.choices)
-    url = models.URLField("ссылка", max_length=1000)
-    title = models.CharField("заголовок", max_length=500, blank=True)
-    published_at = models.DateField("дата публикации", null=True, blank=True)
+    organization = models.CharField("organizace", max_length=20, choices=Organization.choices)
+    url = models.URLField("odkaz", max_length=1000)
+    title = models.CharField("titulek", max_length=500, blank=True)
+    published_at = models.DateField("datum publikace", null=True, blank=True)
 
     class Meta:
-        verbose_name = "опровержение"
-        verbose_name_plural = "опровержения"
+        verbose_name = "vyvrácení"
+        verbose_name_plural = "vyvrácení"
         constraints = [
             models.UniqueConstraint(fields=["narrative", "url"], name="debunk_unique_url"),
         ]
@@ -201,42 +201,42 @@ class NarrativeCandidate(TimeStampedModel):
     """Кандидат в нарративы из индуктивной кластеризации. Решение принимает исследователь."""
 
     class Status(models.TextChoices):
-        NEW = "new", "Новый"
-        ACCEPTED = "accepted", "Принят"
-        MERGED = "merged", "Объединён"
-        REJECTED = "rejected", "Отклонён"
-        DEFERRED = "deferred", "Отложен"
+        NEW = "new", "Nový"
+        ACCEPTED = "accepted", "Přijat"
+        MERGED = "merged", "Sloučen"
+        REJECTED = "rejected", "Zamítnut"
+        DEFERRED = "deferred", "Odložen"
 
-    description = models.TextField("описание кластера")
-    keywords = models.JSONField("ключевые слова", default=list, blank=True)
+    description = models.TextField("popis shluku")
+    keywords = models.JSONField("klíčová slova", default=list, blank=True)
     example_documents = models.ManyToManyField(
-        Document, verbose_name="примеры", blank=True, related_name="+"
+        Document, verbose_name="příklady", blank=True, related_name="+"
     )
     nearest_narratives = models.ManyToManyField(
-        Narrative, verbose_name="ближайшие нарративы", blank=True, related_name="+"
+        Narrative, verbose_name="nejbližší narativy", blank=True, related_name="+"
     )
-    n_documents = models.PositiveIntegerField("документов")
-    n_authors = models.PositiveIntegerField("независимых авторов")
-    window_start = models.DateField("окно: с")
-    window_end = models.DateField("окно: по")
+    n_documents = models.PositiveIntegerField("dokumentů")
+    n_authors = models.PositiveIntegerField("nezávislých autorů")
+    window_start = models.DateField("okno: od")
+    window_end = models.DateField("okno: do")
     layers = models.JSONField(
-        "слои", default=list, blank=True, help_text=f"Коды слоёв: {', '.join(Layer.values)}."
+        "vrstvy", default=list, blank=True, help_text=f"Kódy vrstev: {', '.join(Layer.values)}."
     )
 
-    status = models.CharField("статус", max_length=10, choices=Status.choices, default=Status.NEW)
-    decision_reason = models.TextField("причина решения", blank=True)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.NEW)
+    decision_reason = models.TextField("důvod rozhodnutí", blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="кто решил",
+        verbose_name="kdo rozhodl",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
-    decided_at = models.DateTimeField("когда решено", null=True, blank=True)
+    decided_at = models.DateTimeField("kdy rozhodnuto", null=True, blank=True)
     resulting_narrative = models.ForeignKey(
         Narrative,
-        verbose_name="созданный / целевой нарратив",
+        verbose_name="vytvořený / cílový narativ",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -244,8 +244,8 @@ class NarrativeCandidate(TimeStampedModel):
     )
 
     class Meta:
-        verbose_name = "кандидат в нарративы"
-        verbose_name_plural = "кандидаты в нарративы"
+        verbose_name = "kandidát na narativ"
+        verbose_name_plural = "kandidáti na narativy"
         ordering = ["-created_at"]
         constraints = [
             models.CheckConstraint(

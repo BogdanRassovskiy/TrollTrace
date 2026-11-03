@@ -14,20 +14,20 @@ from apps.core.models import TimeStampedModel
 class Layer(models.TextChoices):
     """Слои данных (README §2). Объёмы между слоями напрямую не сравниваются."""
 
-    ATTRIBUTED = "A", "A. Атрибутированные сети"
-    ALTERNATIVE = "B", "B. Альтернативные медиа"
+    ATTRIBUTED = "A", "A. Atribuované sítě"
+    ALTERNATIVE = "B", "B. Alternativní média"
     TELEGRAM = "C", "C. Telegram"
-    MAINSTREAM = "D", "D. Мейнстримные медиа"
-    PARLIAMENT = "E", "E. Парламент"
+    MAINSTREAM = "D", "D. Mainstreamová média"
+    PARLIAMENT = "E", "E. Parlament"
     META = "F", "F. Facebook / Instagram"
     TIKTOK = "G", "G. TikTok"
     X = "H", "H. X"
 
 
 class Platform(models.TextChoices):
-    WEB = "web", "Веб-сайт"
+    WEB = "web", "Web"
     TELEGRAM = "telegram", "Telegram"
-    PARLIAMENT = "psp", "Стенограммы PSP"
+    PARLIAMENT = "psp", "Stenoprotokoly PSP"
     FACEBOOK = "facebook", "Facebook"
     INSTAGRAM = "instagram", "Instagram"
     TIKTOK = "tiktok", "TikTok"
@@ -44,44 +44,44 @@ class DateRange(Func):
 class Source(TimeStampedModel):
     """Площадка: сайт, Telegram-канал, стенограммы. Атрибуция — только внешняя (README §1)."""
 
-    name = models.CharField("название", max_length=200)
-    layer = models.CharField("слой", max_length=1, choices=Layer.choices)
-    platform = models.CharField("платформа", max_length=20, choices=Platform.choices)
-    url = models.URLField("адрес", max_length=500, unique=True)
-    is_active = models.BooleanField("сбор включён", default=True)
+    name = models.CharField("název", max_length=200)
+    layer = models.CharField("vrstva", max_length=1, choices=Layer.choices)
+    platform = models.CharField("platforma", max_length=20, choices=Platform.choices)
+    url = models.URLField("adresa", max_length=500, unique=True)
+    is_active = models.BooleanField("sběr zapnut", default=True)
 
     # Параметры сбора (README §4.1). Ленты и sitemap — SourceFeed (apps.ingestion).
-    collect_interval_minutes = models.PositiveIntegerField("интервал сбора (мин)", default=30)
-    request_delay_seconds = models.FloatField("пауза между запросами (с)", default=2.0)
+    collect_interval_minutes = models.PositiveIntegerField("interval sběru (min)", default=30)
+    request_delay_seconds = models.FloatField("pauza mezi požadavky (s)", default=2.0)
     collector_config = models.JSONField(
-        "настройки коллектора",
+        "nastavení kolektoru",
         default=dict,
         blank=True,
-        help_text="Например: max_articles, backfill_pages, term (PSP).",
+        help_text="Např.: max_articles, backfill_pages, term (PSP).",
     )
 
     # Атрибуция и внешний рейтинг — ссылки на чужие оценки, не наш вывод.
     attribution_by = models.CharField(
-        "атрибуция: кем",
+        "atribuce: kdo",
         max_length=200,
         blank=True,
-        help_text="Госорган или исследовательская организация.",
+        help_text="Státní orgán nebo výzkumná organizace.",
     )
-    attribution_url = models.URLField("атрибуция: ссылка на отчёт", max_length=500, blank=True)
-    external_rating = models.CharField("внешний рейтинг", max_length=100, blank=True)
-    external_rating_source = models.CharField("внешний рейтинг: кем", max_length=200, blank=True)
+    attribution_url = models.URLField("atribuce: odkaz na zprávu", max_length=500, blank=True)
+    external_rating = models.CharField("externí hodnocení", max_length=100, blank=True)
+    external_rating_source = models.CharField("externí hodnocení: kdo", max_length=200, blank=True)
 
     # Параметры мониторинга сбора (README §4.2), настраиваются per source.
-    expected_language = models.CharField("ожидаемый язык", max_length=8, default="cs")
-    min_text_length = models.PositiveIntegerField("минимальная длина текста", default=300)
+    expected_language = models.CharField("očekávaný jazyk", max_length=8, default="cs")
+    min_text_length = models.PositiveIntegerField("minimální délka textu", default=300)
     stale_after_hours = models.PositiveIntegerField(
-        "тревога, если нет новых документов (ч)", default=48
+        "upozornit, pokud nejsou nové dokumenty (h)", default=48
     )
-    notes = models.TextField("заметки", blank=True)
+    notes = models.TextField("poznámky", blank=True)
 
     class Meta:
-        verbose_name = "источник"
-        verbose_name_plural = "источники"
+        verbose_name = "zdroj"
+        verbose_name_plural = "zdroje"
         ordering = ["layer", "name"]
 
     def __str__(self):
@@ -92,53 +92,51 @@ class Actor(TimeStampedModel):
     """Автор документов: политик, медиа, канал, атрибутированная сеть (README §2 «Акторы»)."""
 
     class Type(models.TextChoices):
-        POLITICIAN = "politician", "Политик"
-        INFLUENCER = "influencer", "Политический инфлюенсер"
-        MEDIA = "media", "Медиа"
-        CHANNEL = "channel", "Канал"
-        ATTRIBUTED_NETWORK = "attributed_network", "Атрибутированная сеть"
+        POLITICIAN = "politician", "Politik"
+        INFLUENCER = "influencer", "Politický influencer"
+        MEDIA = "media", "Médium"
+        CHANNEL = "channel", "Kanál"
+        ATTRIBUTED_NETWORK = "attributed_network", "Atribuovaná síť"
 
     class Status(models.TextChoices):
-        ACTIVE = "active", "Активен"
-        EXCLUDED = "excluded", "Исключён"
+        ACTIVE = "active", "Aktivní"
+        EXCLUDED = "excluded", "Vyřazen"
 
     class ActivityCohort(models.TextChoices):
-        LOW = "low", "Низкая активность"
-        MEDIUM = "medium", "Средняя активность"
-        HIGH = "high", "Высокая активность"
+        LOW = "low", "Nízká aktivita"
+        MEDIUM = "medium", "Střední aktivita"
+        HIGH = "high", "Vysoká aktivita"
 
-    name = models.CharField("имя / название", max_length=200)
-    actor_type = models.CharField("тип", max_length=20, choices=Type.choices)
-    layer = models.CharField("слой", max_length=1, choices=Layer.choices)
-    party = models.CharField("партия", max_length=100, blank=True)
+    name = models.CharField("jméno / název", max_length=200)
+    actor_type = models.CharField("typ", max_length=20, choices=Type.choices)
+    layer = models.CharField("vrstva", max_length=1, choices=Layer.choices)
+    party = models.CharField("strana", max_length=100, blank=True)
     role = models.CharField(
-        "роль",
+        "role",
         max_length=100,
         blank=True,
-        help_text="Депутат PSP, евродепутат, министр, лидер партии…",
+        help_text="Poslanec PSP, europoslanec, ministr, předseda strany…",
     )
     is_hybrid = models.BooleanField(
-        "гибридный актор",
+        "hybridní aktér",
         default=False,
-        help_text="Формально политик, по коммуникации ближе к альтернативной сцене.",
+        help_text="Formálně politik, komunikací blíže alternativní scéně.",
     )
     activity_cohort = models.CharField(
-        "когорта активности", max_length=10, choices=ActivityCohort.choices, blank=True
+        "kohorta aktivity", max_length=10, choices=ActivityCohort.choices, blank=True
     )
-    photo = models.ImageField("фото (иконка)", upload_to="actors/", blank=True)
-    photo_source_url = models.URLField("фото: источник", max_length=500, blank=True)
+    photo = models.ImageField("foto (ikona)", upload_to="actors/", blank=True)
+    photo_source_url = models.URLField("foto: zdroj", max_length=500, blank=True)
     is_pseudonymized = models.BooleanField(
-        "псевдонимизирован", default=False, help_text="Частные лица (GDPR, README §6)."
+        "pseudonymizován", default=False, help_text="Soukromé osoby (GDPR, README §6)."
     )
-    status = models.CharField(
-        "статус", max_length=10, choices=Status.choices, default=Status.ACTIVE
-    )
-    inclusion_criterion = models.TextField("основание включения", blank=True)
-    inclusion_reference = models.URLField("основание: ссылка", max_length=500, blank=True)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.ACTIVE)
+    inclusion_criterion = models.TextField("důvod zařazení", blank=True)
+    inclusion_reference = models.URLField("důvod: odkaz", max_length=500, blank=True)
 
     class Meta:
-        verbose_name = "актор"
-        verbose_name_plural = "акторы"
+        verbose_name = "aktér"
+        verbose_name_plural = "aktéři"
         ordering = ["name"]
         indexes = [models.Index(fields=["layer", "status"]), models.Index(fields=["party"])]
 
@@ -176,16 +174,18 @@ class ActorInclusionPeriod(models.Model):
     """Период, когда актор входил в выборку. Доли считаются с учётом периодов (README §7.2)."""
 
     actor = models.ForeignKey(
-        Actor, verbose_name="актор", on_delete=models.CASCADE, related_name="inclusion_periods"
+        Actor, verbose_name="aktér", on_delete=models.CASCADE, related_name="inclusion_periods"
     )
-    start_date = models.DateField("с")
-    end_date = models.DateField("по", null=True, blank=True, help_text="Пусто — период открыт.")
-    inclusion_reason = models.TextField("причина включения", blank=True)
-    exclusion_reason = models.TextField("причина исключения", blank=True)
+    start_date = models.DateField("od")
+    end_date = models.DateField(
+        "do", null=True, blank=True, help_text="Prázdné — období je otevřené."
+    )
+    inclusion_reason = models.TextField("důvod zařazení", blank=True)
+    exclusion_reason = models.TextField("důvod vyřazení", blank=True)
 
     class Meta:
-        verbose_name = "период включения"
-        verbose_name_plural = "периоды включения"
+        verbose_name = "období zařazení"
+        verbose_name_plural = "období zařazení"
         ordering = ["actor", "start_date"]
         constraints = [
             models.CheckConstraint(
@@ -213,23 +213,23 @@ class ActorAccount(models.Model):
     """Привязка актора к источнику: handle Telegram, URL профиля, рубрика сайта и т. п."""
 
     actor = models.ForeignKey(
-        Actor, verbose_name="актор", on_delete=models.CASCADE, related_name="accounts"
+        Actor, verbose_name="aktér", on_delete=models.CASCADE, related_name="accounts"
     )
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.PROTECT, related_name="accounts"
+        Source, verbose_name="zdroj", on_delete=models.PROTECT, related_name="accounts"
     )
     account_id = models.CharField(
-        "идентификатор аккаунта",
+        "identifikátor účtu",
         max_length=300,
         blank=True,
-        help_text="Handle, ID канала или путь профиля. Пусто — актор и есть весь источник.",
+        help_text="Handle, ID kanálu nebo cesta profilu. Prázdné — aktér je celý zdroj.",
     )
-    url = models.URLField("ссылка", max_length=500, blank=True)
-    added_at = models.DateTimeField("добавлен", auto_now_add=True)
+    url = models.URLField("odkaz", max_length=500, blank=True)
+    added_at = models.DateTimeField("přidán", auto_now_add=True)
 
     class Meta:
-        verbose_name = "аккаунт актора"
-        verbose_name_plural = "аккаунты акторов"
+        verbose_name = "účet aktéra"
+        verbose_name_plural = "účty aktérů"
         constraints = [
             # Один аккаунт не может принадлежать двум акторам (без учёта регистра handle).
             models.UniqueConstraint(

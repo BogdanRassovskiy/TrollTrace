@@ -17,34 +17,34 @@ class WeeklyAggregate(models.Model):
 
     actor = models.ForeignKey(
         Actor,
-        verbose_name="актор",
+        verbose_name="aktér",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
         related_name="weekly_aggregates",
     )
-    group_key = models.CharField("группа", max_length=100, blank=True)
+    group_key = models.CharField("skupina", max_length=100, blank=True)
     narrative = models.ForeignKey(
         Narrative,
-        verbose_name="нарратив",
+        verbose_name="narativ",
         on_delete=models.CASCADE,
         related_name="weekly_aggregates",
     )
-    week = models.DateField("неделя (понедельник)")
-    min_quality = models.PositiveSmallIntegerField("порог качества", default=3)
+    week = models.DateField("týden (pondělí)")
+    min_quality = models.PositiveSmallIntegerField("práh kvality", default=3)
 
-    n_documents = models.PositiveIntegerField("документов о нарративе")
-    n_total = models.PositiveIntegerField("всего документов (знаменатель)")
-    share = models.FloatField("доля")
-    z_score = models.FloatField("z-оценка", null=True, blank=True)
+    n_documents = models.PositiveIntegerField("dokumentů k narativu")
+    n_total = models.PositiveIntegerField("dokumentů celkem (jmenovatel)")
+    share = models.FloatField("podíl")
+    z_score = models.FloatField("z-skóre", null=True, blank=True)
     engagement = models.JSONField(
-        "отклик", default=dict, blank=True, help_text="Отдельно от доли: спрос ≠ предложение."
+        "odezva", default=dict, blank=True, help_text="Odděleně od podílu: poptávka ≠ nabídka."
     )
-    computed_at = models.DateTimeField("пересчитано", auto_now=True)
+    computed_at = models.DateTimeField("přepočteno", auto_now=True)
 
     class Meta:
-        verbose_name = "недельный агрегат"
-        verbose_name_plural = "недельные агрегаты"
+        verbose_name = "týdenní agregát"
+        verbose_name_plural = "týdenní agregáty"
         ordering = ["narrative", "week"]
         constraints = [
             models.CheckConstraint(

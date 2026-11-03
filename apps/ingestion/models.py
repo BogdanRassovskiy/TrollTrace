@@ -7,9 +7,9 @@ from apps.actors.models import Source
 
 
 class Level(models.TextChoices):
-    OK = "ok", "Норма"
-    WARNING = "warning", "Предупреждение"
-    CRITICAL = "critical", "Критично"
+    OK = "ok", "V normě"
+    WARNING = "warning", "Varování"
+    CRITICAL = "critical", "Kritické"
 
 
 class SourceFeed(models.Model):
@@ -20,24 +20,24 @@ class SourceFeed(models.Model):
         SITEMAP = "sitemap", "Sitemap"
 
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="feeds"
+        Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="feeds"
     )
-    url = models.URLField("адрес ленты", max_length=1000)
-    kind = models.CharField("тип", max_length=10, choices=Kind.choices, default=Kind.RSS)
-    rubric = models.CharField("рубрика", max_length=200, blank=True)
-    is_active = models.BooleanField("используется", default=True)
+    url = models.URLField("adresa kanálu", max_length=1000)
+    kind = models.CharField("typ", max_length=10, choices=Kind.choices, default=Kind.RSS)
+    rubric = models.CharField("rubrika", max_length=200, blank=True)
+    is_active = models.BooleanField("používá se", default=True)
 
     # Условные запросы (304 Not Modified) и состояние для страницы «Источники».
     etag = models.CharField(max_length=300, blank=True, editable=False)
     last_modified = models.CharField(max_length=100, blank=True, editable=False)
-    last_fetched_at = models.DateTimeField("последний запрос", null=True, blank=True)
-    last_success_at = models.DateTimeField("последняя успешная загрузка", null=True, blank=True)
-    last_item_count = models.PositiveIntegerField("записей в ленте", null=True, blank=True)
-    last_error = models.TextField("последняя ошибка", blank=True)
+    last_fetched_at = models.DateTimeField("poslední požadavek", null=True, blank=True)
+    last_success_at = models.DateTimeField("poslední úspěšné stažení", null=True, blank=True)
+    last_item_count = models.PositiveIntegerField("položek v kanálu", null=True, blank=True)
+    last_error = models.TextField("poslední chyba", blank=True)
 
     class Meta:
-        verbose_name = "лента источника"
-        verbose_name_plural = "ленты источников"
+        verbose_name = "kanál zdroje"
+        verbose_name_plural = "kanály zdrojů"
         constraints = [
             models.UniqueConstraint(fields=["source", "url"], name="source_feed_unique_url"),
         ]
@@ -50,34 +50,32 @@ class CollectionRun(models.Model):
     """Один запуск сбора по источнику: что найдено и сохранено. Основа мониторинга (§4.2)."""
 
     class Status(models.TextChoices):
-        RUNNING = "running", "Выполняется"
-        OK = "ok", "Успешно"
-        PARTIAL = "partial", "С ошибками"
-        FAILED = "failed", "Ошибка"
+        RUNNING = "running", "Probíhá"
+        OK = "ok", "Úspěšně"
+        PARTIAL = "partial", "S chybami"
+        FAILED = "failed", "Chyba"
 
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="collection_runs"
+        Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="collection_runs"
     )
-    started_at = models.DateTimeField("начало", auto_now_add=True)
-    finished_at = models.DateTimeField("конец", null=True, blank=True)
-    status = models.CharField(
-        "статус", max_length=10, choices=Status.choices, default=Status.RUNNING
-    )
-    found = models.PositiveIntegerField("найдено", default=0)
-    new = models.PositiveIntegerField("новых", default=0)
-    versions = models.PositiveIntegerField("новых версий", default=0)
-    unchanged = models.PositiveIntegerField("без изменений", default=0)
-    duplicates = models.PositiveIntegerField("дублей по тексту", default=0)
-    skipped = models.PositiveIntegerField("пропущено", default=0)
-    errors = models.PositiveIntegerField("ошибок", default=0)
-    http_requests = models.PositiveIntegerField("HTTP-запросов", default=0)
+    started_at = models.DateTimeField("začátek", auto_now_add=True)
+    finished_at = models.DateTimeField("konec", null=True, blank=True)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.RUNNING)
+    found = models.PositiveIntegerField("nalezeno", default=0)
+    new = models.PositiveIntegerField("nových", default=0)
+    versions = models.PositiveIntegerField("nových verzí", default=0)
+    unchanged = models.PositiveIntegerField("beze změn", default=0)
+    duplicates = models.PositiveIntegerField("duplikátů podle textu", default=0)
+    skipped = models.PositiveIntegerField("přeskočeno", default=0)
+    errors = models.PositiveIntegerField("chyb", default=0)
+    http_requests = models.PositiveIntegerField("HTTP požadavků", default=0)
     details = models.JSONField(
-        "подробности", default=dict, blank=True, help_text="Примеры ошибок, статусы HTTP."
+        "podrobnosti", default=dict, blank=True, help_text="Příklady chyb, stavové kódy HTTP."
     )
 
     class Meta:
-        verbose_name = "запуск сбора"
-        verbose_name_plural = "запуски сбора"
+        verbose_name = "spuštění sběru"
+        verbose_name_plural = "spuštění sběru"
         ordering = ["-started_at"]
         indexes = [models.Index(fields=["source", "-started_at"])]
 
@@ -89,28 +87,28 @@ class SourceHealthCheck(models.Model):
     """Результат одной проверки мониторинга по источнику за день."""
 
     class CheckType(models.TextChoices):
-        VOLUME = "volume", "Объём"
-        EXTRACTION = "extraction", "Качество извлечения"
-        GOLDEN = "golden", "Контрольные страницы"
-        SELECTORS = "selectors", "Структурный отпечаток"
-        HTTP = "http", "HTTP / RSS / доступность"
-        QUALITY = "quality", "Средняя оценка качества"
+        VOLUME = "volume", "Objem"
+        EXTRACTION = "extraction", "Kvalita extrakce"
+        GOLDEN = "golden", "Kontrolní stránky"
+        SELECTORS = "selectors", "Strukturní otisk"
+        HTTP = "http", "HTTP / RSS / dostupnost"
+        QUALITY = "quality", "Průměrné hodnocení kvality"
 
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="health_checks"
+        Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="health_checks"
     )
-    date = models.DateField("день")
-    check_type = models.CharField("проверка", max_length=12, choices=CheckType.choices)
-    status = models.CharField("результат", max_length=10, choices=Level.choices)
+    date = models.DateField("den")
+    check_type = models.CharField("kontrola", max_length=12, choices=CheckType.choices)
+    status = models.CharField("výsledek", max_length=10, choices=Level.choices)
     metrics = models.JSONField(
-        "метрики", default=dict, blank=True, help_text="Например: n, медиана, доля без даты."
+        "metriky", default=dict, blank=True, help_text="Např.: n, medián, podíl bez data."
     )
-    details = models.TextField("подробности", blank=True)
-    checked_at = models.DateTimeField("проверено", auto_now=True)
+    details = models.TextField("podrobnosti", blank=True)
+    checked_at = models.DateTimeField("zkontrolováno", auto_now=True)
 
     class Meta:
-        verbose_name = "проверка источника"
-        verbose_name_plural = "проверки источников"
+        verbose_name = "kontrola zdroje"
+        verbose_name_plural = "kontroly zdrojů"
         ordering = ["-date", "source"]
         constraints = [
             models.UniqueConstraint(
@@ -126,21 +124,21 @@ class GoldenPage(models.Model):
     """Контрольная страница с вручную зафиксированным эталоном извлечения."""
 
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="golden_pages"
+        Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="golden_pages"
     )
     url = models.URLField("URL", max_length=2000)
-    expected_title = models.TextField("эталон: заголовок")
-    expected_published_at = models.DateTimeField("эталон: дата", null=True, blank=True)
-    expected_text_prefix = models.TextField("эталон: начало текста (~200 символов)")
-    is_active = models.BooleanField("используется", default=True)
-    last_checked_at = models.DateTimeField("последняя проверка", null=True, blank=True)
+    expected_title = models.TextField("vzor: titulek")
+    expected_published_at = models.DateTimeField("vzor: datum", null=True, blank=True)
+    expected_text_prefix = models.TextField("vzor: začátek textu (~200 znaků)")
+    is_active = models.BooleanField("používá se", default=True)
+    last_checked_at = models.DateTimeField("poslední kontrola", null=True, blank=True)
     last_status = models.CharField(
-        "последний результат", max_length=10, choices=Level.choices, blank=True
+        "poslední výsledek", max_length=10, choices=Level.choices, blank=True
     )
 
     class Meta:
-        verbose_name = "контрольная страница"
-        verbose_name_plural = "контрольные страницы"
+        verbose_name = "kontrolní stránka"
+        verbose_name_plural = "kontrolní stránky"
         constraints = [
             models.UniqueConstraint(fields=["source", "url"], name="golden_page_unique_url"),
         ]
@@ -156,39 +154,39 @@ class SourceIncident(models.Model):
     """
 
     class Type(models.TextChoices):
-        NO_DOCUMENTS = "no_documents", "Нет документов за сутки"
-        LOW_VOLUME = "low_volume", "Объём ниже нормы"
-        STALE_FEED = "stale_feed", "Лента не обновляется"
-        EXTRACTION = "extraction", "Падение качества извлечения"
-        BOILERPLATE = "boilerplate", "Одинаковый текст у разных URL"
-        LANGUAGE = "language", "Язык не совпадает"
-        GOLDEN_MISMATCH = "golden_mismatch", "Расхождение с контрольными страницами"
-        SELECTOR_MISSING = "selector_missing", "Пропал селектор"
-        HTTP_ERRORS = "http_errors", "Ошибки HTTP / редиректы / таймауты"
-        BLOCKED = "blocked", "Капча / антибот"
-        CHANNEL_UNAVAILABLE = "channel_unavailable", "Канал недоступен"
-        QUALITY_DROP = "quality_drop", "Падение средней оценки качества"
+        NO_DOCUMENTS = "no_documents", "Žádné dokumenty za den"
+        LOW_VOLUME = "low_volume", "Objem pod normou"
+        STALE_FEED = "stale_feed", "Kanál se neaktualizuje"
+        EXTRACTION = "extraction", "Pokles kvality extrakce"
+        BOILERPLATE = "boilerplate", "Stejný text u různých URL"
+        LANGUAGE = "language", "Jazyk neodpovídá"
+        GOLDEN_MISMATCH = "golden_mismatch", "Neshoda s kontrolními stránkami"
+        SELECTOR_MISSING = "selector_missing", "Chybí selektor"
+        HTTP_ERRORS = "http_errors", "Chyby HTTP / přesměrování / časové limity"
+        BLOCKED = "blocked", "Captcha / antibot"
+        CHANNEL_UNAVAILABLE = "channel_unavailable", "Kanál není dostupný"
+        QUALITY_DROP = "quality_drop", "Pokles průměrného hodnocení kvality"
 
     source = models.ForeignKey(
-        Source, verbose_name="источник", on_delete=models.CASCADE, related_name="incidents"
+        Source, verbose_name="zdroj", on_delete=models.CASCADE, related_name="incidents"
     )
-    incident_type = models.CharField("тип", max_length=20, choices=Type.choices)
+    incident_type = models.CharField("typ", max_length=20, choices=Type.choices)
     level = models.CharField(
-        "уровень",
+        "úroveň",
         max_length=10,
         choices=[(Level.WARNING, Level.WARNING.label), (Level.CRITICAL, Level.CRITICAL.label)],
     )
-    started_at = models.DateTimeField("начало")
-    ended_at = models.DateTimeField("конец", null=True, blank=True, help_text="Пусто — открыт.")
-    description = models.TextField("описание", blank=True)
+    started_at = models.DateTimeField("začátek")
+    ended_at = models.DateTimeField("konec", null=True, blank=True, help_text="Prázdné — otevřený.")
+    description = models.TextField("popis", blank=True)
     examples = models.JSONField(
-        "примеры", default=list, blank=True, help_text="URL или ID проблемных документов."
+        "příklady", default=list, blank=True, help_text="URL nebo ID problémových dokumentů."
     )
-    occurrences = models.PositiveIntegerField("повторов сигнала", default=1)
+    occurrences = models.PositiveIntegerField("opakování signálu", default=1)
 
     class Meta:
-        verbose_name = "инцидент сбора"
-        verbose_name_plural = "инциденты сбора"
+        verbose_name = "incident sběru"
+        verbose_name_plural = "incidenty sběru"
         ordering = ["-started_at"]
         constraints = [
             models.CheckConstraint(

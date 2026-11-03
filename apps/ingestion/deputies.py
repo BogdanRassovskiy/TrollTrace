@@ -87,14 +87,14 @@ def _sync_periods(actor: Actor, deputy: psp.Deputy, term_code: str) -> None:
                 actor=actor,
                 start_date=mandate.start,
                 end_date=mandate.end,
-                inclusion_reason=f"Мандат депутата PSP ({term_code})",
-                exclusion_reason="Мандат прекращён (реестр psp.cz)" if mandate.end else "",
+                inclusion_reason=f"Poslanecký mandát PSP ({term_code})",
+                exclusion_reason="Mandát zanikl (registr psp.cz)" if mandate.end else "",
             )
             audit.log_create(None, period, note=NOTE)
         elif period.end_date != mandate.end:
             before = audit.snapshot(period)
             period.end_date = mandate.end
-            period.exclusion_reason = "Мандат прекращён (реестр psp.cz)" if mandate.end else ""
+            period.exclusion_reason = "Mandát zanikl (registr psp.cz)" if mandate.end else ""
             period.save()
             audit.log_change(None, period, before, note=NOTE)
 
@@ -104,7 +104,7 @@ def sync_deputies(
 ) -> SyncResult:
     archive = client.get(psp.OPEN_DATA_URL)
     if not archive.ok:
-        raise RuntimeError(f"Реестр депутатов: HTTP {archive.status}")
+        raise RuntimeError(f"Registr poslanců: HTTP {archive.status}")
     term = psp.parse_registry(archive.content, term_code)
     source = get_psp_source(term)
     result = SyncResult()
@@ -123,7 +123,7 @@ def sync_deputies(
                 party=deputy.club,
                 role=deputy.role,
                 status=Actor.Status.ACTIVE if deputy.is_active else Actor.Status.EXCLUDED,
-                inclusion_criterion=f"Депутат PSP, созыв {term.code} (реестр psp.cz)",
+                inclusion_criterion=f"Poslanec PSP, volební období {term.code} (registr psp.cz)",
                 inclusion_reference=psp.DETAIL_URL.format(id=deputy.id_osoba),
             )
             if account is None:

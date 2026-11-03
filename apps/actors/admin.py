@@ -66,7 +66,7 @@ class ActorAdmin(AuditedModelAdmin):
     def icon(self, actor):
         return photo_icon(actor)
 
-    @admin.display(description="иконка")
+    @admin.display(description="ikona")
     def photo_preview(self, actor):
         return photo_icon(actor, 64)
 

@@ -16,13 +16,13 @@ from apps.panel.models import AuditLog
 
 
 class Command(BaseCommand):
-    help = "Назначает пользователю роль «исследователь» или «наблюдатель»."
+    help = "Přidělí uživateli roli „výzkumník“ nebo „pozorovatel“."
 
     def add_arguments(self, parser):
         parser.add_argument("username")
         parser.add_argument("role", choices=sorted(ROLES))
-        parser.add_argument("--create", action="store_true", help="Создать пользователя.")
-        parser.add_argument("--password", help="Пароль для нового пользователя (иначе спросит).")
+        parser.add_argument("--create", action="store_true", help="Vytvořit uživatele.")
+        parser.add_argument("--password", help="Heslo nového uživatele (jinak se zeptá).")
 
     def handle(self, *args, username, role, create, password, **options):
         User = get_user_model()
@@ -30,10 +30,10 @@ class Command(BaseCommand):
             user = User.objects.filter(username=username).first()
             if user is None:
                 if not create:
-                    raise CommandError(f"Пользователя {username} нет. Добавьте --create.")
-                password = password or getpass.getpass(f"Пароль для {username}: ")
+                    raise CommandError(f"Uživatel {username} neexistuje. Přidejte --create.")
+                password = password or getpass.getpass(f"Heslo pro {username}: ")
                 if not password:
-                    raise CommandError("Пароль не может быть пустым.")
+                    raise CommandError("Heslo nemůže být prázdné.")
                 user = User.objects.create_user(username=username, password=password)
                 audit.log(None, AuditLog.Action.CREATE, user, note="CLI: assign_role --create")
             old = role_label(user)

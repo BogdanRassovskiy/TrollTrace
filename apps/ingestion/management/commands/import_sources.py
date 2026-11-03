@@ -51,14 +51,14 @@ def ensure_actor(source: Source, account_id: str, spec: dict, url: str = "") -> 
     account = ActorAccount.objects.create(
         actor=actor, source=source, account_id=account_id, url=url
     )
-    actor.include(spec.get("criterion", "Подключён к сбору"), on=datetime.date.today())
+    actor.include(spec.get("criterion", "Zařazen do sběru"), on=datetime.date.today())
     audit.log_create(None, actor, note=NOTE)
     audit.log_create(None, account, note=NOTE)
     return actor
 
 
 class Command(BaseCommand):
-    help = "Создаёт или обновляет источники, их акторов и ленты из JSON-файла."
+    help = "Vytvoří nebo aktualizuje zdroje, jejich aktéry a kanály ze souboru JSON."
 
     def add_arguments(self, parser):
         parser.add_argument("path", type=Path)
@@ -76,7 +76,7 @@ class Command(BaseCommand):
             if source is None:
                 source = Source.objects.create(name=spec["name"], url=spec["url"], **fields)
                 audit.log_create(None, source, note=NOTE)
-                verb = "создан"
+                verb = "vytvořen"
             else:
                 before = audit.snapshot(source)
                 source.name = spec["name"]
@@ -84,7 +84,7 @@ class Command(BaseCommand):
                     setattr(source, key, value)
                 source.save()
                 audit.log_change(None, source, before, note=NOTE)
-                verb = "обновлён"
+                verb = "aktualizován"
 
             for feed in spec.get("feeds", []):
                 obj, created = SourceFeed.objects.update_or_create(
@@ -105,4 +105,4 @@ class Command(BaseCommand):
                     {"type": Actor.Type.CHANNEL, **channel.get("actor", {"name": handle})},
                     url=f"https://t.me/{handle}",
                 )
-            self.stdout.write(f"{source.name}: {verb}, лент {source.feeds.count()}")
+            self.stdout.write(f"{source.name}: {verb}, kanálů {source.feeds.count()}")

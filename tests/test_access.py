@@ -30,7 +30,7 @@ def test_healthz_stays_public(client):
 def test_observer_sees_only_working_part(observer_client):
     response = observer_client.get(DASHBOARD)
     assert response.status_code == 200
-    assert "Панель исследователя" not in response.content.decode()  # ссылки в навигации нет
+    assert "Panel výzkumníka" not in response.content.decode()  # ссылки в навигации нет
     assert observer_client.get(PANEL).status_code == 403
     assert observer_client.get(AUDIT).status_code == 403
 
@@ -43,7 +43,7 @@ def test_observer_has_no_admin(observer_client):
 def test_researcher_sees_everything(researcher_client):
     for url in [DASHBOARD, PANEL, AUDIT, ADMIN]:
         assert researcher_client.get(url).status_code == 200, url
-    assert "Панель исследователя" in researcher_client.get(DASHBOARD).content.decode()
+    assert "Panel výzkumníka" in researcher_client.get(DASHBOARD).content.decode()
 
 
 def test_user_without_role_gets_403(client, make_user):
@@ -89,7 +89,7 @@ class TestAssignRoleCommand:
     def test_create_user_with_role(self):
         call_command("assign_role", "vedouci", "observer", "--create", "--password", "x-12345")
         entry = AuditLog.objects.get(action=AuditLog.Action.ROLE)
-        assert entry.changes == {"role": ["Без роли", OBSERVER]}
+        assert entry.changes == {"role": ["Bez role", OBSERVER]}
         assert entry.object_repr == "vedouci"
 
     def test_switch_role(self, make_user):
@@ -114,7 +114,7 @@ class TestOpenAccess:
     def test_everything_open_without_login(self, client):
         for url in [DASHBOARD, PANEL, AUDIT, ADMIN]:
             assert client.get(url).status_code == 200, url
-        assert "Открытый доступ" in client.get(DASHBOARD).content.decode()
+        assert "Otevřený přístup" in client.get(DASHBOARD).content.decode()
 
     def test_changes_audited_as_guest(self, client):
         from .factories import SourceFactory

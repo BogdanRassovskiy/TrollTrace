@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Дашборд{% endblock %}
+{% block title %}Přehled{% endblock %}
 
 {% block content %}
-  <h1>Рабочая часть</h1>
+  <h1>Pracovní část</h1>
   <p class="muted">
-    Здесь появятся список акторов, графики нарративов во времени, режим сравнения
-    и тепловая карта (README §7.1, Этап 8).
+    Zde bude seznam aktérů, grafy narativů v čase, režim srovnání
+    a teplotní mapa (README §7.1, etapa 8).
   </p>
 
   <section class="card">
-    <h2>Проверка графиков</h2>
-    <p class="muted">Демонстрационные данные: подтверждает, что ECharts загружается и рисует на canvas.</p>
-    <div id="demo-chart" class="chart" role="img" aria-label="Демонстрационный график"></div>
+    <h2>Kontrola grafů</h2>
+    <p class="muted">Demonstrační data: ověřuje, že se ECharts načítá a kreslí na canvas.</p>
+    <div id="demo-chart" class="chart" role="img" aria-label="Demonstrační graf"></div>
   </section>
 {% endblock %}
 

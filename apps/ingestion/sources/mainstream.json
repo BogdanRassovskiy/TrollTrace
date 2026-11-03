@@ -15,7 +15,7 @@
       "actor": {
         "name": "ČT24",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     },
     {
@@ -38,7 +38,7 @@
       "actor": {
         "name": "iROZHLAS",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     },
     {
@@ -56,7 +56,7 @@
       "actor": {
         "name": "Seznam Zprávy",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     },
     {
@@ -74,7 +74,7 @@
       "actor": {
         "name": "iDNES.cz",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     },
     {
@@ -92,7 +92,7 @@
       "actor": {
         "name": "Novinky.cz",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     },
     {
@@ -110,7 +110,7 @@
       "actor": {
         "name": "Blesk.cz",
         "type": "media",
-        "criterion": "Мейнстримное медиа из списка README §2 (слой D)"
+        "criterion": "Mainstreamové médium ze seznamu README §2 (vrstva D)"
       }
     }
   ]

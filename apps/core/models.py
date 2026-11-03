@@ -7,8 +7,8 @@ from django.db import models, transaction
 class TimeStampedModel(models.Model):
     """Время создания и последнего изменения записи."""
 
-    created_at = models.DateTimeField("создано", auto_now_add=True)
-    updated_at = models.DateTimeField("изменено", auto_now=True)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+    updated_at = models.DateTimeField("změněno", auto_now=True)
 
     class Meta:
         abstract = True
@@ -24,7 +24,7 @@ class VersionedModel(models.Model):
 
     VERSIONED_FIELDS: tuple[str, ...] = ()
 
-    current_version = models.PositiveIntegerField("текущая версия", default=0, editable=False)
+    current_version = models.PositiveIntegerField("aktuální verze", default=0, editable=False)
 
     class Meta:
         abstract = True
@@ -66,17 +66,17 @@ class VersionedModel(models.Model):
 class VersionRecord(models.Model):
     """Общие поля записи истории версий: кто, когда и зачем изменил."""
 
-    version = models.PositiveIntegerField("версия")
+    version = models.PositiveIntegerField("verze")
     changed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        verbose_name="кто изменил",
+        verbose_name="kdo změnil",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="+",
     )
-    changed_at = models.DateTimeField("когда", auto_now_add=True)
-    change_note = models.TextField("комментарий к изменению", blank=True)
+    changed_at = models.DateTimeField("kdy", auto_now_add=True)
+    change_note = models.TextField("komentář ke změně", blank=True)
 
     class Meta:
         abstract = True
