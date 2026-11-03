@@ -45,7 +45,6 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -105,7 +104,8 @@ SESSION_COOKIE_AGE = 60 * 60 * 12  # рабочий день; база закр�
 # --- Локализация --------------------------------------------------------------
 
 LANGUAGE_CODE = "cs"
-LANGUAGES = [("ru", "Русский"), ("cs", "Čeština"), ("en", "English")]
+# Rozhraní je jen česky (CLAUDE.md): jazyk se nebere z prohlížeče.
+LANGUAGES = [("cs", "Čeština")]
 LOCALE_PATHS = [BASE_DIR / "locale"]
 TIME_ZONE = "Europe/Prague"
 USE_I18N = True

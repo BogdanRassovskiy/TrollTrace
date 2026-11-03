@@ -65,3 +65,12 @@ def test_celery_ping_task():
 def test_no_missing_migrations():
     out = StringIO()
     call_command("makemigrations", "--check", "--dry-run", stdout=out)
+
+
+def test_interface_is_czech_even_for_russian_browser(client, django_user_model):
+    """Rozhraní je vždy česky, i když prohlížeč preferuje ruštinu (CLAUDE.md)."""
+    django_user_model.objects.create_superuser("admin-cs", password="x")
+    client.login(username="admin-cs", password="x")
+    response = client.get("/admin/", HTTP_ACCEPT_LANGUAGE="ru,en;q=0.8")
+    content = response.content.decode()
+    assert '<html lang="cs"' in content and "Odhlásit se" in content
