@@ -124,6 +124,8 @@ def actor_form(actor, **overrides):
         "status": actor.status,
         "inclusion_criterion": actor.inclusion_criterion,
         "inclusion_reference": actor.inclusion_reference,
+        "positions-TOTAL_FORMS": "0",
+        "positions-INITIAL_FORMS": "0",
         "inclusion_periods-TOTAL_FORMS": "0",
         "inclusion_periods-INITIAL_FORMS": "0",
         "accounts-TOTAL_FORMS": "0",

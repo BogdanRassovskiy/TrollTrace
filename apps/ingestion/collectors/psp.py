@@ -4,13 +4,15 @@
 (s001002.htm, ~10 минут заседания) → выступления. Уже обработанные страницы пропускаются,
 поэтому догон архива созыва идёт порциями по max_pages страниц за запуск.
 
-Оратор определяется по id_osoba из ссылки; неизвестные ораторы (члены правительства не из
-депутатов, гости) заводятся автоматически с пометкой в основании включения.
+Оратор определяется по id_osoba из ссылки. Член правительства не из депутатов, уже
+заведённый sync_politicians, находится по имени; остальные неизвестные ораторы (гости)
+заводятся автоматически с пометкой в основании включения.
 """
 
 import datetime
 
 from apps.actors.models import Actor, ActorAccount, Layer
+from apps.actors.registry import find_politician
 from apps.documents.models import Document
 from apps.ingestion import psp
 from apps.ingestion.extract import PRAGUE
@@ -110,6 +112,16 @@ class PspCollector(Collector):
             return next((a for a in self._actors.values() if a.name == name), None)
         key = str(speech.speaker_id)
         if key not in self._actors:
+            existing = find_politician(psp.name_from_label(speech.speaker_label))
+            if existing is not None:
+                # Член правительства не из депутатов уже заведён (sync_politicians).
+                account = ActorAccount.objects.create(
+                    actor=existing, source=self.source, account_id=key,
+                    url=psp.DETAIL_URL.format(id=key),
+                )  # fmt: skip
+                audit.log_create(None, account, note="Sběr stenoprotokolů PSP")
+                self._actors[key] = existing
+                return existing
             actor = Actor.objects.create(
                 name=psp.name_from_label(speech.speaker_label),
                 actor_type=Actor.Type.POLITICIAN,

@@ -69,7 +69,7 @@ class Deputy:
     last_name: str
     title_before: str
     title_after: str
-    gender: str  # M / Z
+    gender: str  # M / Z (или Ž)
     club: str
     mandates: list[Mandate] = field(default_factory=list)
     # Начала созывов, где человек был депутатом, от нового к старому: фото ищутся по ним
@@ -82,7 +82,8 @@ class Deputy:
 
     @property
     def role(self) -> str:
-        return "Poslankyně PSP" if self.gender == "Z" else "Poslanec PSP"
+        # В реестре встречаются оба варианта: «Z» и «Ž».
+        return "Poslankyně PSP" if self.gender in {"Z", "Ž"} else "Poslanec PSP"
 
     @property
     def is_active(self) -> bool:

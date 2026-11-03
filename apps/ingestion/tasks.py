@@ -154,12 +154,20 @@ def recheck_documents(limit: int = 200) -> dict:
 
 @shared_task
 def sync_psp_deputies() -> dict:
-    """Раз в неделю: новые депутаты (замены), смена клуба, конец мандата."""
+    """Раз в неделю: депутаты (замены, клуб, конец мандата), евродепутаты, правительство."""
+    from apps.actors.management.commands.sync_politicians import run as sync_politicians
+
     from .deputies import sync_deputies
 
     with PoliteClient(delay=1.0) as client:
         result = sync_deputies(client)
-    return {"created": result.created, "updated": result.updated, "photos": result.photos}
+    summary = {"created": result.created, "updated": result.updated, "photos": result.photos}
+    try:  # европарламент и правительство — в той же еженедельной задаче
+        for key, other in sync_politicians().items():
+            summary[key] = {"created": other.created, "closed": other.closed}
+    except Exception:  # noqa: BLE001 — сбой чужого реестра не отменяет синхронизацию депутатов
+        logger.exception("Synchronizace europoslanců a vlády selhala")
+    return summary
 
 
 @shared_task

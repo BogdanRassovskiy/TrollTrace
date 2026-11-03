@@ -40,7 +40,8 @@
           "name": "Miroslav Toman",
           "role": "ředitel ÚZSI",
           "reference": "https://www.uzsi.cz/reditel-uzsi.html",
-          "note": "Ve funkci od 1. 10. 2026."
+          "note": "Ve funkci od 1. 10. 2026.",
+          "since": "2026-10-01"
         }
       ]
     },
@@ -57,7 +58,8 @@
           "name": "Lukáš Kintr",
           "role": "ředitel NÚKIB",
           "reference": "https://nukib.gov.cz/cs/o-nukib/vedeni-uradu",
-          "note": "Ve funkci od 1. 7. 2022."
+          "note": "Ve funkci od 1. 7. 2022.",
+          "since": "2022-07-01"
         }
       ]
     },
@@ -130,7 +132,8 @@
           "name": "Miroslav Hlaváč",
           "role": "náčelník Generálního štábu AČR",
           "reference": "https://acr.army.cz/informacni-servis/nacelnik-generalniho-stabu-armady-ceske-republiky--264945/",
-          "note": "Ve funkci od 1. 7. 2026."
+          "note": "Ve funkci od 1. 7. 2026.",
+          "since": "2026-07-01"
         }
       ]
     }

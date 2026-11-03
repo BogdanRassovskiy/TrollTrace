@@ -5,7 +5,7 @@ from django.utils.html import format_html
 from apps.ingestion.models import SourceFeed
 from apps.panel.audit import AuditedModelAdmin
 
-from .models import Actor, ActorAccount, ActorInclusionPeriod, Source
+from .models import Actor, ActorAccount, ActorInclusionPeriod, ActorPosition, Source
 
 
 class SourceFeedInline(admin.TabularInline):
@@ -47,6 +47,12 @@ class ActorInclusionPeriodInline(admin.TabularInline):
     extra = 0
 
 
+class ActorPositionInline(admin.TabularInline):
+    model = ActorPosition
+    extra = 0
+    fields = ["kind", "title", "organization", "start_date", "end_date", "source_url"]
+
+
 class ActorAccountInline(admin.TabularInline):
     model = ActorAccount
     extra = 0
@@ -59,8 +65,8 @@ class ActorAdmin(AuditedModelAdmin):
     list_display_links = ["icon", "name"]
     readonly_fields = ["photo_preview"]
     list_filter = ["layer", "actor_type", "status", "is_hybrid", "activity_cohort", "party"]
-    search_fields = ["name", "party", "role", "accounts__account_id"]
-    inlines = [ActorInclusionPeriodInline, ActorAccountInline]
+    search_fields = ["name", "party", "role", "positions__title", "accounts__account_id"]
+    inlines = [ActorPositionInline, ActorInclusionPeriodInline, ActorAccountInline]
 
     @admin.display(description="")
     def icon(self, actor):
@@ -77,3 +83,11 @@ class ActorAccountAdmin(AuditedModelAdmin):
     list_filter = ["source__layer", "source__platform"]
     search_fields = ["account_id", "actor__name", "url"]
     autocomplete_fields = ["actor", "source"]
+
+
+@admin.register(ActorPosition)
+class ActorPositionAdmin(AuditedModelAdmin):
+    list_display = ["actor", "title", "kind", "organization", "start_date", "end_date"]
+    list_filter = ["kind", "end_date"]
+    search_fields = ["actor__name", "title", "organization"]
+    autocomplete_fields = ["actor"]

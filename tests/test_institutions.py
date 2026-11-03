@@ -94,10 +94,12 @@ def test_import_security_sources_and_institutions():
     assert deputy.security_portfolio and deputy.layer == "E"
     assert Institution.objects.get(abbreviation="MV").minister == deputy
     zuna = Institution.objects.get(abbreviation="MO").minister
-    assert (zuna.layer, zuna.actor_type, zuna.security_portfolio) == ("E", "politician", True)
+    assert (zuna.layer, zuna.actor_type, zuna.security_portfolio) == ("", "politician", True)
     assert Actor.objects.filter(layer="I", actor_type=Actor.Type.OFFICIAL).count() == 6
     assert Actor.objects.filter(name="Lubomír Metnar").count() == 1
     assert all(a.inclusion_periods.count() == 1 for a in Actor.objects.filter(layer="I"))
+    koudelka = bis.officials.get()
+    assert koudelka.positions.get().kind == "official" and koudelka.role == "ředitel BIS"
 
 
 def test_bis_date_from_text_pattern():

@@ -123,13 +123,20 @@ class Actor(TimeStampedModel):
 
     name = models.CharField("jméno / název", max_length=200)
     actor_type = models.CharField("typ", max_length=20, choices=Type.choices)
-    layer = models.CharField("vrstva", max_length=1, choices=Layer.choices)
+    layer = models.CharField(
+        "vrstva",
+        max_length=1,
+        choices=Layer.choices,
+        blank=True,
+        help_text="U médií, sítí a institucí vrstva, ve které působí. U politiků může zůstat "
+        "prázdná (europoslanci, členové vlády mimo Sněmovnu): vrstvu dokumentu určuje zdroj.",
+    )
     party = models.CharField("strana", max_length=100, blank=True)
     role = models.CharField(
-        "role",
-        max_length=100,
+        "funkce",
+        max_length=300,
         blank=True,
-        help_text="Poslanec PSP, europoslanec, ministr, předseda strany…",
+        help_text="Souhrn současných funkcí (ActorPosition); doplňuje se automaticky.",
     )
     is_hybrid = models.BooleanField(
         "hybridní aktér",
@@ -166,6 +173,19 @@ class Actor(TimeStampedModel):
     @property
     def open_period(self):
         return self.inclusion_periods.filter(end_date__isnull=True).first()
+
+    def refresh_role(self, save: bool = True) -> str:
+        """Souhrn současných funkcí: člověk může zastávat několik najednou."""
+        titles = []
+        for title in self.positions.filter(end_date__isnull=True).values_list("title", flat=True):
+            if title not in titles:
+                titles.append(title)
+        role = "; ".join(titles)[:300]
+        if titles and role != self.role:
+            self.role = role
+            if save:
+                self.save(update_fields=["role", "updated_at"])
+        return self.role
 
     def include(self, reason: str = "", on: datetime.date | None = None):
         """Открывает новый период включения. Старые периоды не затираются (README §7.2)."""
@@ -227,6 +247,53 @@ class ActorInclusionPeriod(models.Model):
 
     def __str__(self):
         return f"{self.actor}: {self.start_date} — {self.end_date or '…'}"
+
+
+class ActorPosition(models.Model):
+    """Funkce aktéra v čase. Jeden člověk může zastávat několik funkcí současně
+    (poslanec a ministr, europoslanec a předseda strany) — README §2 «Акторы»."""
+
+    class Kind(models.TextChoices):
+        DEPUTY = "deputy", "Poslanec PSP"
+        MEP = "mep", "Europoslanec"
+        GOVERNMENT = "government", "Člen vlády"
+        PARTY_LEADER = "party_leader", "Předseda strany"
+        OFFICIAL = "official", "Vedoucí bezpečnostní instituce"
+        OTHER = "other", "Jiná funkce"
+
+    actor = models.ForeignKey(
+        Actor, verbose_name="aktér", on_delete=models.CASCADE, related_name="positions"
+    )
+    kind = models.CharField("druh", max_length=20, choices=Kind.choices)
+    title = models.CharField("funkce", max_length=200)
+    organization = models.CharField("orgán / strana", max_length=200, blank=True)
+    start_date = models.DateField("od", null=True, blank=True)
+    end_date = models.DateField(
+        "do", null=True, blank=True, help_text="Prázdné — funkci zastává dosud."
+    )
+    external_id = models.CharField(
+        "ID v registru", max_length=100, blank=True, help_text="Např. persId Evropského parlamentu."
+    )
+    source_url = models.URLField("ověřeno na", max_length=500, blank=True)
+    note = models.TextField("poznámka", blank=True)
+
+    class Meta:
+        verbose_name = "funkce aktéra"
+        verbose_name_plural = "funkce aktérů"
+        ordering = ["actor", "-end_date", "start_date"]
+        indexes = [models.Index(fields=["kind", "end_date"])]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(end_date__isnull=True)
+                | Q(start_date__isnull=True)
+                | Q(end_date__gte=F("start_date")),
+                name="position_end_after_start",
+            ),
+        ]
+
+    def __str__(self):
+        period = f"{self.start_date or '?'} – {self.end_date or 'dosud'}"
+        return f"{self.actor}: {self.title} ({period})"
 
 
 class ActorAccount(models.Model):

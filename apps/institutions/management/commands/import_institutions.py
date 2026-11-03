@@ -8,7 +8,8 @@
   создаётся собственный актор слоя I — события и документы есть к кому отнести.
 - Профессиональные руководители — акторы слоя I (тип official) в любом канале.
 - Министры силовых и внешнеполитических ведомств остаются политиками в своём слое:
-  существующему актору (депутату PSP) ставится security_portfolio, новый создаётся в слое E.
+  существующему актору (депутату PSP) ставится security_portfolio, новый создаётся без
+  слоя; функцию «член правительства» ведёт sync_politicians.
 """
 
 import datetime
@@ -18,7 +19,8 @@ from pathlib import Path
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
-from apps.actors.models import Actor, Layer, Source
+from apps.actors.models import Actor, ActorPosition, Layer, Source
+from apps.actors.registry import find_politician
 from apps.institutions.models import Institution
 from apps.panel import audit
 
@@ -72,7 +74,9 @@ class Command(BaseCommand):
                 )  # fmt: skip
                 institution.save(update_fields=["actor", "updated_at"])
             for person in spec.get("officials", []):
-                institution.officials.add(self._official(person))
+                official = self._official(person)
+                institution.officials.add(official)
+                self._position(official, person, institution.name)
             if "minister" in spec:
                 institution.minister = self._minister(spec["minister"])
                 institution.save(update_fields=["minister", "updated_at"])
@@ -115,19 +119,34 @@ class Command(BaseCommand):
             )  # fmt: skip
         return actor
 
+    def _position(self, actor: Actor, person: dict, organization: str) -> None:
+        position, created = ActorPosition.objects.get_or_create(
+            actor=actor,
+            kind=ActorPosition.Kind.OFFICIAL,
+            title=person["role"],
+            end_date=None,
+            defaults={
+                "organization": organization,
+                "start_date": person.get("since") and datetime.date.fromisoformat(person["since"]),
+                "source_url": person.get("reference", ""),
+                "note": person.get("note", ""),
+            },
+        )
+        if created:
+            audit.log_create(None, position, note=NOTE)
+        actor.refresh_role()
+
     def _minister(self, person: dict) -> Actor:
         """Министр — политик: существующий актор не переносится в слой I, только флаг."""
-        actor = (
-            Actor.objects.filter(name=person["name"], actor_type=Actor.Type.POLITICIAN)
-            .order_by("layer")
-            .first()
-        )
+        actor = find_politician(person["name"])
         if actor is None:
+            # Слой не задаётся: вне Sněmovny у министра пока нет канала; функцию «člen vlády»
+            # добавит sync_politicians.
             return create_actor(
-                name=person["name"], actor_type=Actor.Type.POLITICIAN, layer=Layer.PARLIAMENT,
+                name=person["name"], actor_type=Actor.Type.POLITICIAN,
                 role=person["role"][:100], security_portfolio=True,
-                criterion=f"Člen vlády ({person['role']}): vystupuje ve Sněmovně; resortní "
-                "výstupy patří instituci (README §2.1).",
+                criterion=f"Člen vlády ({person['role']}); resortní výstupy patří instituci "
+                "(README §2.1).",
                 inclusion_reference=person.get("reference", ""),
             )  # fmt: skip
         if not actor.security_portfolio:

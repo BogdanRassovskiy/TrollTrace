@@ -12,7 +12,15 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from PIL import Image, ImageOps
 
-from apps.actors.models import Actor, ActorAccount, ActorInclusionPeriod, Layer, Platform, Source
+from apps.actors.models import (
+    Actor,
+    ActorAccount,
+    ActorInclusionPeriod,
+    ActorPosition,
+    Layer,
+    Platform,
+    Source,
+)
 from apps.panel import audit
 
 from . import psp
@@ -78,9 +86,46 @@ def _download_photo(client: PoliteClient, deputy: psp.Deputy) -> tuple[str, byte
     raise RuntimeError(f"HTTP {status}")
 
 
+def _sync_positions(actor: Actor, deputy: psp.Deputy) -> None:
+    """Мандаты — функции «poslanec PSP» рядом с другими функциями того же человека."""
+    for mandate in deputy.mandates:
+        position, created = ActorPosition.objects.get_or_create(
+            actor=actor,
+            kind=ActorPosition.Kind.DEPUTY,
+            start_date=mandate.start,
+            defaults={
+                "title": deputy.role[:1].lower() + deputy.role[1:],
+                "organization": "Poslanecká sněmovna",
+                "end_date": mandate.end,
+                "external_id": str(deputy.id_osoba),
+                "source_url": psp.DETAIL_URL.format(id=deputy.id_osoba),
+            },
+        )
+        title = deputy.role[:1].lower() + deputy.role[1:]
+        if created:
+            audit.log_create(None, position, note=NOTE)
+        elif (position.end_date, position.title) != (mandate.end, title):
+            before = audit.snapshot(position)
+            position.end_date, position.title = mandate.end, title
+            position.save(update_fields=["end_date", "title"])
+            audit.log_change(None, position, before, note=NOTE)
+
+
+def _other_functions(actor: Actor) -> bool:
+    return (
+        actor.positions.filter(end_date__isnull=True)
+        .exclude(kind=ActorPosition.Kind.DEPUTY)
+        .exists()
+    )
+
+
 def _sync_periods(actor: Actor, deputy: psp.Deputy, term_code: str) -> None:
     existing = {p.start_date: p for p in actor.inclusion_periods.all()}
+    # Мандат закончился, но человек остаётся, например, министром — период не закрываем.
+    keep_open = _other_functions(actor)
     for mandate in deputy.mandates:
+        if mandate.end and keep_open:
+            mandate = psp.Mandate(mandate.start, None)
         period = existing.get(mandate.start)
         if period is None:
             period = ActorInclusionPeriod.objects.create(
@@ -121,8 +166,9 @@ def sync_deputies(
                 actor_type=Actor.Type.POLITICIAN,
                 layer=Layer.PARLIAMENT,
                 party=deputy.club,
-                role=deputy.role,
-                status=Actor.Status.ACTIVE if deputy.is_active else Actor.Status.EXCLUDED,
+                status=Actor.Status.ACTIVE
+                if deputy.is_active or (account is not None and _other_functions(account.actor))
+                else Actor.Status.EXCLUDED,
                 inclusion_criterion=f"Poslanec PSP, volební období {term.code} (registr psp.cz)",
                 inclusion_reference=psp.DETAIL_URL.format(id=deputy.id_osoba),
             )
@@ -146,7 +192,9 @@ def sync_deputies(
                 changed = audit.log_change(None, actor, before, note=NOTE)
                 result.updated += bool(changed)
                 result.unchanged += not changed
+            _sync_positions(actor, deputy)
             _sync_periods(actor, deputy, term.code)
+            actor.refresh_role()
 
         if photos and (refresh_photos or not actor.photo):
             try:

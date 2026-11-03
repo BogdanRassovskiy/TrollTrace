@@ -538,14 +538,15 @@ def test_sync_deputies(web):
     assert (havlicek.name, havlicek.party, havlicek.role) == (
         "Karel Havlíček",
         "ANO",
-        "Poslanec PSP",
+        "poslanec PSP",
     )
+    assert havlicek.positions.get().kind == "deputy"  # mandát = funkce aktéra
     assert havlicek.layer == "E" and havlicek.status == Actor.Status.ACTIVE
     assert havlicek.inclusion_periods.get().start_date == datetime.date(2025, 10, 4)
     assert "/2021ps/" in havlicek.photo_source_url
     with Image.open(havlicek.photo.path) as icon:
         assert icon.size == (ICON_SIZE, ICON_SIZE)
-    assert ActorAccount.objects.get(account_id="7000").actor.role == "Poslankyně PSP"
+    assert ActorAccount.objects.get(account_id="7000").actor.role == "poslankyně PSP"
     source = Source.objects.get(url=psp.SOURCE_URL)
     assert source.collector_config["term"] == "2025ps"
     assert AuditLog.objects.filter(action="create", content_type__model="actor").count() == 3
@@ -560,6 +561,30 @@ def test_sync_deputies(web):
     assert kott.inclusion_periods.get().end_date == datetime.date(2026, 6, 18)
     assert ActorAccount.objects.get(account_id="7000").actor.party == "ANO"
     assert not any(url.endswith(".jpg") for url in web.requests)
+
+
+def test_deputy_role_recognizes_both_female_codes():
+    def role(gender):
+        return psp.Deputy(1, "A", "B", "", "", gender, "ANO").role
+
+    assert (role("M"), role("Z"), role("Ž")) == ("Poslanec PSP", "Poslankyně PSP", "Poslankyně PSP")
+
+
+def test_deputy_who_is_also_minister_stays_in_sample_after_mandate(web):
+    from apps.actors.models import ActorPosition
+
+    web.add(psp.OPEN_DATA_URL, registry_zip())
+    sync_deputies(web.client(), photos=False)
+    kott = ActorAccount.objects.get(account_id="6246").actor
+    ActorPosition.objects.create(actor=kott, kind="government", title="ministr obrany")
+
+    web.add(psp.OPEN_DATA_URL, registry_zip(end_kott="2026-06-18 00"))
+    sync_deputies(web.client(), photos=False)
+    kott.refresh_from_db()
+    assert kott.status == Actor.Status.ACTIVE  # zůstává ministrem
+    assert kott.inclusion_periods.get().end_date is None
+    assert kott.positions.get(kind="deputy").end_date == datetime.date(2026, 6, 18)
+    assert kott.role == "ministr obrany"
 
 
 # --- Расписание и команды -----------------------------------------------------------------
