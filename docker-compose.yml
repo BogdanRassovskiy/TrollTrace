@@ -1,5 +1,6 @@
 # Локальная разработка: docker compose up --build
-# Сервисы: web (Django), db (PostgreSQL + pgvector), redis, worker и beat (Celery).
+# Сервисы: web (Django), db (PostgreSQL + pgvector), redis, worker и beat (Celery),
+# processor — отдельный воркер очереди processing (эмбеддинги; модель грузится один раз).
 # restart: unless-stopped — после перезагрузки Docker сбор продолжается сам.
 
 x-app: &app
@@ -9,6 +10,7 @@ x-app: &app
     dockerfile: docker/Dockerfile
     args:
       REQUIREMENTS: requirements/dev.txt
+  image: trolltrace-app-dev  # один образ на web, worker, processor и beat
   env_file:
     - path: .env
       required: false
@@ -18,6 +20,7 @@ x-app: &app
     REDIS_URL: redis://redis:6379/0
   volumes:
     - .:/app
+    - hfcache:/home/app/.cache/huggingface  # модель эмбеддингов скачивается один раз
   depends_on:
     db:
       condition: service_healthy
@@ -78,9 +81,14 @@ services:
     <<: *app
     command: celery -A config worker --loglevel=info
 
+  processor:
+    <<: *app
+    command: celery -A config worker -Q processing --concurrency=1 --loglevel=info -n processing@%h
+
   beat:
     <<: *app
     command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
 
 volumes:
   pgdata:
+  hfcache:

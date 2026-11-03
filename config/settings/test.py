@@ -24,3 +24,6 @@ WHITENOISE_USE_FINDERS = True
 
 CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 MEDIA_ROOT = Path(tempfile.mkdtemp(prefix="trolltrace-media-"))  # фото акторов в тестах
+
+# Эмбеддинги в тестах — детерминированный мешок слов, без загрузки модели.
+EMBEDDING_BACKEND = "hashing"

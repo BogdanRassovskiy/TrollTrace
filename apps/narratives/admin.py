@@ -7,8 +7,12 @@ from .models import Debunk, Label, Narrative, NarrativeCandidate, NarrativeVersi
 
 @admin.register(Topic)
 class TopicAdmin(AuditedModelAdmin):
-    list_display = ["code", "name"]
+    list_display = ["code", "name", "keyword_list"]
     search_fields = ["code", "name"]
+
+    @admin.display(description="klíčová slova")
+    def keyword_list(self, obj):
+        return ", ".join(obj.keywords)
 
 
 class NarrativeVersionInline(admin.TabularInline):

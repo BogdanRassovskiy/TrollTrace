@@ -23,13 +23,27 @@ class DocumentQualityInline(admin.TabularInline):
 
 @admin.register(Document)
 class DocumentAdmin(AuditedModelAdmin):
-    list_display = ["__str__", "actor", "source", "published_at", "collected_at", "status"]
-    list_filter = ["source__layer", "status", "is_relevant", "date_source"]
+    list_display = [
+        "__str__",
+        "actor",
+        "source",
+        "published_at",
+        "status",
+        "is_relevant",
+        "relevance_score",
+    ]
+    list_filter = ["source__layer", "status", "is_relevant", "date_source", "processed_at"]
     search_fields = ["title", "url", "actor__name"]
     date_hierarchy = "collected_at"
     autocomplete_fields = ["actor", "source"]
-    readonly_fields = ["url_normalized", "text_hash"]
-    exclude = ["embedding", "minhash"]
+    readonly_fields = [
+        "url_normalized",
+        "text_hash",
+        "processed_at",
+        "relevance_score",
+        "relevance_details",
+    ]
+    exclude = ["embedding", "minhash", "embedding_text_hash", "minhash_bands"]
     inlines = [DocumentVersionInline, DocumentQualityInline]
 
 
@@ -56,5 +70,11 @@ class ReuseLinkAdmin(AuditedModelAdmin):
         "similarity",
         "is_confirmed",
     ]
-    list_filter = ["link_type", "method", "is_confirmed"]
+    list_filter = [
+        "link_type",
+        "method",
+        "is_confirmed",
+        "target_document__source__layer",
+    ]
     raw_id_fields = ["source_document", "target_document"]
+    readonly_fields = ["created_at"]

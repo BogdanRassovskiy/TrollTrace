@@ -10,6 +10,12 @@ feedparser==6.0.14
 trafilatura==2.3.1
 Pillow==13.0.0
 
+# Обработка (README §4, шаги 3–6): эмбеддинги e5 и MinHash/LSH.
+# torch — CPU-сборка (индекс PyTorch в Dockerfile), без CUDA образ меньше на ~3 ГБ.
+torch==2.15.0
+sentence-transformers==6.2.0
+datasketch==2.0.0
+
 # Фоновые задачи
 celery==5.6.3
 redis==8.1.0

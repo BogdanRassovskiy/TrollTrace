@@ -24,6 +24,13 @@ class Topic(TimeStampedModel):
     code = models.SlugField("kód", max_length=50, unique=True)
     name = models.CharField("název", max_length=200)
     description = models.TextField("popis", blank=True)
+    keywords = models.JSONField(
+        "klíčová slova",
+        default=list,
+        blank=True,
+        help_text="Začátky slov bez diakritiky, např. „migra“, „ochran hranic“; "
+        "„=nato“ — jen celé slovo. Filtr relevance.",
+    )
 
     class Meta:
         verbose_name = "téma"

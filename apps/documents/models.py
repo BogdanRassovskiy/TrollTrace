@@ -3,6 +3,8 @@
 import zlib
 
 from django.conf import settings
+from django.contrib.postgres.fields import ArrayField
+from django.contrib.postgres.indexes import GinIndex
 from django.db import models, transaction
 from django.db.models import F, Q
 from pgvector.django import HnswIndex, VectorField
@@ -73,8 +75,43 @@ class Document(models.Model):
         blank=True,
         help_text="Rubrika kanálu, přeposlání v Telegramu, řečník a stránka stenoprotokolu…",
     )
+    # Воронка обработки (README §4, шаги 3–6), apps.processing.
+    processed_at = models.DateTimeField(
+        "zpracováno",
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="Prázdné — dokument čeká na zpracování (relevance, embedding, převzetí).",
+    )
+    relevance_score = models.FloatField(
+        "skóre relevance",
+        null=True,
+        blank=True,
+        help_text="Nejvyšší centrovaná kosinová podobnost s tématy a narativy.",
+    )
+    relevance_details = models.JSONField(
+        "podrobnosti relevance",
+        default=dict,
+        blank=True,
+        help_text="Důvod rozhodnutí, nalezená klíčová slova, nejbližší téma a narativ.",
+    )
     embedding = VectorField("embedding", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
+    embedding_text_hash = models.CharField(
+        "hash textu embeddingu",
+        max_length=64,
+        blank=True,
+        editable=False,
+        help_text="Embedding se počítá jednou pro každé znění textu a model.",
+    )
     minhash = models.BinaryField("MinHash podpis", null=True, blank=True)
+    minhash_bands = ArrayField(
+        models.BigIntegerField(),
+        verbose_name="LSH pásma",
+        null=True,
+        blank=True,
+        editable=False,
+        help_text="Hashe pásem MinHash podpisu pro hledání kandidátů na doslovné převzetí.",
+    )
 
     class Meta:
         verbose_name = "dokument"
@@ -98,6 +135,7 @@ class Document(models.Model):
         indexes = [
             models.Index(fields=["actor", "published_at"]),
             models.Index(fields=["source", "collected_at"]),
+            GinIndex(fields=["minhash_bands"], name="document_minhash_bands_gin"),
             HnswIndex(
                 name="document_embedding_hnsw",
                 fields=["embedding"],
@@ -135,6 +173,8 @@ class Document(models.Model):
             version.raw_html = raw_html
             version.save()
             self.title, self.text = title or self.title, text
+            if latest is not None:
+                self.processed_at = None  # новая редакция текста проходит воронку заново
             self.save()
         return version
 

@@ -1,5 +1,5 @@
 # Продакшен: docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
-# Сервисы: caddy (HTTPS), web (gunicorn), worker и beat (Celery), db, redis, backup.
+# Сервисы: caddy (HTTPS), web (gunicorn), worker, processor и beat (Celery), db, redis, backup.
 # Наружу открыты только 80/443 (Caddy); БД и Redis — только во внутренней сети.
 
 x-app: &app
@@ -17,6 +17,7 @@ x-app: &app
     REDIS_URL: redis://redis:6379/0
   volumes:
     - media:/app/media
+    - hfcache:/home/app/.cache/huggingface
   depends_on:
     db:
       condition: service_healthy
@@ -83,11 +84,16 @@ services:
     <<: *app
     command: celery -A config worker --loglevel=info --concurrency=2
 
+  processor:  # эмбеддинги и поиск заимствований (README §4, шаги 3–6)
+    <<: *app
+    command: celery -A config worker -Q processing --concurrency=1 --loglevel=info -n processing@%h
+
   beat:
     <<: *app
     command: celery -A config beat --loglevel=info --schedule /app/beat/celerybeat-schedule
     volumes:
       - beat:/app/beat
+      - hfcache:/home/app/.cache/huggingface
 
   caddy:
     image: caddy:2.8-alpine
@@ -132,5 +138,6 @@ volumes:
   redisdata:
   media:
   beat:
+  hfcache:
   caddydata:
   caddyconfig:

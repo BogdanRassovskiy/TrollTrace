@@ -1,0 +1,139 @@
+[
+  {
+    "code": "ukrajina",
+    "name": "Válka na Ukrajině",
+    "description": "Ruská invaze na Ukrajinu, situace na frontě, vojenská a finanční pomoc Ukrajině, mírová jednání, ukrajinští uprchlíci v Česku.",
+    "keywords": [
+      "ukrajin",
+      "kyjev",
+      "zelensk",
+      "donbas",
+      "ruska invaz",
+      "invaz na ukrajin",
+      "munic",
+      "primeri",
+      "mirov jednan",
+      "mirov dohod"
+    ]
+  },
+  {
+    "code": "rusko",
+    "name": "Rusko a sankce",
+    "description": "Rusko, Kreml a ruská politika, sankce proti Rusku, vztahy Česka s Ruskem, ruská propaganda a vliv.",
+    "keywords": [
+      "rusk",
+      "rusov",
+      "=rus",
+      "kreml",
+      "putin",
+      "moskv",
+      "lavrov",
+      "sankc",
+      "prorusk",
+      "propagand",
+      "hybridn"
+    ]
+  },
+  {
+    "code": "eu",
+    "name": "Evropská unie a suverenita",
+    "description": "Evropská unie a Brusel, Evropská komise a Evropský parlament, národní suverenita, vystoupení z EU, společný dluh a rozpočet EU.",
+    "keywords": [
+      "evropsk unie",
+      "=eu",
+      "brusel",
+      "evropsk komis",
+      "evropsk parlament",
+      "eurokomis",
+      "suveren",
+      "czexit",
+      "von der leyen",
+      "clensk stat"
+    ]
+  },
+  {
+    "code": "euro",
+    "name": "Euro a měna",
+    "description": "Přijetí eura v Česku, koruna, inflace a ceny, Česká národní banka.",
+    "keywords": [
+      "=euro",
+      "=eura",
+      "=eurem",
+      "eurozon",
+      "prijeti eura",
+      "jednotn men",
+      "inflac"
+    ]
+  },
+  {
+    "code": "migrace",
+    "name": "Migrace",
+    "description": "Migrace a migranti, azyl, migrační pakt EU, nelegální přistěhovalectví, ochrana hranic, integrace cizinců.",
+    "keywords": [
+      "migra",
+      "migrant",
+      "azyl",
+      "pristehoval",
+      "uprchlik",
+      "uprchlic",
+      "ochran hranic",
+      "kontrol na hranic",
+      "nelegaln"
+    ]
+  },
+  {
+    "code": "energetika",
+    "name": "Energetika a Green Deal",
+    "description": "Ceny energií, plyn a elektřina, jaderná energetika, emisní povolenky, Green Deal a klimatická politika EU.",
+    "keywords": [
+      "cen energi",
+      "cenach energi",
+      "energetick",
+      "zemn plyn",
+      "=plynu",
+      "plynovod",
+      "elektrin",
+      "elektrar",
+      "jadern",
+      "povolenk",
+      "green deal",
+      "zelen dohod",
+      "klimatick",
+      "emisn"
+    ]
+  },
+  {
+    "code": "nato",
+    "name": "NATO a bezpečnost",
+    "description": "NATO, obrana a armáda, výdaje na zbrojení, americké základny, válka a mobilizace, bezpečnost Česka.",
+    "keywords": [
+      "=nato",
+      "severoatlantick",
+      "armad",
+      "ministr obrany",
+      "ministerstv obrany",
+      "obrann",
+      "protivzdusn",
+      "zbroj",
+      "vojensk",
+      "mobilizac",
+      "vojensk zakladn"
+    ]
+  },
+  {
+    "code": "media",
+    "name": "Média, svoboda slova a cenzura",
+    "description": "Svoboda slova, cenzura, blokace dezinformačních webů, veřejnoprávní média, mainstreamová média, fact-checking.",
+    "keywords": [
+      "cenzur",
+      "svobod slov",
+      "blokac web",
+      "blokac dezinform",
+      "dezinformac",
+      "verejnopravn",
+      "mainstream",
+      "fact-check",
+      "factcheck"
+    ]
+  }
+]

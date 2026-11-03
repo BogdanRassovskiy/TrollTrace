@@ -165,7 +165,14 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.ingestion.tasks.send_telegram_pending",
         "schedule": 10 * 60,
     },
+    # Воронка обработки (README §4, шаги 3–6): новые документы, отдельный воркер processor.
+    "process-pending-documents": {
+        "task": "apps.processing.tasks.process_pending_documents",
+        "schedule": 2 * 60,
+    },
 }
+# Эмбеддинги считает только воркер очереди processing: модель (~1 ГБ) грузится в нём одном.
+CELERY_TASK_ROUTES = {"apps.processing.tasks.*": {"queue": "processing"}}
 
 # Кэш на Redis: robots.txt и блокировки «один запуск сбора на источник» общие для воркеров.
 CACHES = {
@@ -194,6 +201,8 @@ TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID", default="")
 HEARTBEAT_PING_URL = env("HEARTBEAT_PING_URL", default="")
 # /healthz/ проверяет и свежесть пульса Celery (в проде; в dev beat может быть выключен).
 HEALTHZ_CHECK_SCHEDULER = env.bool("HEALTHZ_CHECK_SCHEDULER", default=False)
+# Эмбеддинги: sentence-transformers (модель из настройки embedding-model) или hashing (тесты).
+EMBEDDING_BACKEND = env("EMBEDDING_BACKEND", default="sentence-transformers")
 # Адрес сайта для ссылок в Telegram-сообщениях.
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
 

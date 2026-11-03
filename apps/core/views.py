@@ -6,6 +6,7 @@ from django.shortcuts import redirect
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from apps.documents.models import Document
 from apps.ingestion.models import CollectionRun
 
 from .tasks import HEARTBEAT_MAX_AGE, heartbeat_age
@@ -41,6 +42,10 @@ def healthz(request):
         else None
     )
     extra["last_collection"] = last_run.isoformat() if last_run else None
+    # Очередь обработки (этап 5): растущее число — воркер processor стоит.
+    extra["processing_pending"] = (
+        Document.objects.filter(processed_at__isnull=True).count() if status["db"] else None
+    )
     if settings.HEALTHZ_CHECK_SCHEDULER:
         status["scheduler"] = age is not None and age < HEARTBEAT_MAX_AGE
     ok = all(status.values())

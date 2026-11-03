@@ -56,6 +56,7 @@ def test_healthz_reports_db_and_pgvector(client):
     assert response.status_code == 200
     data = response.json()
     assert (data["status"], data["db"], data["pgvector"]) == ("ok", True, True)
+    assert data["processing_pending"] == 0
 
 
 def test_celery_ping_task():
