@@ -147,6 +147,19 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.ingestion.tasks.sync_psp_deputies",
         "schedule": 7 * 24 * 60 * 60,
     },
+    # Мониторинг (README §4.2): проверки раз в час, контрольные страницы раз в сутки.
+    "monitor-sources": {
+        "task": "apps.ingestion.tasks.monitor_sources",
+        "schedule": 60 * 60,
+    },
+    "check-golden-pages": {
+        "task": "apps.ingestion.tasks.check_golden_pages",
+        "schedule": 24 * 60 * 60,
+    },
+    "send-telegram-pending": {
+        "task": "apps.ingestion.tasks.send_telegram_pending",
+        "schedule": 10 * 60,
+    },
 }
 
 # Кэш на Redis: robots.txt и блокировки «один запуск сбора на источник» общие для воркеров.
@@ -167,6 +180,12 @@ TROLLTRACE = {
         default="TrollTraceResearchBot/0.1 (+mailto:change-me@example.org)",
     ),
 }
+
+# Уведомления мониторинга сбора в Telegram (README §4.2). Пусто — только панель.
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", default="")
+TELEGRAM_CHAT_ID = env("TELEGRAM_CHAT_ID", default="")
+# Адрес сайта для ссылок в Telegram-сообщениях.
+SITE_URL = env("SITE_URL", default="http://localhost:8000")
 
 # --- Логирование --------------------------------------------------------------
 

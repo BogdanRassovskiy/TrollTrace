@@ -48,6 +48,9 @@ def run_collector(source: Source, client: PoliteClient | None = None) -> Collect
     run.details = {
         "errors": collector.errors,
         "http": {k: v for k, v in client.stats.items() if k.startswith("http_")},
+        "timeouts": client.stats["timeouts"],
+        "redirect_offsite": client.stats["redirect_offsite"],
+        "robots_disallowed": client.stats["robots_disallowed"],
     }
     run.status = status
     run.finished_at = timezone.now()
@@ -157,3 +160,40 @@ def sync_psp_deputies() -> dict:
     with PoliteClient(delay=1.0) as client:
         result = sync_deputies(client)
     return {"created": result.created, "updated": result.updated, "photos": result.photos}
+
+
+@shared_task
+def monitor_sources() -> dict:
+    """Проверки мониторинга по всем активным источникам, где уже шёл сбор (README §4.2)."""
+    from . import monitoring
+
+    statuses = {}
+    for source in Source.objects.filter(is_active=True, collection_runs__isnull=False).distinct():
+        try:
+            results = monitoring.monitor_source(source)
+            statuses[source.pk] = [r.status for r in results]
+        except Exception:  # noqa: BLE001 — один источник не останавливает остальные
+            logger.exception("Мониторинг %s упал", source)
+    return statuses
+
+
+@shared_task
+def check_golden_pages() -> dict:
+    """Ежедневное перепарсивание контрольных страниц и сравнение с эталоном."""
+    from . import monitoring
+
+    now, statuses = timezone.now(), {}
+    for source in monitoring.golden_sources():
+        with PoliteClient(delay=source.request_delay_seconds) as client:
+            result = monitoring.check_golden(source, now, client)
+        if result is not None:
+            monitoring.apply(source, result, now)
+            statuses[source.pk] = result.status
+    return statuses
+
+
+@shared_task
+def send_telegram_pending() -> int:
+    from apps.panel import telegram
+
+    return telegram.send_pending()

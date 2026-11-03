@@ -140,3 +140,19 @@ a { color: var(--accent); }
 
 .badge-warn { background: #fdf1d8; color: #8a5a00; }
 @media (prefers-color-scheme: dark) { .badge-warn { background: #3a2c0c; color: #f0c56b; } }
+
+/* Мониторинг сбора (этап 3.1) */
+.health { display: inline-block; width: 12px; height: 12px; border-radius: 50%; }
+.health-green { background: #2e9e57; }
+.health-yellow { background: #e0a400; }
+.health-red { background: #d1372e; }
+.level-warning { background: #fdf1d8; color: #8a5a00; }
+.level-critical { background: #fbe0de; color: #a12620; }
+.level-info { background: #e3f4e8; color: #1f7a3d; }
+.pre { white-space: pre-line; }
+tr.unread > td { background: rgba(224, 164, 0, 0.06); }
+@media (prefers-color-scheme: dark) {
+  .level-warning { background: #3a2c0c; color: #f0c56b; }
+  .level-critical { background: #3d1513; color: #f19a94; }
+  .level-info { background: #17351f; color: #7fd69a; }
+}

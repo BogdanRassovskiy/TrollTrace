@@ -18,6 +18,10 @@ from apps.actors.models import Actor, Source
 from apps.documents.models import Document
 from apps.documents.utils import normalize_url, text_hash
 
+from . import quality
+
+MAX_DUPLICATE_URLS = 10
+
 
 class Outcome(enum.StrEnum):
     NEW = "new"
@@ -58,14 +62,25 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             if item.engagement:
                 doc.engagement = item.engagement
             doc.save(update_fields=["last_checked_at", "engagement"])
+            if version:
+                quality.assess(doc, raw_html=item.raw_html)
             return (Outcome.VERSION if version else Outcome.UNCHANGED), doc
 
-        if (
-            len(item.text) >= source.min_text_length
-            and Document.objects.filter(
-                source=source, actor=actor, text_hash=text_hash(item.text)
-            ).exists()
-        ):
+        original = (
+            Document.objects.filter(source=source, actor=actor, text_hash=text_hash(item.text))
+            .select_for_update()
+            .first()
+            if len(item.text) >= source.min_text_length
+            else None
+        )
+        if original is not None:
+            # Тот же текст под другим URL — признак заглушки (куки, капча, ошибка), README §4.2.
+            duplicates = original.meta.get("duplicate_urls", [])
+            if item.url not in duplicates and len(duplicates) < MAX_DUPLICATE_URLS:
+                original.meta = {**original.meta, "duplicate_urls": [*duplicates, item.url]}
+                original.save(update_fields=["meta"])
+                if not duplicates:
+                    quality.assess(original)
             return Outcome.DUPLICATE, None
 
         doc = Document.objects.create(
@@ -76,7 +91,7 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             title=item.title,
             text=item.text,
             rubric=item.rubric[:200],
-            language=item.language,
+            language=item.language or quality.detect_language(item.text),
             published_at=item.published_at,
             date_source=item.date_source,
             collected_at=now,
@@ -84,4 +99,5 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             meta=item.meta,
         )
         doc.record_version(text=item.text, title=item.title, raw_html=item.raw_html)
+        quality.assess(doc, raw_html=item.raw_html)
         return Outcome.NEW, doc

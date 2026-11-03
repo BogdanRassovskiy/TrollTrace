@@ -429,6 +429,17 @@ docker compose exec web python manage.py collect --layer D --max-articles 5   # 
 
 По расписанию (Celery beat) каждые 5 минут собираются источники, у которых подошёл `collect_interval_minutes`; раз в час статьи перепроверяются на правки и удаление (через 24 ч и 7 дней); раз в неделю обновляется реестр депутатов. Коллекторы: сайты (RSS/sitemap + trafilatura), Telegram (публичное превью `t.me/s/`), стенограммы PSP. Учитывается robots.txt (RFC 9309), паузы между запросами, сохраняются сырой HTML (сжатый), текст, `published_at` и `collected_at`; дедупликация по нормализованному URL и хешу текста, правки — новые версии. Формат файлов источников — `apps/ingestion/sources/README.md`. Фото акторов лежат в `media/` (не в git); без фото показывается заглушка.
 
+### Мониторинг сбора и качество данных (этап 3.1)
+
+Каждый документ при сохранении и при новой версии получает оценку качества 1–5 с флагами (`apps/ingestion/quality.py`, правила `RULES_VERSION`). Раз в час проверяются объём, качество извлечения, средняя оценка и HTTP/доступность; раз в сутки — контрольные страницы (эталоны задаются в админке). Сигналы открывают `SourceIncident` (повторы объединяются, при восстановлении — «снова в норме»), попадают в `/panel/notifications/` и в Telegram-бот. Статус источников — `/panel/sources/`.
+
+```bash
+docker compose exec web python manage.py monitor [--source ID] [--golden]   # разовый прогон проверок
+docker compose exec web python manage.py assess_quality [--all]             # (пере)оценка документов
+```
+
+Telegram: создайте бота у @BotFather, укажите `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` в `.env` (без них уведомления только в панели).
+
 ### Проверки качества кода
 
 ```bash

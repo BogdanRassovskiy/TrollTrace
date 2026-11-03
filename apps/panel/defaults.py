@@ -24,7 +24,21 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "actor-min-activity": (4, "Минимум документов за период для включения актора."),
     "chart-click-max-lines": (10, "N: до скольких линий клик по точке графика открывает посты."),
     "embedding-model": ("intfloat/multilingual-e5-base", "Модель эмбеддингов (README §4, шаг 4)."),
+    "monitoring-volume-ratio": (
+        0.33,
+        "Мониторинг: сигнал, если документов за сутки меньше этой доли медианы (README §4.2).",
+    ),
+    "monitoring-min-mean-quality": (
+        3.5,
+        "Мониторинг: сигнал, если средняя оценка качества за сутки ниже (README §4.3).",
+    ),
 }
+
+
+def get_setting(key: str):
+    """Текущее значение настройки; если её ещё нет в БД — стартовое."""
+    value = Setting.objects.filter(key=key).values_list("value", flat=True).first()
+    return DEFAULT_SETTINGS[key][0] if value is None else value
 
 
 def ensure_default_settings() -> int:

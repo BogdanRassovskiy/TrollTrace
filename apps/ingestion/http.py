@@ -19,6 +19,11 @@ ROBOTS_TTL = 24 * 60 * 60
 ROBOTS_ERROR_TTL = 60 * 60
 
 
+def _site(host: str) -> str:
+    """Грубо «сайт» хоста: две последние части (www.idnes.cz и servis.idnes.cz → idnes.cz)."""
+    return ".".join(host.lower().split(".")[-2:])
+
+
 class RobotsDisallowed(Exception):
     """robots.txt запрещает адрес — не скачиваем."""
 
@@ -103,8 +108,14 @@ class PoliteClient:
     def _request(self, url: str, headers: dict | None = None) -> httpx.Response:
         self._wait(urlsplit(url).netloc)
         self.stats["requests"] += 1
-        response = self._client.get(url, headers=headers)
+        try:
+            response = self._client.get(url, headers=headers)
+        except httpx.TimeoutException:
+            self.stats["timeouts"] += 1
+            raise
         self.stats[f"http_{response.status_code}"] += 1
+        if _site(response.url.host) != _site(urlsplit(url).hostname or ""):
+            self.stats["redirect_offsite"] += 1  # согласие с cookies, антибот, смена домена
         return response
 
     def get(self, url: str, headers: dict | None = None) -> FetchResult:
