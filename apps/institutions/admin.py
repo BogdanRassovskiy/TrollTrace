@@ -11,7 +11,8 @@ class InstitutionAdmin(AuditedModelAdmin):
     list_display = ["name", "abbreviation", "group", "actor", "event_count"]
     list_filter = ["group"]
     search_fields = ["name", "abbreviation"]
-    filter_horizontal = ["sources"]
+    filter_horizontal = ["sources", "officials"]
+    raw_id_fields = ["minister"]
 
     @admin.display(description="událostí")
     def event_count(self, obj):
@@ -29,12 +30,15 @@ class InstitutionalEventAdmin(AuditedModelAdmin):
     list_filter = ["institution", "event_type", "channel", "specificity", "speaker_role", "stance"]
     search_fields = ["title", "summary", "speaker_name", "source_url"]
     date_hierarchy = "date"
-    raw_id_fields = ["document"]
+    raw_id_fields = ["document", "speaker"]
     autocomplete_fields = ["narrative"]
     readonly_fields = ["narrative_version", "coded_by", "coded_at"]
     fieldsets = [
         (None, {"fields": ["institution", "date", "title", "summary", "source_url", "document"]}),
-        ("Mluvčí a kanál", {"fields": ["speaker_name", "speaker_role", "channel", "event_type"]}),
+        (
+            "Mluvčí a kanál",
+            {"fields": ["speaker", "speaker_name", "speaker_role", "channel", "event_type"]},
+        ),
         ("Narativ", {"fields": ["specificity", "narrative", "stance", "narrative_version"]}),
         ("Kódování", {"fields": ["notes", "coded_by", "coded_at"]}),
     ]

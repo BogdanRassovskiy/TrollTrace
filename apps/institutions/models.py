@@ -47,6 +47,25 @@ class Institution(TimeStampedModel):
         related_name="institutions",
         limit_choices_to={"layer": Layer.SECURITY},
     )
+    officials = models.ManyToManyField(
+        Actor,
+        verbose_name="profesní vedoucí",
+        blank=True,
+        related_name="led_institutions",
+        limit_choices_to={"layer": Layer.SECURITY, "actor_type": Actor.Type.OFFICIAL},
+        help_text="Ředitelé, náčelníci: vrstva I v jakémkoli kanálu (README §2.1).",
+    )
+    minister = models.ForeignKey(
+        Actor,
+        verbose_name="ministr",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="security_ministries",
+        limit_choices_to={"security_portfolio": True},
+        help_text="Politik s příznakem bezpečnostního resortu; do vrstvy I patří jen "
+        "v resortním formátu.",
+    )
     notes = models.TextField("poznámky", blank=True)
 
     class Meta:
@@ -91,7 +110,17 @@ class InstitutionalEvent(TimeStampedModel):
     institution = models.ForeignKey(
         Institution, verbose_name="instituce", on_delete=models.PROTECT, related_name="events"
     )
-    speaker_name = models.CharField("mluvčí", max_length=200, blank=True)
+    speaker = models.ForeignKey(
+        Actor,
+        verbose_name="mluvčí (aktér)",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="institutional_events",
+    )
+    speaker_name = models.CharField(
+        "mluvčí (jméno)", max_length=200, blank=True, help_text="Pokud mluvčí není mezi aktéry."
+    )
     speaker_role = models.CharField(
         "role mluvčího",
         max_length=20,

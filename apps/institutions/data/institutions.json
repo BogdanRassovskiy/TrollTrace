@@ -1,14 +1,140 @@
 {
   "institutions": [
-    {"name": "Bezpečnostní informační služba", "abbreviation": "BIS", "group": "intelligence", "url": "https://www.bis.cz/", "sources": ["https://www.bis.cz/aktuality/"]},
-    {"name": "Vojenské zpravodajství", "abbreviation": "VZ", "group": "intelligence", "url": "https://www.vzcr.cz/"},
-    {"name": "Úřad pro zahraniční styky a informace", "abbreviation": "ÚZSI", "group": "intelligence", "url": "https://www.uzsi.cz/"},
-    {"name": "Národní úřad pro kybernetickou a informační bezpečnost", "abbreviation": "NÚKIB", "group": "cyber", "url": "https://nukib.gov.cz/", "sources": ["https://nukib.gov.cz/cs/infoservis/aktuality"]},
-    {"name": "Ministerstvo vnitra", "abbreviation": "MV", "group": "ministry", "url": "https://mv.gov.cz/", "sources": ["https://mv.gov.cz/zpravodajstvi"], "notes": "Včetně Centra proti hybridním hrozbám."},
-    {"name": "Ministerstvo obrany", "abbreviation": "MO", "group": "ministry", "url": "https://mo.gov.cz/"},
-    {"name": "Ministerstvo zahraničních věcí", "abbreviation": "MZV", "group": "ministry", "url": "https://mzv.gov.cz/", "notes": "Strategická komunikace."},
-    {"name": "Úřad vlády — sekretariát Bezpečnostní rady státu", "abbreviation": "BRS", "group": "coordination", "url": "https://vlada.gov.cz/", "notes": "Včetně poradce pro národní bezpečnost, pokud funkce v období výzkumu existuje."},
-    {"name": "Policie České republiky", "abbreviation": "PČR", "group": "force", "url": "https://policie.gov.cz/", "notes": "Včetně NCOZ."},
-    {"name": "Armáda České republiky / Generální štáb", "abbreviation": "AČR", "group": "force", "url": "https://acr.army.cz/"}
-  ]
+    {
+      "name": "Bezpečnostní informační služba",
+      "abbreviation": "BIS",
+      "group": "intelligence",
+      "url": "https://www.bis.cz/",
+      "sources": [
+        "https://www.bis.cz/aktuality/"
+      ],
+      "officials": [
+        {
+          "name": "Michal Koudelka",
+          "role": "ředitel BIS",
+          "reference": "https://www.bis.cz/aktuality/uvodni-slovo-reditele-bis-k-verejne-vyrocni-zprave-za-rok-2025-1aba1eb6.html",
+          "note": "Druhé funkční období končí v únoru 2027 (úvodní slovo k výroční zprávě 2025)."
+        }
+      ]
+    },
+    {
+      "name": "Vojenské zpravodajství",
+      "abbreviation": "VZ",
+      "group": "intelligence",
+      "url": "https://www.vzcr.cz/",
+      "officials": [
+        {
+          "name": "Petr Bartovský",
+          "role": "ředitel Vojenského zpravodajství",
+          "reference": "https://www.vzcr.cz/"
+        }
+      ]
+    },
+    {
+      "name": "Úřad pro zahraniční styky a informace",
+      "abbreviation": "ÚZSI",
+      "group": "intelligence",
+      "url": "https://www.uzsi.cz/",
+      "officials": [
+        {
+          "name": "Miroslav Toman",
+          "role": "ředitel ÚZSI",
+          "reference": "https://www.uzsi.cz/reditel-uzsi.html",
+          "note": "Ve funkci od 1. 10. 2026."
+        }
+      ]
+    },
+    {
+      "name": "Národní úřad pro kybernetickou a informační bezpečnost",
+      "abbreviation": "NÚKIB",
+      "group": "cyber",
+      "url": "https://nukib.gov.cz/",
+      "sources": [
+        "https://nukib.gov.cz/cs/infoservis/aktuality"
+      ],
+      "officials": [
+        {
+          "name": "Lukáš Kintr",
+          "role": "ředitel NÚKIB",
+          "reference": "https://nukib.gov.cz/cs/o-nukib/vedeni-uradu",
+          "note": "Ve funkci od 1. 7. 2022."
+        }
+      ]
+    },
+    {
+      "name": "Ministerstvo vnitra",
+      "abbreviation": "MV",
+      "group": "ministry",
+      "url": "https://mv.gov.cz/",
+      "sources": [
+        "https://mv.gov.cz/zpravodajstvi"
+      ],
+      "notes": "Včetně Centra proti hybridním hrozbám.",
+      "minister": {
+        "name": "Lubomír Metnar",
+        "role": "ministr vnitra",
+        "reference": "https://vlada.gov.cz/cz/vlada/"
+      }
+    },
+    {
+      "name": "Ministerstvo obrany",
+      "abbreviation": "MO",
+      "group": "ministry",
+      "url": "https://mo.gov.cz/",
+      "minister": {
+        "name": "Jaromír Zůna",
+        "role": "místopředseda vlády a ministr obrany",
+        "reference": "https://vlada.gov.cz/cz/vlada/"
+      }
+    },
+    {
+      "name": "Ministerstvo zahraničních věcí",
+      "abbreviation": "MZV",
+      "group": "ministry",
+      "url": "https://mzv.gov.cz/",
+      "notes": "Strategická komunikace.",
+      "minister": {
+        "name": "Petr Macinka",
+        "role": "místopředseda vlády a ministr zahraničních věcí",
+        "reference": "https://vlada.gov.cz/cz/vlada/"
+      }
+    },
+    {
+      "name": "Úřad vlády — sekretariát Bezpečnostní rady státu",
+      "abbreviation": "BRS",
+      "group": "coordination",
+      "url": "https://vlada.gov.cz/",
+      "notes": "Poradce pro národní bezpečnost zřízen usnesením vlády č. 1078/2022; zda je funkce v období výzkumu obsazena, není na webu Úřadu vlády uvedeno — otevřená otázka."
+    },
+    {
+      "name": "Policie České republiky",
+      "abbreviation": "PČR",
+      "group": "force",
+      "url": "https://policie.gov.cz/",
+      "notes": "Včetně NCOZ.",
+      "officials": [
+        {
+          "name": "Martin Vondrášek",
+          "role": "policejní prezident",
+          "reference": "https://policie.gov.cz/policejni-prezident"
+        }
+      ]
+    },
+    {
+      "name": "Armáda České republiky / Generální štáb",
+      "abbreviation": "AČR",
+      "group": "force",
+      "url": "https://acr.army.cz/",
+      "officials": [
+        {
+          "name": "Miroslav Hlaváč",
+          "role": "náčelník Generálního štábu AČR",
+          "reference": "https://acr.army.cz/informacni-servis/nacelnik-generalniho-stabu-armady-ceske-republiky--264945/",
+          "note": "Ve funkci od 1. 7. 2026."
+        }
+      ]
+    }
+  ],
+  "checked": "2026-11-03",
+  "_comment": "Osoby ověřeny na oficiálních webech institucí a vlády k datu checked. Při změně ve funkci: vyřadit aktéra (období zařazení) a přidat nového."
 }

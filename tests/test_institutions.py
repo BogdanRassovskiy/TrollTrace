@@ -73,6 +73,7 @@ def test_event_window_settings():
 
 
 def test_import_security_sources_and_institutions():
+    deputy = Actor.objects.create(name="Lubomír Metnar", actor_type="politician", layer="E")
     out = io.StringIO()
     call_command("import_sources", "apps/ingestion/sources/security.json", stdout=out)
     call_command("import_institutions", stdout=out)
@@ -83,7 +84,20 @@ def test_import_security_sources_and_institutions():
     bis = Institution.objects.get(abbreviation="BIS")
     assert bis.sources.get().url == "https://www.bis.cz/aktuality/"
     assert (bis.actor.layer, bis.actor.actor_type) == ("I", Actor.Type.INSTITUTION)
-    assert not Institution.objects.get(abbreviation="VZ").sources.exists()
+    vz = Institution.objects.get(abbreviation="VZ")
+    assert not vz.sources.exists()
+    assert (vz.actor.layer, vz.actor.actor_type) == ("I", Actor.Type.INSTITUTION)  # bez kanálu
+    assert vz.officials.get().actor_type == Actor.Type.OFFICIAL
+
+    # Ministr zůstává politikem ve své vrstvě, jen s příznakem — žádný duplikát.
+    deputy.refresh_from_db()
+    assert deputy.security_portfolio and deputy.layer == "E"
+    assert Institution.objects.get(abbreviation="MV").minister == deputy
+    zuna = Institution.objects.get(abbreviation="MO").minister
+    assert (zuna.layer, zuna.actor_type, zuna.security_portfolio) == ("E", "politician", True)
+    assert Actor.objects.filter(layer="I", actor_type=Actor.Type.OFFICIAL).count() == 6
+    assert Actor.objects.filter(name="Lubomír Metnar").count() == 1
+    assert all(a.inclusion_periods.count() == 1 for a in Actor.objects.filter(layer="I"))
 
 
 def test_bis_date_from_text_pattern():

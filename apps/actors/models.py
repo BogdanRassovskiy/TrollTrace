@@ -110,6 +110,7 @@ class Actor(TimeStampedModel):
         CHANNEL = "channel", "Kanál"
         ATTRIBUTED_NETWORK = "attributed_network", "Atribuovaná síť"
         INSTITUTION = "institution", "Instituce bezpečnosti"
+        OFFICIAL = "official", "Profesní vedoucí bezpečnostní instituce"
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Aktivní"
