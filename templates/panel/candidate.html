@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Kandidát na narativ — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="muted small"><a href="{% url 'panel:candidates' %}">← Kandidáti</a>{% if position %} · {{ position }} z {{ n_open }} čekajících{% endif %}</p>
+  <h1>{{ narrative.name|default:candidate.description }}</h1>
+  <p class="muted">
+    {{ candidate.n_documents }} dok. od {{ candidate.n_authors }} nezávislých autorů ·
+    vrstvy {{ candidate.layers|join:", "|default:"—" }} ·
+    {{ candidate.window_start|date:"j. n." }}–{{ candidate.window_end|date:"j. n. Y" }} ·
+    {% if candidate.tracked_since %}sleduje se od {{ candidate.tracked_since|date:"j. n. Y" }}{% else %}zatím nesplnil pravidlo přidání{% endif %}
+  </p>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Narativ</h2>
+      {% if narrative %}
+        <p>{{ narrative.definition }}</p>
+        {% if narrative.stance_guide %}
+          <dl class="guide">
+            {% for key, text in narrative.stance_guide.items %}<dt>{% if key == "pro" %}Pro{% elif key == "contra" %}Proti{% elif key == "neutral" %}Neutrálně{% else %}Není přítomen{% endif %}</dt><dd>{{ text }}</dd>{% endfor %}
+          </dl>
+        {% endif %}
+      {% else %}
+        <p>{{ candidate.description }}</p>
+        <p class="muted small">Karta narativu (definice, pokyny k postojům) se vytvoří při přijetí.</p>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2>Nejbližší narativy</h2>
+      <ul class="plain">
+        {% for n in nearest %}
+          <li><a href="{% url 'panel:narrative_history' n.code %}">{{ n.name }}</a> <span class="muted small">{{ n.code }} · {{ n.get_status_display }}</span></li>
+        {% empty %}<li class="muted">Žádný blízký sledovaný narativ.</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  <h2>Jak tvrzení zní v textech</h2>
+  <p class="muted small">
+    Zvýrazněno je místo, které model uvedl jako doklad, s okolním textem. Zkontrolujte, zda autor
+    tvrzení opravdu zastává — nejde o sarkasmus, ironii, nebo o citaci, kterou autor jen
+    přebírá či vyvrací.
+  </p>
+  {% for f in fragments %}
+    <article class="card fragment">
+      <header class="fragment-head">
+        <a href="{{ f.claim.document.url }}" target="_blank" rel="noopener">{{ f.claim.document.title|default:f.claim.document.url|truncatechars:120 }}</a>
+        <span class="muted small">{{ f.claim.document.source.name }} · {{ f.claim.document.published_at|date:"j. n. Y" }}</span>
+      </header>
+      <p class="fragment-text">{% if f.found %}{{ f.before }}<mark>{{ f.match }}</mark>{{ f.after }}{% else %}<mark>{{ f.match }}</mark>{% endif %}</p>
+      <p class="small">
+        {% if f.is_quote %}<span class="badge badge-warn">citace{% if not f.by_author %}: {{ f.claim.carrier }}{% endif %}</span>{% else %}<span class="badge">tvrdí autor</span>{% endif %}
+        <span class="stance-{{ f.claim.stance }}">postoj: {{ f.claim.get_stance_display }}</span>
+        · jistota {{ f.claim.confidence|floatformat:2 }}
+        {% if not f.found %}· <span class="muted">doklad se v textu nepodařilo najít, uvedena formulace modelu</span>{% endif %}
+      </p>
+      <p class="muted small">Tvrzení podle modelu: {{ f.claim.claim }}</p>
+    </article>
+  {% empty %}<p class="muted">Ke shluku nejsou uložená tvrzení s doklady.</p>{% endfor %}
+
+  {% if is_open %}
+    <form method="post" action="{% url 'panel:candidate_decide' candidate.pk %}" class="card decide">
+      {% csrf_token %}
+      <label for="reason">Důvod (nepovinné)</label>
+      <textarea id="reason" name="reason" rows="2" placeholder="Např. jde o ironii, jen citace, příliš široké…"></textarea>
+      <div class="actions">
+        <button class="button" name="decision" value="accept">Přijmout do narativů</button>
+        <button class="button button-danger" name="decision" value="reject">Zamítnout</button>
+        <a class="small" href="{% url 'admin:narratives_narrativecandidate_change' candidate.pk %}">sloučit s existujícím narativem…</a>
+      </div>
+    </form>
+  {% else %}
+    <p class="card">Rozhodnuto: <strong>{{ candidate.get_status_display }}</strong>{% if candidate.decided_by %} ({{ candidate.decided_by }}, {{ candidate.decided_at|date:"j. n. Y H:i" }}){% endif %}{% if candidate.decision_reason %} — {{ candidate.decision_reason }}{% endif %}.
+      {% if candidate.resulting_narrative %}<a href="{% url 'panel:narrative_history' candidate.resulting_narrative.code %}">Narativ {{ candidate.resulting_narrative.code }}</a>{% endif %}</p>
+  {% endif %}
+
+  <details class="card">
+    <summary>Všechna tvrzení ve shluku ({{ claims|length }})</summary>
+    <table class="table">
+      <thead><tr><th>Tvrzení</th><th>Kdo nese</th><th>Postoj</th><th>Zdroj</th></tr></thead>
+      <tbody>
+        {% for c in claims %}
+          <tr><td>{{ c.claim }}{% if c.evidence %}<div class="muted small">„{{ c.evidence|truncatechars:200 }}“</div>{% endif %}</td>
+            <td class="small">{{ c.carrier|default:"—" }}</td><td class="small">{{ c.get_stance_display }}</td>
+            <td class="small"><a href="{{ c.document.url }}" target="_blank" rel="noopener">{{ c.document.source.name }}</a></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </details>
+{% endblock %}

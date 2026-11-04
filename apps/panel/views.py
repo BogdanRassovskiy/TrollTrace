@@ -21,7 +21,7 @@ SECTIONS = [
     (
         "Kandidáti na narativ",
         "Hotovo (6)",
-        reverse_lazy("admin:narratives_narrativecandidate_changelist"),
+        reverse_lazy("panel:candidates"),
     ),
     ("Nastavení", "Hotovo (9)", reverse_lazy("panel:settings")),
     ("Validace", "Hotovo (10)", reverse_lazy("panel:validation")),

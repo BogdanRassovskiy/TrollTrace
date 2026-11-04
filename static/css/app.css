@@ -248,3 +248,11 @@ tr.highlight > td { background: rgba(224, 164, 0, 0.1); }
 .narrative-q { border-top: 1px solid var(--border); padding-top: 8px; display: grid; gap: 4px; }
 .narrative-q .choice { display: flex; flex-wrap: wrap; gap: 4px 14px; }
 @media (max-width: 800px) { .annotate { grid-template-columns: 1fr; } .annotate-form { position: static; } }
+
+/* Kandidáti na narativ: fragmenty textu s dokladem */
+.fragment-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; align-items: baseline; }
+.fragment-text { font-size: 15px; line-height: 1.55; margin: 8px 0; white-space: pre-line; }
+.fragment-text mark { background: #fff1a8; color: inherit; padding: 0 2px; }
+.decide textarea { width: 100%; box-sizing: border-box; font: inherit; }
+.decide .actions { align-items: center; }
+@media (prefers-color-scheme: dark) { .fragment-text mark { background: #5a4b00; } }

@@ -9,7 +9,7 @@
     Témata a narativy. Každá změna definice narativu vytvoří novou verzi; štítky odkazují na verzi,
     podle které vznikly, takže historie anotace zůstává dohledatelná. Nové verze se použijí pro nové
     dokumenty, archiv se dohledává jen ručně (tlačítko u narativu).
-    {% if candidates %}<a href="{% url 'admin:narratives_narrativecandidate_changelist' %}">Kandidáti na narativ čekající na rozhodnutí: {{ candidates }}</a>.{% endif %}
+    {% if candidates %}<a href="{% url 'panel:candidates' %}">Kandidáti na narativ čekající na rozhodnutí: {{ candidates }}</a>.{% endif %}
   </p>
   <div class="actions">
     <a class="button" href="{% url 'panel:narrative_create' %}">Nový narativ</a>

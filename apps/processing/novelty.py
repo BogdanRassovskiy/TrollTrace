@@ -22,6 +22,7 @@ import logging
 import numpy as np
 from django.db import transaction
 from django.db.models import Count, Q
+from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -311,7 +312,7 @@ def promote(candidate: NarrativeCandidate) -> Narrative | None:
             text=f"Shluk splnil pravidlo přidání ({candidate.n_documents} dokumentů, "
             f"{candidate.n_authors} autorů). Narativ se od teď sleduje v nových dokumentech; "
             "do analýzy patří až po přijetí.",
-            url=f"/admin/narratives/narrativecandidate/{candidate.pk}/change/",
+            url=reverse("panel:candidate", args=[candidate.pk]),
         )
     return narrative
 
