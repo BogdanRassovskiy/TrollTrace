@@ -7,9 +7,11 @@
 import datetime
 import html as html_lib
 import json
+import re
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
+import lxml.etree
 import lxml.html
 from htmldate import find_date
 from trafilatura import bare_extraction
@@ -163,12 +165,60 @@ def page_rubric(html: str, title: str = "", url: str = "") -> str:
     return meta[0].strip()[:200] if meta else ""
 
 
-def extract_article(html: str, url: str, feed_published_at=None) -> Extracted:
+BLOCKS = ".//p | .//li | .//h2 | .//h3 | .//h4 | .//blockquote"
+
+
+def _node_text(node) -> str:
+    """Текст узла по абзацам; без абзацев — весь текст узла."""
+    blocks = [b for b in node.xpath(BLOCKS) if not b.xpath("ancestor::p | ancestor::li")]
+    parts = [" ".join(b.text_content().split()) for b in blocks] or [
+        " ".join(node.text_content().split())
+    ]
+    return "\n".join(p for p in parts if p)
+
+
+def body_text(html: str, xpath: str = "") -> str | None:
+    """Текст тела статьи по XPath источника или по единственному schema.org articleBody."""
+    try:
+        root = lxml.html.fromstring(html)
+        nodes = root.xpath(xpath or '//*[@itemprop="articleBody"]')
+    except (ValueError, lxml.etree.ParserError, lxml.etree.XPathError):
+        return None
+    nodes = [n for n in nodes if isinstance(n, lxml.html.HtmlElement)]
+    if not nodes or (not xpath and len(nodes) != 1):
+        return None
+    for node in nodes:
+        for junk in node.xpath(".//script | .//style | .//noscript | .//figure | .//aside"):
+            junk.drop_tree()
+    text = "\n".join(t for t in (_node_text(n) for n in nodes) if t)
+    return text or None
+
+
+def _overlaps(text: str, body: str) -> bool:
+    """Тексты про одно и то же: начало одного входит в другой (без пробелов и регистра).
+
+    В обе стороны: тело статьи бывает с лишней строкой в начале («KRIMI»), а trafilatura —
+    с обрезанным началом.
+    """
+
+    def squash(value):
+        return re.sub(r"\W+", "", value).casefold()
+
+    text, body = squash(text), squash(body)
+    return bool(text and body) and (body[:80] in text or text[:80] in body)
+
+
+def extract_article(html: str, url: str, feed_published_at=None, text_xpath: str = "") -> Extracted:
     doc = bare_extraction(
         html, url=url, with_metadata=True, include_comments=False, favor_precision=True
     )
     title = (getattr(doc, "title", None) or "").strip()
     text = (getattr(doc, "text", None) or "").strip()
+    # trafilatura иногда берёт соседний блок («Top novinky», анонсы) вместо короткой статьи;
+    # явная разметка тела статьи (schema.org articleBody или XPath источника) надёжнее.
+    body = body_text(html, text_xpath)
+    if body and (text_xpath or not _overlaps(text, body)):
+        text = body
     categories = list(getattr(doc, "categories", None) or [])
     canonical = getattr(doc, "url", None) or ""
 

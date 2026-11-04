@@ -190,6 +190,13 @@ class SourceIncident(models.Model):
         "příklady", default=list, blank=True, help_text="URL nebo ID problémových dokumentů."
     )
     occurrences = models.PositiveIntegerField("opakování signálu", default=1)
+    rechecked_at = models.DateTimeField(
+        "dokumenty přezkoumány",
+        null=True,
+        blank=True,
+        help_text="Po uzavření incidentu se dokumenty z jeho období znovu zkontrolují; "
+        "od té doby jim incident nesnižuje hodnocení (platí jen příznaky dokumentu).",
+    )
 
     class Meta:
         verbose_name = "incident sběru"

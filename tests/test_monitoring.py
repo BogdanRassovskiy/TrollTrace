@@ -94,18 +94,34 @@ class TestQualityScore:
         """Инцидент, открытый после сбора, не снижает оценку старого документа задним числом."""
         _, doc = save(source, 1)
         SourceIncident.objects.create(
-            source=source, incident_type="http_errors", level="warning",
+            source=source, incident_type="extraction", level="warning",
             started_at=timezone.now() + datetime.timedelta(minutes=1),
         )  # fmt: skip
         assert quality.assess(doc).score == 5
         assert quality.open_incident_level(source) == "warning"
 
     def test_open_incident_lowers_score(self, source):
-        SourceIncident.objects.create(
-            source=source, incident_type="low_volume", level="warning", started_at=NOW
+        incident = SourceIncident.objects.create(
+            source=source, incident_type="extraction", level="warning", started_at=NOW
         )
         _, doc = save(source, 1)
         assert current(doc).score == 3 and current(doc).incident_level == "warning"
+        # после перепроверки документов окна инцидент оценку больше не снижает
+        incident.ended_at = incident.rechecked_at = timezone.now()
+        incident.save()
+        assert quality.assess(doc).score == 5
+
+    @pytest.mark.parametrize(
+        "incident_type",
+        ["low_volume", "no_documents", "internal_error", "quality_drop", "http_errors"],
+    )
+    def test_collection_incidents_do_not_lower_score(self, source, incident_type):
+        """Сбой сбора не портит то, что всё-таки собрано; «падение качества» — без петли."""
+        SourceIncident.objects.create(
+            source=source, incident_type=incident_type, level="critical", started_at=NOW
+        )
+        _, doc = save(source, 1)
+        assert current(doc).score == 5 and current(doc).incident_level == ""
 
     def test_short_speech_is_not_garbage(self):
         psp = Source.objects.create(
@@ -131,6 +147,10 @@ class TestQualityScore:
         assert outcome == Outcome.DUPLICATE
         original.refresh_from_db()
         assert original.meta["duplicate_urls"] == ["https://z.example/a/2"]
+        # одна копия — та же статья в другой рубрике, ещё не заглушка
+        assert not current(original).boilerplate_dup and current(original).score == 5
+        save(source, 3, text=original.text)
+        original.refresh_from_db()
         assert current(original).boilerplate_dup and current(original).score == 1
 
     def test_detect_language(self):
@@ -275,6 +295,20 @@ class TestExtractionAndHttp:
         signal = result.signals[0]
         assert signal.level == "critical" and "restart worker" in signal.description
         assert "speaking_role" in signal.examples[0]
+
+    def test_internal_error_clears_after_clean_runs(self, source):
+        """После исправления инцидент закрывается с первым чистым запуском, не через сутки."""
+        broken = {"errors": ["IntegrityError: null value in column"]}
+        for minutes, status, details in [(180, "failed", broken), (30, "ok", {}), (20, "ok", {}),
+                                         (10, "ok", {})]:  # fmt: skip
+            run = CollectionRun.objects.create(
+                source=source, status=status, finished_at=NOW, details=details
+            )
+            CollectionRun.objects.filter(pk=run.pk).update(
+                started_at=NOW - datetime.timedelta(minutes=minutes)
+            )
+        result = monitoring.check_http(source, NOW)
+        assert "internal_error" in result.covers and not result.signals
 
     def test_monitor_task_skips_sources_without_runs(self, source):
         from apps.ingestion.tasks import monitor_sources

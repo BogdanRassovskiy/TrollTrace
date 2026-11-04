@@ -85,8 +85,8 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             if item.url not in duplicates and len(duplicates) < MAX_DUPLICATE_URLS:
                 original.meta = {**original.meta, "duplicate_urls": [*duplicates, item.url]}
                 original.save(update_fields=["meta"])
-                if not duplicates:
-                    quality.assess(original)
+                if len(duplicates) + 1 == quality.BOILERPLATE_MIN_DUPLICATES:
+                    quality.assess(original)  # с этого повтора текст считается заглушкой
             return Outcome.DUPLICATE, None
 
         doc = Document.objects.create(

@@ -139,7 +139,22 @@ class WebCollector(Collector):
     listing_link_xpath — XPath к атрибутам href ссылок на статьи (по умолчанию все ссылки),
     date_regex — шаблон даты на странице, если htmldate её не находит (см. page_date),
     origin_xpath — XPath к адресам первоисточника на странице (у агрегаторов сети Pravda:
-    Telegram-канал, откуда взят текст); сохраняются в meta["origin_urls"]."""
+    Telegram-канал, откуда взят текст); сохраняются в meta["origin_urls"],
+    text_xpath — XPath к телу статьи, если trafilatura берёт не тот блок (без него
+    используется schema.org articleBody, когда текст trafilatura с ним не совпадает)."""
+
+    def notify_feed_disabled(self, feed: SourceFeed) -> None:
+        from apps.ingestion.monitoring import notify
+        from apps.panel.models import Notification
+
+        notify(
+            self.source,
+            Notification.Level.WARNING,
+            f"{self.source}: kanál vypnut kvůli robots.txt",
+            f"Kanál {feed.url} je zakázán v robots.txt. Sběr ho už nezkouší; pokud zdroj "
+            "nabízí povolený kanál (sitemap, jiná rubrika), přidejte ho v administraci zdroje.",
+            feed,
+        )
 
     def collect(self):
         account = (
@@ -207,8 +222,15 @@ class WebCollector(Collector):
                 if not entries:
                     feed.last_error = "Kanál je prázdný"
         except RobotsDisallowed:
-            feed.last_error = "Zakázáno v robots.txt"
-            self.error(f"Kanál {feed.url}: zakázáno v robots.txt")
+            # Запрет уважаем и больше не пробуем: лента выключается, исследователь получает
+            # уведомление и может подключить разрешённую альтернативу (sitemap, другую рубрику).
+            feed.is_active = False
+            today = timezone.localdate()
+            feed.last_error = (
+                f"Zakázáno v robots.txt — kanál vypnut {today.day}. {today.month}. {today.year}"
+            )
+            self.error(f"Kanál {feed.url}: zakázáno v robots.txt, kanál vypnut")
+            self.notify_feed_disabled(feed)
         except Exception as exc:  # noqa: BLE001 — одна лента не должна валить весь источник
             feed.last_error = f"{type(exc).__name__}: {exc}"[:1000]
             self.error(f"Kanál {feed.url}: {feed.last_error}")
@@ -242,7 +264,12 @@ class WebCollector(Collector):
             self.error(f"{entry.url}: HTTP {result.status}")
             return
         html = result.text
-        extracted = extract_article(html, result.final_url, feed_published_at=entry.published_at)
+        extracted = extract_article(
+            html,
+            result.final_url,
+            feed_published_at=entry.published_at,
+            text_xpath=self.config.get("text_xpath", ""),
+        )
         if self.config.get("date_regex"):
             found = page_date(html, self.config["date_regex"])
             if found is not None:

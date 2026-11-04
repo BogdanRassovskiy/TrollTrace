@@ -15,7 +15,8 @@ from django.utils import timezone
 from apps.actors.models import Platform
 from apps.documents.models import Document, DocumentQuality
 
-RULES_VERSION = "q1"
+BOILERPLATE_MIN_DUPLICATES = 2
+RULES_VERSION = "q2"  # q2: штраф только за инциденты, влияющие на извлечённый текст
 
 EMPTY_TEXT = 20  # символов: короче — текста нет (у статей)
 EMPTY_TEXT_SHORT_FORM = 3  # реплики в стенограммах и посты Telegram бывают в одно слово
@@ -109,7 +110,9 @@ def compute_flags(document: Document, raw_html: str = "", incident_level: str = 
         "text_short": empty_below <= len(text) < min_length,
         "text_empty": len(text) < empty_below,
         "lang_ok": lang_ok,
-        "boilerplate_dup": bool((document.meta or {}).get("duplicate_urls")),
+        # Один повтор — обычно та же статья в двух рубриках (blesk.cz), заглушка — от двух.
+        "boilerplate_dup": len((document.meta or {}).get("duplicate_urls") or [])
+        >= BOILERPLATE_MIN_DUPLICATES,
         "blocked_page": blocked,
         "selectors_ok": None,  # собственных селекторов пока нет — только trafilatura
         "extraction_ratio_ok": ratio_ok,
@@ -151,13 +154,32 @@ def score(flags: dict, *, date_source: str, rubric_expected: bool, has_rubric: b
     return 5
 
 
+def content_incident_types() -> list[str]:
+    """Инциденты, которые говорят о том, что могло испортиться содержимое документа.
+
+    Падение сборщика, ошибки HTTP, пустая или застывшая лента, малый объём — проблемы
+    *сбора*: документы, которые всё-таки скачались, от них хуже не становятся. Капча и заглушки
+    видны на самом документе (blocked_page). «Падение средней оценки» сюда тоже не входит:
+    иначе штраф снижал бы оценки и сам себя поддерживал.
+    """
+    from .models import SourceIncident
+
+    kinds = SourceIncident.Type
+    return [kinds.EXTRACTION, kinds.BOILERPLATE, kinds.LANGUAGE, kinds.GOLDEN_MISMATCH,
+            kinds.SELECTOR_MISSING]  # fmt: skip
+
+
 def open_incident_level(source, at=None) -> str:
     """Уровень инцидентов источника, открытых в момент at (по умолчанию — сейчас).
 
     Пересчёт старых документов берёт момент их извлечения: нынешний инцидент
-    не должен задним числом снижать оценку документов, собранных до него.
+    не должен задним числом снижать оценку документов, собранных до него. Инцидент, после
+    которого документы уже перепроверены (rechecked_at), не учитывается: остаются только
+    признаки самого документа.
     """
-    incidents = source.incidents.all()
+    incidents = source.incidents.filter(
+        incident_type__in=content_incident_types(), rechecked_at__isnull=True
+    )
     if at is None:
         incidents = incidents.filter(ended_at__isnull=True)
     else:

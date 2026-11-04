@@ -280,6 +280,9 @@ def check_http(source: Source, now) -> CheckResult:
         return any(INTERNAL.search(str(e)) for e in run.details.get("errors") or [])
 
     internal_runs = [r for r in finished if internal_run(r)]
+    # Сигнал о нашей поломке — пока после неё не было чистого запуска: после исправления
+    # инцидент закрывается с первым удачным запуском, а не через сутки.
+    latest = max(finished, key=lambda r: r.started_at)
     # Spuštění padlá na naší chybě nejsou chybou zdroje: počítají se zvlášť.
     failed = [r for r in finished if r.status == r.Status.FAILED and r not in internal_runs]
 
@@ -298,7 +301,7 @@ def check_http(source: Source, now) -> CheckResult:
 
     error_samples = [e for r in finished for e in r.details.get("errors", [])]
     internal = [e for e in error_samples if INTERNAL.search(str(e))]
-    if internal:
+    if internal and internal_run(latest):
         result.signals.append(
             Signal(
                 Type.INTERNAL_ERROR, Level.CRITICAL,
@@ -345,7 +348,9 @@ def _normalize(text: str) -> str:
 
 def compare_golden(page: GoldenPage, html: str) -> list[str]:
     """Расхождения извлечения с эталоном; пустой список — совпадает."""
-    extracted = extract_article(html, page.url)
+    extracted = extract_article(
+        html, page.url, text_xpath=(page.source.collector_config or {}).get("text_xpath", "")
+    )
     problems = []
     if _normalize(extracted.title) != _normalize(page.expected_title):
         problems.append(f"titulek „{extracted.title[:80]}»")
@@ -454,6 +459,9 @@ def resolve(source: Source, incident_type: str, now) -> SourceIncident | None:
         return None
     incident.ended_at = now
     incident.save(update_fields=["ended_at"])
+    from .tasks import recheck_incident
+
+    transaction.on_commit(lambda: recheck_incident.delay(incident.pk))
     hours = (now - incident.started_at).total_seconds() / 3600
     notify(
         source,

@@ -124,7 +124,11 @@ def recheck_document(doc: Document, client: PoliteClient) -> str:
         return "deleted"
     if not result.ok:
         return f"http_{result.status}"
-    extracted = extract_article(result.text, result.final_url)
+    extracted = extract_article(
+        result.text,
+        result.final_url,
+        text_xpath=(doc.source.collector_config or {}).get("text_xpath", ""),
+    )
     version = doc.record_version(text=extracted.text, title=extracted.title, raw_html=result.text)
     doc.last_checked_at = now
     doc.save(update_fields=["last_checked_at"])
@@ -170,11 +174,188 @@ def sync_psp_deputies() -> dict:
     return summary
 
 
+STALE_RUN_ERROR = "Běh nebyl dokončen: pracovník byl přerušen (restart nebo časový limit)."
+
+
+def close_stale_runs(now=None) -> int:
+    """Запуски, оставшиеся «в процессе» после перезапуска воркера, закрываются как упавшие.
+
+    Блокировка источника живёт LOCK_TTL — запуск старше неё точно уже не идёт.
+    """
+    now = now or timezone.now()
+    stale = CollectionRun.objects.filter(
+        status=CollectionRun.Status.RUNNING,
+        started_at__lt=now - datetime.timedelta(seconds=LOCK_TTL),
+    )
+    return stale.update(
+        status=CollectionRun.Status.FAILED, finished_at=now, details={"errors": [STALE_RUN_ERROR]}
+    )
+
+
+# Документ с такими признаками при перепроверке скачивается заново: возможно, при инциденте
+# сохранилась страница согласия, антибота или заглушка. Короткий текст — не повод: он часто
+# настоящий (репост из Telegram — заголовок и ссылка).
+REFETCH_FLAGS = ("text_empty", "blocked_page", "boilerplate_dup")
+MAX_REFETCH = 300
+
+
+def incident_documents(incident):
+    """Документы источника, собранные или изменённые во время инцидента.
+
+    Начало окна — за сутки до открытия: мониторинг судит по документам за прошедший день.
+    """
+    start = incident.started_at - datetime.timedelta(days=1)
+    end = incident.ended_at or timezone.now()
+    return (
+        Document.objects.filter(source=incident.source)
+        .filter(
+            Q(collected_at__gte=start, collected_at__lte=end)
+            | Q(versions__detected_at__gte=start, versions__detected_at__lte=end)
+        )
+        .distinct()
+    )
+
+
+def reextract_document(doc: Document) -> bool:
+    """Повторное извлечение текста из сохранённого HTML (без запроса к сайту).
+
+    Новая редакция сохраняется версией и заново проходит обработку. True — текст изменился.
+    """
+    version = doc.versions.order_by("-version").first()
+    if version is None or not version.raw_html_compressed:
+        return False
+    html = version.raw_html
+    extracted = extract_article(
+        html,
+        (doc.meta or {}).get("final_url") or doc.url,
+        text_xpath=(doc.source.collector_config or {}).get("text_xpath", ""),
+    )
+    if not extracted.text or extracted.text.strip() == doc.text.strip():
+        return False
+    if not doc.record_version(text=extracted.text, title=doc.title, raw_html=html):
+        return False
+    if extracted.language and extracted.language != doc.language:
+        doc.language = extracted.language
+        doc.save(update_fields=["language"])
+    return True
+
+
+def recover_duplicates(doc: Document, client: PoliteClient) -> tuple[int, int]:
+    """URL, отброшенные как «тот же текст» из-за ошибки извлечения, собираются заново.
+
+    Если текст и правда тот же, сборщик снова запишет URL в duplicate_urls.
+    Возвращает (новых документов, ошибок при скачивании).
+    """
+    from .collectors.web import FeedEntry, WebCollector
+
+    urls = list((doc.meta or {}).get("duplicate_urls") or [])
+    if not urls or doc.source.platform != Platform.WEB:
+        return 0, 0
+    doc.meta = {k: v for k, v in doc.meta.items() if k != "duplicate_urls"}
+    doc.save(update_fields=["meta"])
+    collector = WebCollector(doc.source, client)
+    known = set(
+        Document.objects.filter(source=doc.source, url__in=urls).values_list("url", flat=True)
+    )
+    for url in urls:
+        if url not in known:
+            collector._collect_article(doc.actor, FeedEntry(url))
+    return collector.stats["new"], collector.stats["errors"]
+
+
+def recheck_incident_documents(incident, client: PoliteClient | None = None) -> dict:
+    """После закрытия инцидента: подозрительные документы скачиваются заново (с учётом
+    robots.txt и пауз), затем у всех документов окна пересчитывается оценка качества."""
+    from apps.documents.models import DocumentQuality
+
+    from . import quality
+
+    counts = {"documents": 0, "reextracted": 0, "recovered": 0, "refetched": 0, "changed_score": 0}
+    own = client is None
+    client = client or PoliteClient(delay=incident.source.request_delay_seconds)
+    try:
+        for doc in incident_documents(incident).select_related("source").iterator(chunk_size=200):
+            counts["documents"] += 1
+            current = DocumentQuality.objects.filter(document=doc, is_current=True).first()
+            before = current.score if current else None
+            reextracted = reextract_document(doc)
+            if reextracted:
+                counts["reextracted"] += 1
+                recovered, failed = recover_duplicates(doc, client)
+                counts["recovered"] += recovered
+                counts["recover_errors"] = counts.get("recover_errors", 0) + failed
+                doc.refresh_from_db()
+                current = quality.assess(doc)
+            suspicious = current is not None and any(getattr(current, f) for f in REFETCH_FLAGS)
+            if (
+                suspicious
+                and not reextracted
+                and counts["refetched"] < MAX_REFETCH
+                and doc.status == Document.Status.ACTIVE
+            ):
+                try:
+                    outcome = recheck_document(doc, client)
+                except Exception as exc:  # noqa: BLE001 — один документ не останавливает остальные
+                    outcome = f"error: {type(exc).__name__}"
+                counts["refetched"] += 1
+                counts[outcome] = counts.get(outcome, 0) + 1
+            if quality.assess(doc).score != before:
+                counts["changed_score"] += 1
+    finally:
+        if own:
+            client.close()
+    return counts
+
+
+@shared_task
+def recheck_incident(incident_id: int) -> dict:
+    """Перепроверка документов, собранных во время закрытого инцидента (Job «kvalita»)."""
+    from apps.panel.models import Job
+
+    from .models import SourceIncident
+
+    incident = SourceIncident.objects.select_related("source").get(pk=incident_id)
+    lock = f"ingestion:collect:{incident.source_id}"  # не мешать сбору того же источника
+    if not cache.add(lock, "1", LOCK_TTL):
+        recheck_incident.apply_async((incident_id,), countdown=300)
+        return {"retry": incident_id}
+    job = Job.objects.create(
+        job_type=Job.Type.QUALITY, status=Job.Status.RUNNING, started_at=timezone.now(),
+        params={"incident": incident.pk, "source": incident.source_id,
+                "type": incident.incident_type},
+    )  # fmt: skip
+    try:
+        # отметка до пересчёта: оценки документов окна больше не тянет вниз этот инцидент
+        SourceIncident.objects.filter(pk=incident.pk).update(rechecked_at=timezone.now())
+        counts = recheck_incident_documents(incident)
+    except Exception as exc:
+        message = f"{type(exc).__name__}: {exc}"[:1000]
+        Job.objects.filter(pk=job.pk).update(
+            status=Job.Status.FAILED, finished_at=timezone.now(), message=message
+        )
+        raise
+    finally:
+        cache.delete(lock)
+    Job.objects.filter(pk=job.pk).update(
+        status=Job.Status.SUCCEEDED, progress=1, finished_at=timezone.now(), result=counts,
+        message=f"Po incidentu „{incident.get_incident_type_display()}“ ({incident.source}): "
+        f"dokumentů {counts['documents']}, znovu extrahováno {counts['reextracted']}, "
+        f"obnoveno ztracených {counts['recovered']}, znovu staženo {counts['refetched']}, "
+        f"změněné hodnocení {counts['changed_score']}.",
+    )  # fmt: skip
+    if counts["changed_score"]:
+        from apps.analytics.tasks import rebuild_aggregates
+
+        rebuild_aggregates.delay()  # оценки качества меняют знаменатели
+    return counts
+
+
 @shared_task
 def monitor_sources() -> dict:
     """Проверки мониторинга по всем активным источникам, где уже шёл сбор (README §4.2)."""
     from . import monitoring
 
+    close_stale_runs()
     statuses = {}
     for source in Source.objects.filter(is_active=True, collection_runs__isnull=False).distinct():
         try:

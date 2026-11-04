@@ -19,11 +19,9 @@ class Command(BaseCommand):
                 quality_scores__is_current=True,
                 quality_scores__quality_rules_version=quality.RULES_VERSION,
             )
-        levels: dict[int, str] = {}
         done = 0
         for doc in docs.iterator(chunk_size=200):
-            if doc.source_id not in levels:
-                levels[doc.source_id] = quality.open_incident_level(doc.source)
-            quality.assess(doc, incident_level=levels[doc.source_id])
+            # инцидент — на момент извлечения документа, а не сегодняшний (assess сам считает)
+            quality.assess(doc)
             done += 1
         self.stdout.write(f"Ohodnoceno dokumentů: {done} (pravidla {quality.RULES_VERSION}).")
