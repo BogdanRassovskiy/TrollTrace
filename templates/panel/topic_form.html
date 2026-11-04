@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}{% if topic.pk %}{{ topic.name }}{% else %}Nové téma{% endif %} — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:codebook' %}">Kódová kniha</a> /</p>
+  <h1>{% if topic.pk %}{{ topic.name }}{% else %}Nové téma{% endif %}</h1>
+  <p class="muted">Téma je stabilní oblast (euro, migrace), filtr relevance dokumentů. Konkrétní tvrzení patří do narativu.</p>
+  <form method="post" class="form form-wide">
+    {% csrf_token %}
+    {% include "panel/_form_errors.html" %}
+    {% for field in form %}{% include "panel/_field.html" %}{% endfor %}
+    <button class="button" type="submit">Uložit</button>
+  </form>
+{% endblock %}

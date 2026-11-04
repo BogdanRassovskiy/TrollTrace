@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}{{ actor.name }} — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:actors' %}">Aktéři</a> /</p>
+  <h1>{{ actor.name }}</h1>
+  <p class="muted">
+    {{ actor.get_actor_type_display }}{% if actor.layer %} · vrstva {{ actor.get_layer_display }}{% endif %}{% if actor.party %} · {{ actor.party }}{% endif %}
+    · stav: <strong>{{ actor.get_status_display }}</strong>
+    · <a href="{% url 'dashboard:actor' actor.pk %}">graf narativů</a>
+    · <a href="{% url 'admin:actors_actor_change' actor.pk %}">administrace</a>
+  </p>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Údaje</h2>
+      <dl class="dl">
+        <dt>Funkce</dt><dd>{{ actor.role|default:"—" }}</dd>
+        <dt>Hybridní</dt><dd>{{ actor.is_hybrid|yesno:"ano,ne" }}</dd>
+        <dt>Kohorta aktivity</dt><dd>{{ actor.get_activity_cohort_display|default:"—" }}</dd>
+        <dt>Důvod zařazení</dt><dd>{{ actor.inclusion_criterion|default:"—" }}{% if actor.inclusion_reference %} (<a href="{{ actor.inclusion_reference }}" rel="noopener" target="_blank">odkaz</a>){% endif %}</dd>
+        {% if actor.added_automatically %}<dt>Přidán</dt><dd>automaticky ze zmínky v textu, neověřeno</dd>{% endif %}
+      </dl>
+    </section>
+
+    <section class="card">
+      <h2>Období zařazení</h2>
+      <p class="muted small">Agregáty a podíly se počítají jen za tato období; opětovné zařazení otevírá nové období.</p>
+      <table class="table">
+        <thead><tr><th>Od</th><th>Do</th><th>Důvod</th></tr></thead>
+        <tbody>
+          {% for p in periods %}
+            <tr><td class="nowrap">{{ p.start_date|date:"j. n. Y" }}</td><td class="nowrap">{{ p.end_date|date:"j. n. Y"|default:"dosud" }}</td>
+              <td class="small">{{ p.inclusion_reason|default:"—" }}{% if p.exclusion_reason %}<div class="muted">vyřazen: {{ p.exclusion_reason }}</div>{% endif %}</td></tr>
+          {% empty %}<tr><td colspan="3" class="muted">Žádné období — aktér se do agregátů nezapočítává.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <section class="card">
+    <h2>Zdroje a účty</h2>
+    <table class="table">
+      <thead><tr><th>Zdroj</th><th>Účet</th><th>Sběr</th><th>Přidán</th></tr></thead>
+      <tbody>
+        {% for acc in accounts %}
+          <tr><td><a href="{% url 'panel:source_detail' acc.source_id %}">{{ acc.source }}</a></td>
+            <td>{% if acc.url %}<a href="{{ acc.url }}" target="_blank" rel="noopener">{{ acc.account_id|default:acc.url }}</a>{% else %}{{ acc.account_id|default:"celý zdroj" }}{% endif %}</td>
+            <td>{{ acc.source.is_active|yesno:"zapnut,vypnut" }}</td>
+            <td class="nowrap">{{ acc.added_at|date:"j. n. Y" }}</td></tr>
+        {% empty %}<tr><td colspan="4" class="muted">Aktér zatím nemá žádný zdroj.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+    <details class="card"{% if open == "account" %} open{% endif %}>
+      <summary>Přidat účet</summary>
+      <form method="post" class="form form-wide">
+        {% csrf_token %}<input type="hidden" name="action" value="account">
+        {% include "panel/_form_errors.html" with form=account_form %}
+        {% for field in account_form %}{% include "panel/_field.html" %}{% endfor %}
+        <button class="button" type="submit">Přidat účet</button>
+      </form>
+    </details>
+  </section>
+
+  <details class="card"{% if open == "edit" %} open{% endif %}>
+    <summary>Upravit údaje</summary>
+    <form method="post" class="form form-wide">
+      {% csrf_token %}<input type="hidden" name="action" value="edit">
+      {% include "panel/_form_errors.html" with form=edit_form %}
+      {% for field in edit_form %}{% include "panel/_field.html" %}{% endfor %}
+      <button class="button" type="submit">Uložit</button>
+    </form>
+  </details>
+
+  {% if consequences %}
+    <details class="card"{% if open == "exclude" %} open{% endif %}>
+      <summary>Vyřadit z výběru</summary>
+      <p>Vyřazení je bezpečné a vratné. Co se stane:</p>
+      <ul>
+        <li>Období zařazení{% if consequences.open_period %} od {{ consequences.open_period.start_date|date:"j. n. Y" }}{% endif %} se uzavře ke zvolenému dni.</li>
+        <li>Zůstane v databázi: <strong>{{ consequences.documents }}</strong> dokumentů a <strong>{{ consequences.labels }}</strong> štítků. Nic se nemaže.</li>
+        <li>Sběr nových dat pro aktéra se zastaví{% if consequences.sources_stopped %}; u zdrojů {% for s in consequences.sources_stopped %}„{{ s.name }}“{% if not forloop.last %}, {% endif %}{% endfor %} nezbude žádný aktivní aktér{% endif %}.</li>
+        <li>V grafech bude aktér ve výchozím stavu skrytý (lze zobrazit filtrem „i vyřazení“). Agregáty se přepočítají, podíly za dobu zařazení se nezmění.</li>
+      </ul>
+      <form method="post" class="form form-wide">
+        {% csrf_token %}<input type="hidden" name="action" value="exclude">
+        {% include "panel/_form_errors.html" with form=exclude_form %}
+        {% for field in exclude_form %}{% include "panel/_field.html" %}{% endfor %}
+        <button class="button button-danger" type="submit">Vyřadit aktéra</button>
+      </form>
+    </details>
+  {% else %}
+    <details class="card"{% if open == "include" %} open{% endif %}>
+      <summary>Znovu zařadit</summary>
+      <p class="muted">Otevře se nové období zařazení; předchozí období zůstanou beze změny. Naplánuje se retrospektivní sběr (pokud ho zdroj umožňuje) a přepočet agregátů.</p>
+      <form method="post" class="form form-wide">
+        {% csrf_token %}<input type="hidden" name="action" value="include">
+        {% include "panel/_form_errors.html" with form=include_form %}
+        {% for field in include_form %}{% include "panel/_field.html" %}{% endfor %}
+        <button class="button" type="submit">Znovu zařadit</button>
+      </form>
+    </details>
+  {% endif %}
+
+  <h2>Historie změn</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kdy</th><th>Kdo</th><th>Akce</th><th>Objekt</th><th>Změny</th></tr></thead>
+      <tbody>
+        {% for e in history %}
+          <tr><td class="nowrap">{{ e.timestamp|date:"Y-m-d H:i" }}</td><td>{{ e.username|default:"systém" }}</td>
+            <td>{{ e.get_action_display }}</td><td class="small">{{ e.content_type.name }}: {{ e.object_repr }}</td>
+            <td class="small">{% for k, v in e.changes.items %}<div><span class="muted">{{ k }}:</span> {{ v.0|default:"—"|truncatechars:60 }} → {{ v.1|default:"—"|truncatechars:60 }}</div>{% endfor %}{% if e.note %}<div class="muted">{{ e.note }}</div>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Žádné záznamy.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p><a href="{% url 'panel:audit' %}?q={{ actor.name|urlencode }}">Celý auditní protokol pro „{{ actor.name }}“</a></p>
+{% endblock %}

@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Aktéři — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Aktéři</h1>
+  <p class="muted">
+    Správa výběru aktérů (README §7.2). Aktér se nemaže: vyřazení uzavře období zařazení, dokumenty,
+    štítky a historie zůstávají, sběr nových dat se zastaví a v grafech je ve výchozím stavu skrytý.
+    Aktivní: {{ counts.active|default:0 }} · vyřazení: {{ counts.excluded|default:0 }}.
+  </p>
+  <div class="actions">
+    <a class="button" href="{% url 'panel:actor_create' %}">Přidat aktéra</a>
+    <a class="button" href="{% url 'panel:actor_import' %}">Import z CSV</a>
+  </div>
+
+  <form method="get" class="filters">
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="Jméno, název nebo strana" aria-label="Hledat">
+    <select name="layer" aria-label="Vrstva">
+      <option value="">Všechny vrstvy</option>
+      {% for code, label in layers %}<option value="{{ code }}" {% if filters.layer == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="status" aria-label="Stav">
+      <option value="">Aktivní i vyřazení</option>
+      {% for code, label in statuses %}<option value="{{ code }}" {% if filters.status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <label class="small"><input type="checkbox" name="auto" value="1" {% if filters.auto == "1" %}checked{% endif %}> jen přidaní automaticky</label>
+    <button class="button" type="submit">Filtrovat</button>
+  </form>
+  <p class="muted small">Nalezeno: {{ paginator.count }}</p>
+
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Aktér</th><th>Typ</th><th>Vrstva</th><th>Strana</th><th>Stav</th><th>Účty</th><th>Období</th></tr></thead>
+      <tbody>
+        {% for a in actors %}
+          <tr>
+            <td><a href="{% url 'panel:actor' a.pk %}">{{ a.name }}</a>
+              {% if a.is_hybrid %}<span class="badge">hybridní</span>{% endif %}
+              {% if a.added_automatically %}<span class="badge badge-warn">automaticky</span>{% endif %}
+              {% if a.role %}<div class="muted small">{{ a.role|truncatechars:90 }}</div>{% endif %}</td>
+            <td>{{ a.get_actor_type_display }}</td>
+            <td>{{ a.layer|default:"—" }}</td>
+            <td>{{ a.party|default:"—" }}</td>
+            <td>{% if a.status == "excluded" %}<span class="badge badge-warn">{{ a.get_status_display }}</span>{% else %}{{ a.get_status_display }}{% endif %}</td>
+            <td>{{ a.n_accounts }}</td>
+            <td>{{ a.n_periods }}</td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="muted">Žádní aktéři.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "panel/_pager.html" %}
+{% endblock %}

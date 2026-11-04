@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Kódová kniha — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Kódová kniha</h1>
+  <p class="muted">
+    Témata a narativy. Každá změna definice narativu vytvoří novou verzi; štítky odkazují na verzi,
+    podle které vznikly, takže historie anotace zůstává dohledatelná. Nové verze se použijí pro nové
+    dokumenty, archiv se dohledává jen ručně (tlačítko u narativu).
+    {% if candidates %}<a href="{% url 'admin:narratives_narrativecandidate_changelist' %}">Kandidáti na narativ čekající na rozhodnutí: {{ candidates }}</a>.{% endif %}
+  </p>
+  <div class="actions">
+    <a class="button" href="{% url 'panel:narrative_create' %}">Nový narativ</a>
+    <a class="button" href="{% url 'panel:topic_create' %}">Nové téma</a>
+  </div>
+
+  {% for topic, narratives in topics %}
+    <section class="card">
+      <h2>{{ topic.name }} <a class="small" href="{% url 'panel:topic_edit' topic.pk %}">upravit téma</a></h2>
+      {% if topic.description %}<p class="muted small">{{ topic.description }}</p>{% endif %}
+      <table class="table">
+        <thead><tr><th>Narativ</th><th>Stav</th><th>Verze</th><th>Platné štítky</th><th></th></tr></thead>
+        <tbody>
+          {% for n in narratives %}
+            <tr>
+              <td><a href="{% url 'panel:narrative_history' n.code %}">{{ n.name }}</a>
+                <div class="muted small">{{ n.code }} · {{ n.get_kind_display }}{% if n.discovered %} · navržen automaticky{% endif %}</div></td>
+              <td>{% if n.status == "active" %}{{ n.get_status_display }}{% else %}<span class="badge badge-warn">{{ n.get_status_display }}</span>{% endif %}</td>
+              <td>v{{ n.current_version }}</td>
+              <td>{{ n.n_labels }}</td>
+              <td class="nowrap"><a href="{% url 'panel:narrative_edit' n.code %}">upravit</a></td>
+            </tr>
+          {% empty %}<tr><td colspan="5" class="muted">Téma zatím nemá narativy.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% empty %}<p class="muted">Kódová kniha je prázdná.</p>{% endfor %}
+
+  <h2>Poslední změny</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kdy</th><th>Narativ</th><th>Verze</th><th>Kdo</th><th>Komentář</th></tr></thead>
+      <tbody>
+        {% for v in recent %}
+          <tr><td class="nowrap">{{ v.changed_at|date:"Y-m-d H:i" }}</td>
+            <td><a href="{% url 'panel:narrative_history' v.narrative.code %}?b={{ v.version }}">{{ v.narrative.code }}</a></td>
+            <td>v{{ v.version }}</td><td>{{ v.changed_by|default:"systém" }}</td><td class="small">{{ v.change_note|default:"—" }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Žádné změny.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Úlohy — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Úlohy na pozadí</h1>
+  <p class="muted">
+    Dlouhé úlohy (retrospektivní sběr, zpětné anotování, přepočet agregátů) a jejich stav. Po dokončení
+    ruční úlohy přijde upozornění. Pravidelný sběr a zpracování běží automaticky — stav sběru po zdrojích je
+    v sekci <a href="{% url 'panel:sources' %}">Zdroje</a>. Ve frontě nebo probíhá: {{ running }}.
+  </p>
+
+  <section class="card">
+    <h2>Fronty zpracování</h2>
+    <dl class="dl">{% for label, n in queues %}<dt>{{ label }}</dt><dd>{{ n }}</dd>{% endfor %}</dl>
+    <form method="post" class="actions">
+      {% csrf_token %}<input type="hidden" name="action" value="rebuild">
+      <button class="button" type="submit">Přepočítat agregáty</button>
+      <span class="muted small">Úplný přepočet (jinak běží každou noc a průběžně každých 15 minut).</span>
+    </form>
+  </section>
+
+  <form method="get" class="filters">
+    <select name="type" aria-label="Typ">
+      <option value="">Všechny typy</option>
+      {% for code, label in types %}<option value="{{ code }}" {% if filters.type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="status" aria-label="Stav">
+      <option value="">Všechny stavy</option>
+      {% for code, label in statuses %}<option value="{{ code }}" {% if filters.status == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <button class="button" type="submit">Filtrovat</button>
+    {% if filters.job %}<a href="{% url 'panel:jobs' %}">všechny úlohy</a>{% endif %}
+  </form>
+
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>#</th><th>Typ</th><th>Stav</th><th>Průběh</th><th>Vytvořeno</th><th>Trvání</th><th>Kdo</th><th>Zpráva</th><th></th></tr></thead>
+      <tbody>
+        {% for j in jobs %}
+          <tr{% if filters.job == j.pk|stringformat:"d" %} class="highlight"{% endif %}>
+            <td>{{ j.pk }}</td>
+            <td>{{ j.get_job_type_display }}{% if j.params.narrative %}<div class="muted small">{{ j.params.narrative }}</div>{% endif %}{% if j.params.reason %}<div class="muted small">{{ j.params.reason }}</div>{% endif %}</td>
+            <td>{% if j.status == "failed" %}<span class="badge level-critical">{{ j.get_status_display }}</span>{% elif j.status == "succeeded" %}<span class="badge badge-ready">{{ j.get_status_display }}</span>{% else %}<span class="badge">{{ j.get_status_display }}</span>{% endif %}</td>
+            <td><span class="progress" title="{% widthratio j.progress 1 100 %} %"><span style="width: {% widthratio j.progress 1 100 %}%"></span></span></td>
+            <td class="nowrap small">{{ j.created_at|date:"Y-m-d H:i" }}</td>
+            <td class="nowrap small">{% if j.started_at and j.finished_at %}{{ j.started_at|timesince:j.finished_at }}{% elif j.started_at %}běží od {{ j.started_at|date:"H:i" }}{% else %}—{% endif %}</td>
+            <td class="small">{{ j.created_by|default:"plán" }}</td>
+            <td class="small pre">{{ j.message|truncatechars:300 }}</td>
+            <td>{% if j.status == "pending" %}
+              <form method="post">{% csrf_token %}<input type="hidden" name="action" value="cancel"><input type="hidden" name="job" value="{{ j.pk }}"><button class="link-button small" type="submit">zrušit</button></form>
+            {% endif %}</td>
+          </tr>
+        {% empty %}<tr><td colspan="9" class="muted">Žádné úlohy.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "panel/_pager.html" %}
+{% endblock %}

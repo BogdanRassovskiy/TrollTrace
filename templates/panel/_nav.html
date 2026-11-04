@@ -1,0 +1,12 @@
+{% with name=request.resolver_match.url_name %}
+<p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+<nav class="subnav" aria-label="Panel výzkumníka">
+  <a href="{% url 'panel:actors' %}" class="{% if name|slice:':5' == 'actor' %}active{% endif %}">Aktéři</a>
+  <a href="{% url 'panel:sources' %}" class="{% if name|slice:':6' == 'source' %}active{% endif %}">Zdroje</a>
+  <a href="{% url 'panel:codebook' %}" class="{% if name == 'codebook' or name|slice:':9' == 'narrative' or name|slice:':5' == 'topic' %}active{% endif %}">Kódová kniha</a>
+  <a href="{% url 'panel:settings' %}" class="{% if name == 'settings' or name == 'setting' %}active{% endif %}">Nastavení</a>
+  <a href="{% url 'panel:jobs' %}" class="{% if name == 'jobs' %}active{% endif %}">Úlohy</a>
+  <a href="{% url 'panel:notifications' %}" class="{% if name == 'notifications' %}active{% endif %}">Upozornění</a>
+  <a href="{% url 'panel:audit' %}" class="{% if name == 'audit' %}active{% endif %}">Auditní protokol</a>
+</nav>
+{% endwith %}

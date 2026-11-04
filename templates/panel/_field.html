@@ -1,0 +1,12 @@
+<div class="field{% if field.errors %} field-error{% endif %}">
+  {% if field.field.widget.input_type == "checkbox" %}
+    <label>{{ field }} {{ field.label }}</label>
+  {% elif field.field.widget.input_type == "radio" %}
+    <span class="field-label">{{ field.label }}</span>{{ field }}
+  {% else %}
+    <label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+    {{ field }}
+  {% endif %}
+  {% if field.help_text %}<span class="muted small">{{ field.help_text|safe }}</span>{% endif %}
+  {% for error in field.errors %}<span class="msg msg-error small">{{ error }}</span>{% endfor %}
+</div>

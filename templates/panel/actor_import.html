@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Import aktérů — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:actors' %}">Aktéři</a> /</p>
+  <h1>Import aktérů z CSV</h1>
+
+  {% if rows is not None %}
+    <p>Soubor <strong>{{ filename }}</strong>: řádků {{ rows|length }}, bez chyb <strong>{{ valid }}</strong>. Zatím se nic neuložilo.</p>
+    {% for p in problems %}<p class="msg msg-error">{{ p }}</p>{% endfor %}
+    {% if rows %}
+      <div class="table-wrap card">
+        <table class="table">
+          <thead><tr><th>Řádek</th><th>Jméno</th><th>Typ</th><th>Vrstva</th><th>Strana</th><th>Zdroj / účet</th><th>Výsledek kontroly</th></tr></thead>
+          <tbody>
+            {% for r in rows %}
+              <tr{% if not r.ok %} class="row-error"{% endif %}>
+                <td>{{ r.line }}</td><td>{{ r.values.name }}</td><td>{{ r.values.actor_type }}</td><td>{{ r.values.layer|default:"—" }}</td>
+                <td>{{ r.values.party|default:"—" }}</td>
+                <td class="small">{{ r.values.source_url|default:"—" }}{% if r.values.account_id %} · {{ r.values.account_id }}{% endif %}</td>
+                <td class="small">{% if r.ok %}v pořádku{% else %}{{ r.errors|join:"; " }}{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+    {% if valid %}
+      <form method="post" class="actions">
+        {% csrf_token %}<input type="hidden" name="action" value="confirm">
+        <button class="button" type="submit">Importovat {{ valid }} aktérů</button>
+        <span class="muted small">Řádky s chybou se přeskočí. Před zápisem se kontrola zopakuje.</span>
+      </form>
+    {% endif %}
+    <p><a href="{% url 'panel:actor_import' %}">Nahrát jiný soubor</a></p>
+  {% else %}
+    <p class="muted">
+      Nejdřív se zobrazí náhled s kontrolou každého řádku; do databáze se zapíše až po potvrzení.
+      Zdroje musí už existovat (nový zdroj přidejte formulářem). Každý importovaný aktér dostane
+      období zařazení od <code>start_date</code> (jinak od dneška) a záznam v auditním protokolu.
+    </p>
+    <h2>Sloupce</h2>
+    <p class="value">{{ columns|join:", " }}</p>
+    <ul class="small">
+      <li>Povinné: <code>name</code>, <code>actor_type</code> (politician, influencer, media, channel, attributed_network, institution, official).</li>
+      <li><code>layer</code>: písmeno A–I; <code>is_hybrid</code>: ano / 1 / true; <code>start_date</code>: RRRR-MM-DD.</li>
+      <li><code>source_url</code> + <code>account_id</code>: účet u existujícího zdroje (handle, ID poslance).</li>
+    </ul>
+    <form method="post" enctype="multipart/form-data" class="form form-wide">
+      {% csrf_token %}
+      {% for field in form %}{% include "panel/_field.html" %}{% endfor %}
+      <button class="button" type="submit">Zkontrolovat</button>
+    </form>
+  {% endif %}
+{% endblock %}

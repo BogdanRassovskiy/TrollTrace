@@ -95,7 +95,7 @@ window.TT = (function () {
 
   async function copyText(text) {
     try {
-      await navigator.clipboard.writeText(text); // jen HTTPS nebo localhost
+      await navigator.clipboard.writeText(text); // только HTTPS или localhost
       return true;
     } catch {
       const area = Object.assign(document.createElement("textarea"), { value: text });
@@ -127,7 +127,7 @@ window.TT = (function () {
   }
   bindShareButton();
 
-  // Výběr hodnoty v <select>, jen pokud taková volba existuje (ruční úprava odkazu).
+  // Выбор значения в <select>, только если такая опция есть (ссылку могли поправить руками).
   function setSelect(select, value) {
     if (value !== null && [...select.options].some((o) => o.value === value)) select.value = value;
   }

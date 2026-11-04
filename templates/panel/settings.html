@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Nastavení — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Nastavení výzkumu</h1>
+  <p class="muted">
+    Prahy, okna a modely. Každá změna se ukládá jako nová verze s komentářem (kdo, kdy, proč) a
+    zapisuje do auditního protokolu — kvůli reprodukovatelnosti metodologie. Změna se projeví při
+    dalším běhu příslušné úlohy; agregáty se kompletně přepočítávají jednou denně.
+  </p>
+  {% for group, settings in groups %}
+    <section class="card">
+      <h2 class="value">{{ group }}</h2>
+      <table class="table">
+        <thead><tr><th>Klíč</th><th>Hodnota</th><th>Popis</th><th>Verze</th><th>Změněno</th></tr></thead>
+        <tbody>
+          {% for s in settings %}
+            <tr>
+              <td class="nowrap"><a href="{% url 'panel:setting' s.key %}" class="value">{{ s.key }}</a></td>
+              <td class="value">{{ s.value|truncatechars:80 }}</td>
+              <td class="small">{{ s.description }}</td>
+              <td>v{{ s.current_version }}</td>
+              <td class="nowrap small">{{ s.updated_at|date:"Y-m-d H:i" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  {% empty %}<p class="muted">Žádná nastavení.</p>{% endfor %}
+{% endblock %}

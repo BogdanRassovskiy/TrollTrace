@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}{{ narrative.code }}: historie — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:codebook' %}">Kódová kniha</a> /</p>
+  <h1>{{ narrative.name }}</h1>
+  <p class="muted">{{ narrative.code }} · {{ narrative.topic }} · {{ narrative.get_status_display }} · aktuální verze v{{ narrative.current_version }}
+    · <a href="{% url 'panel:narrative_edit' narrative.code %}">upravit</a>
+    {% if narrative.status != "archived" %}· <a href="{% url 'dashboard:narrative' narrative.code %}">karta v pracovní části</a>{% endif %}</p>
+
+  {% if narrative.status != "archived" %}
+    <form method="post" class="actions">
+      {% csrf_token %}
+      <button class="button" type="submit">Dohledat v archivu</button>
+      <span class="muted small">Zpětné anotování archivu podle verze v{{ narrative.current_version }}: kandidáty podle podobnosti posoudí model. Spouští se jen ručně — stojí čas i peníze.</span>
+    </form>
+    {% for j in jobs %}<p class="small muted">Úloha #{{ j.pk }} ({{ j.params.version|default:"?" }}): {{ j.get_status_display }}{% if j.message %} — {{ j.message }}{% endif %}</p>{% endfor %}
+  {% endif %}
+
+  <h2>Verze</h2>
+  <form method="get" class="filters">
+    <div class="table-wrap card" style="width:100%">
+      <table class="table">
+        <thead><tr><th>Starší</th><th>Novější</th><th>Verze</th><th>Kdy</th><th>Kdo</th><th>Platné štítky</th><th>Komentář</th></tr></thead>
+        <tbody>
+          {% for v in versions %}
+            <tr>
+              <td><input type="radio" name="a" value="{{ v.version }}" {% if old.version == v.version %}checked{% endif %} aria-label="starší v{{ v.version }}"></td>
+              <td><input type="radio" name="b" value="{{ v.version }}" {% if new.version == v.version %}checked{% endif %} aria-label="novější v{{ v.version }}"></td>
+              <td>v{{ v.version }}</td>
+              <td class="nowrap">{{ v.changed_at|date:"Y-m-d H:i" }}</td>
+              <td>{{ v.changed_by|default:"systém" }}</td>
+              <td>{% for number, n in labels_by_version.items %}{% if number == v.version %}{{ n }}{% endif %}{% endfor %}</td>
+              <td class="small">{{ v.change_note|default:"—" }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <button class="button" type="submit">Porovnat vybrané verze</button>
+  </form>
+
+  {% if rows %}
+    <h2>Porovnání v{{ old.version }} → v{{ new.version }}</h2>
+    <div class="table-wrap card">
+      <table class="table">
+        <tbody>
+          {% for r in rows %}
+            <tr{% if r.changed %} class="highlight"{% endif %}>
+              <th class="nowrap">{{ r.label }}{% if r.changed %} <span class="badge badge-warn">změna</span>{% endif %}</th>
+              <td class="small">{% if r.changed %}{% for line in r.lines %}<div>{{ line }}</div>{% endfor %}{% else %}<span class="pre">{{ r.text|default:"—" }}</span>{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% elif new %}
+    <h2>Verze v{{ new.version }}</h2>
+    <p class="muted">První verze, není s čím porovnat.</p>
+  {% endif %}
+{% endblock %}

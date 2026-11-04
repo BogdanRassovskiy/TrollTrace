@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{% if narrative.pk %}Upravit narativ{% else %}Nový narativ{% endif %} — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:codebook' %}">Kódová kniha</a> /{% if narrative.pk %} <a href="{% url 'panel:narrative_history' narrative.code %}">{{ narrative.code }}</a> /{% endif %}</p>
+  <h1>{% if narrative.pk %}{{ narrative.name }} <span class="muted">(v{{ narrative.current_version }})</span>{% else %}Nový narativ{% endif %}</h1>
+  <p class="muted">
+    Narativ je konkrétní tvrzení, ne téma („euro zruinuje Čechy“, ne „euro“). Postoj „proti“ je jen
+    výslovné vyvrácení tvrzení. Uložení se změnou definice vytvoří novou verzi kódové knihy.
+  </p>
+  <form method="post" class="form form-wide">
+    {% csrf_token %}
+    {% include "panel/_form_errors.html" %}
+    {% for field in form %}{% if field.name|slice:":7" != "stance_" and field.name != "change_note" %}{% include "panel/_field.html" %}{% endif %}{% endfor %}
+    <fieldset>
+      <legend>Vodítko k postojům</legend>
+      {% for field in form.stance_fields %}{% include "panel/_field.html" %}{% endfor %}
+    </fieldset>
+    {% include "panel/_field.html" with field=form.change_note %}
+    <button class="button" type="submit">Uložit</button>
+  </form>
+{% endblock %}

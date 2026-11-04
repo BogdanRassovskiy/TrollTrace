@@ -1,0 +1,5 @@
+{% if is_paginated %}
+  <p class="pager">{% if page_obj.has_previous %}<a href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page_obj.previous_page_number }}">← zpět</a>{% endif %}
+     str. {{ page_obj.number }} z {{ page_obj.paginator.num_pages }}
+     {% if page_obj.has_next %}<a href="?{{ querystring }}{% if querystring %}&{% endif %}page={{ page_obj.next_page_number }}">dále →</a>{% endif %}</p>
+{% endif %}

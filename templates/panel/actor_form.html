@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Přidat aktéra — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:actors' %}">Aktéři</a> /</p>
+  <h1>Přidat aktéra</h1>
+  <p class="muted">
+    Kontroluje se, že účet ani adresa ještě nepatří jinému aktérovi, a u nového zdroje jeho dostupnost
+    (s ohledem na robots.txt). Po uložení se otevře období zařazení, naplánuje se retrospektivní sběr
+    nového zdroje (nakolik ho zdroj umožňuje) a přepočet agregátů.
+  </p>
+  <form method="post" class="form form-wide" id="actor-form">
+    {% csrf_token %}
+    {% include "panel/_form_errors.html" %}
+    <fieldset>
+      <legend>Aktér</legend>
+      {% include "panel/_field.html" with field=form.name %}
+      {% include "panel/_field.html" with field=form.actor_type %}
+      {% include "panel/_field.html" with field=form.layer %}
+      {% include "panel/_field.html" with field=form.party %}
+      {% include "panel/_field.html" with field=form.is_hybrid %}
+      {% include "panel/_field.html" with field=form.inclusion_criterion %}
+      {% include "panel/_field.html" with field=form.inclusion_reference %}
+      {% include "panel/_field.html" with field=form.start_date %}
+    </fieldset>
+    <fieldset>
+      <legend>Zdroj a účet</legend>
+      {% include "panel/_field.html" with field=form.source_mode %}
+      <div data-mode="existing">{% include "panel/_field.html" with field=form.source %}</div>
+      <div data-mode="new">
+        {% include "panel/_field.html" with field=form.new_source_url %}
+        {% include "panel/_field.html" with field=form.new_source_name %}
+        {% include "panel/_field.html" with field=form.new_source_platform %}
+        {% include "panel/_field.html" with field=form.new_source_layer %}
+      </div>
+      <div data-mode="existing new">
+        {% include "panel/_field.html" with field=form.account_id %}
+        {% include "panel/_field.html" with field=form.account_url %}
+      </div>
+    </fieldset>
+    {% if form.non_field_errors %}{% include "panel/_field.html" with field=form.confirm %}{% endif %}
+    <button class="button" type="submit">Přidat aktéra</button>
+  </form>
+  <script>
+    // Показывать только поля выбранного режима источника.
+    (function () {
+      const form = document.getElementById("actor-form");
+      function update() {
+        const mode = form.querySelector("input[name=source_mode]:checked")?.value || "none";
+        form.querySelectorAll("[data-mode]").forEach((el) => { el.hidden = !el.dataset.mode.split(" ").includes(mode); });
+      }
+      form.addEventListener("change", update);
+      update();
+    })();
+  </script>
+{% endblock %}

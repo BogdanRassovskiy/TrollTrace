@@ -212,3 +212,31 @@ tr.unread > td { background: rgba(224, 164, 0, 0.06); }
   border-radius: 6px; padding: 6px 8px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 .share { display: inline-flex; gap: 8px; align-items: baseline; }
+
+/* Панель исследователя (этап 9): формы, карточка актора, история. */
+.form textarea, .form select, .field select, .field textarea {
+  font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text); min-width: 0; width: 100%; box-sizing: border-box;
+}
+.form input[type=checkbox], .form input[type=radio] { width: auto; }
+.field { display: grid; gap: 4px; }
+.field > label, .field-label { font-weight: 500; }
+.field ul, .field > div { list-style: none; padding: 0; margin: 0; display: flex; gap: 12px; flex-wrap: wrap; }
+.field-error input, .field-error select, .field-error textarea { border-color: #a3261f; }
+.form fieldset { border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; display: grid; gap: 8px; }
+.form fieldset legend { padding: 0 6px; font-weight: 600; }
+.form-wide { max-width: 760px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 12px 0; }
+details.card > summary { cursor: pointer; font-weight: 600; }
+details.card[open] > summary { margin-bottom: 12px; }
+.button-danger { background: #a3261f; }
+.dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.dl dt { color: var(--muted); }
+.dl dd { margin: 0; }
+.progress { width: 100px; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; }
+.progress > span { display: block; height: 100%; background: var(--accent); }
+del.old { color: #a3261f; text-decoration: line-through; background: rgba(163, 38, 31, 0.08); }
+ins.new { color: #1f7a3d; text-decoration: none; background: rgba(31, 122, 61, 0.1); }
+tr.row-error > td { background: rgba(163, 38, 31, 0.05); }
+tr.highlight > td { background: rgba(224, 164, 0, 0.1); }
+.value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-word; }

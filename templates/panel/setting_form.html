@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}{{ setting.key }} — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:settings' %}">Nastavení</a> /</p>
+  <h1 class="value">{{ setting.key }}</h1>
+  <p class="muted">{{ setting.description }}</p>
+  <p>Aktuální hodnota (v{{ setting.current_version }}): <span class="value">{{ setting.value }}</span></p>
+  <form method="post" class="form form-wide">
+    {% csrf_token %}
+    {% include "panel/_form_errors.html" %}
+    {% for field in form %}{% include "panel/_field.html" %}{% endfor %}
+    <button class="button" type="submit">Uložit novou verzi</button>
+  </form>
+
+  <h2>Historie</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Verze</th><th>Hodnota</th><th>Kdy</th><th>Kdo</th><th>Komentář</th></tr></thead>
+      <tbody>
+        {% for v in versions %}
+          <tr><td>v{{ v.version }}</td><td class="value">{{ v.value }}</td><td class="nowrap">{{ v.changed_at|date:"Y-m-d H:i" }}</td>
+            <td>{{ v.changed_by|default:"systém" }}</td><td class="small">{{ v.change_note|default:"—" }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Žádná historie.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}
