@@ -208,26 +208,42 @@ def test_long_text_excerpt_keeps_cue_windows():
     assert len(excerpt) < len(text) and "Korespondenční volba je podvod." in excerpt
 
 
-def test_new_narrative_version_starts_relabel_job(monkeypatch, django_capture_on_commit_callbacks):
+def test_new_narrative_version_does_not_relabel_archive(django_capture_on_commit_callbacks):
     n = narrative()
-    monkeypatch.setattr(labeling, "queue_narrative", lambda narrative: 7)
     with django_capture_on_commit_callbacks(execute=True):
         n.definition = "Upravená definice."
         n.save(change_note="Zpřesnění")
+    assert not Job.objects.filter(job_type=Job.Type.RELABEL).exists()
+
+
+def test_manual_relabel_job(monkeypatch, django_capture_on_commit_callbacks):
+    from apps.narratives.retro import start_relabel
+
+    n = narrative()
+    monkeypatch.setattr(labeling, "queue_narrative", lambda narrative: 7)
+    with django_capture_on_commit_callbacks(execute=True):
+        start_relabel(n)
     job = Job.objects.get(job_type=Job.Type.RELABEL)
     assert job.status == Job.Status.SUCCEEDED and job.result["queued"] == 7
-    assert job.params == {"narrative": n.code, "version": 2}
+    assert job.params == {"narrative": n.code, "version": 1}
     assert Notification.objects.filter(title__contains="Zpětné anotování").exists()
 
 
-def test_current_labels_follow_latest_version():
+def test_label_stays_current_until_newer_version_decides():
     n = narrative()
     document = doc()
     Label.objects.create(document=document, narrative=n, narrative_version=n.latest_version,
                          stance="pro", origin="model", confidence=0.9)  # fmt: skip
-    assert Label.objects.current().count() == 1
     n.definition = "Nová definice."
     n.save()
+    assert Label.objects.current().count() == 1  # archiv se automaticky nepřeanotoval
+    pending = LabelDecision.objects.create(
+        document=document, narrative=n, narrative_version=n.latest_version,
+        text_hash=document.text_hash, similarity=0.3,
+    )  # fmt: skip
+    assert Label.objects.current().count() == 1  # čekající rozhodnutí štítek neruší
+    pending.present = False
+    pending.save()
     assert Label.objects.current().count() == 0 and Label.objects.count() == 1
 
 
@@ -250,7 +266,7 @@ def test_command_without_key_reports_waiting():
     out = io.StringIO()
     with override_settings(OPENROUTER_API_KEY=""):
         call_command("label_narratives", stdout=out)
-    assert "Kandidátů čeká 1" in out.getvalue() and "OPENROUTER_API_KEY" in out.getvalue()
+    assert "Ve frontě čeká 1" in out.getvalue() and "OPENROUTER_API_KEY" in out.getvalue()
 
 
 def test_month_spend_counts_current_month():

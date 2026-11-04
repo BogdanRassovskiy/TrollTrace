@@ -3,11 +3,12 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models import Q
+from django.db.models import Exists, OuterRef, Q
+from pgvector.django import VectorField
 
 from apps.actors.models import Layer
 from apps.core.models import TimeStampedModel, VersionedModel, VersionRecord
-from apps.documents.models import Document
+from apps.documents.models import EMBEDDING_DIMENSIONS, Document
 
 
 class Stance(models.TextChoices):
@@ -102,7 +103,18 @@ class Narrative(VersionedModel):
         help_text="Kdo narativ popsal a zda ho připisuje Rusku (např. BIS, výroční zpráva).",
     )
     status = models.CharField(
-        "stav", max_length=10, choices=NarrativeStatus.choices, default=NarrativeStatus.ACTIVE
+        "stav",
+        max_length=10,
+        choices=NarrativeStatus.choices,
+        default=NarrativeStatus.ACTIVE,
+        help_text="Aktivní i kandidát se sledují v nových dokumentech; do analýzy patří jen "
+        "aktivní. Archivovaný se nesleduje.",
+    )
+    discovered = models.BooleanField(
+        "navržen automaticky",
+        default=False,
+        help_text="Vznikl ze shluku nových tvrzení v dokumentech (kandidát na narativ), "
+        "ne z literatury nebo zpráv.",
     )
     added_at = models.DateTimeField("přidán do kódové knihy", auto_now_add=True)
 
@@ -164,8 +176,19 @@ class NarrativeVersion(VersionRecord):
 
 class LabelQuerySet(models.QuerySet):
     def current(self):
-        """Štítky podle aktuální verze kódové knihy; starší verze zůstávají jako historie."""
-        return self.filter(narrative_version__version=models.F("narrative__current_version"))
+        """Platné štítky: dokument nebyl posouzen podle novější verze narativu.
+
+        Archiv se po úpravě narativu automaticky znovu neanotuje, takže štítek starší verze
+        platí, dokud dokument neposoudí novější verze (ruční zpětná anotace); pak zůstává
+        jen jako historie.
+        """
+        newer = LabelDecision.objects.filter(
+            document=OuterRef("document"),
+            narrative=OuterRef("narrative"),
+            narrative_version__version__gt=OuterRef("narrative_version__version"),
+            present__isnull=False,
+        )
+        return self.exclude(Exists(newer))
 
 
 class Label(models.Model):
@@ -277,7 +300,16 @@ class NarrativeCandidate(TimeStampedModel):
         REJECTED = "rejected", "Zamítnut"
         DEFERRED = "deferred", "Odložen"
 
-    description = models.TextField("popis shluku")
+    description = models.TextField(
+        "popis shluku", help_text="Tvrzení, kterým shluk začal (formulace modelu)."
+    )
+    centroid = VectorField("střed shluku", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
+    tracked_since = models.DateTimeField(
+        "sledován od",
+        null=True,
+        blank=True,
+        help_text="Kdy shluk splnil pravidlo přidání a vznikl z něj narativ ve stavu kandidát.",
+    )
     keywords = models.JSONField("klíčová slova", default=list, blank=True)
     example_documents = models.ManyToManyField(
         Document, verbose_name="příklady", blank=True, related_name="+"
@@ -285,8 +317,8 @@ class NarrativeCandidate(TimeStampedModel):
     nearest_narratives = models.ManyToManyField(
         Narrative, verbose_name="nejbližší narativy", blank=True, related_name="+"
     )
-    n_documents = models.PositiveIntegerField("dokumentů")
-    n_authors = models.PositiveIntegerField("nezávislých autorů")
+    n_documents = models.PositiveIntegerField("dokumentů v okně", default=0)
+    n_authors = models.PositiveIntegerField("nezávislých autorů v okně", default=0)
     window_start = models.DateField("okno: od")
     window_end = models.DateField("okno: do")
     layers = models.JSONField(
@@ -391,3 +423,83 @@ class LabelDecision(models.Model):
     def __str__(self):
         state = "čeká" if self.present is None else ("ano" if self.present else "ne")
         return f"{self.document_id} × {self.narrative_version}: {state}"
+
+
+class Screening(models.Model):
+    """Kontrola relevantního dokumentu modelem: hledají se tvrzení, která kódová kniha nezná.
+
+    Probíhá v tomtéž volání modelu jako anotace známých narativů. Prázdné `checked_at` —
+    dokument čeká na model.
+    """
+
+    document = models.ForeignKey(
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="screenings"
+    )
+    text_hash = models.CharField("hash textu", max_length=64)
+    model_name = models.CharField("model", max_length=100, blank=True)
+    prompt_version = models.CharField("verze zadání", max_length=20, blank=True)
+    n_claims = models.PositiveSmallIntegerField("nových tvrzení", default=0)
+    cost_usd = models.FloatField("cena (USD)", null=True, blank=True)
+    error = models.TextField("chyba", blank=True)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+    checked_at = models.DateTimeField("zkontrolováno", null=True, blank=True)
+
+    class Meta:
+        verbose_name = "kontrola nových tvrzení"
+        verbose_name_plural = "kontroly nových tvrzení"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["document", "text_hash"], name="screening_unique_text"),
+        ]
+        indexes = [models.Index(fields=["checked_at"])]
+
+    def __str__(self):
+        return f"{self.document_id}: {'čeká' if self.checked_at is None else self.n_claims}"
+
+
+class NovelClaim(models.Model):
+    """Tvrzení z dokumentu, které model nenašel mezi známými narativy.
+
+    Podobná tvrzení se skládají do shluku (NarrativeCandidate); tvrzení blízké existujícímu
+    narativu se místo toho posoudí jako jeho kandidát.
+    """
+
+    screening = models.ForeignKey(
+        Screening, verbose_name="kontrola", on_delete=models.CASCADE, related_name="claims"
+    )
+    document = models.ForeignKey(
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="novel_claims"
+    )
+    claim = models.TextField("tvrzení")
+    stance = models.CharField("postoj dokumentu", max_length=10, choices=Stance.choices)
+    confidence = models.FloatField("jistota", default=0)
+    carrier = models.CharField("kdo tvrzení v textu nese", max_length=200, blank=True)
+    evidence = models.TextField("doklad (citace z textu)", blank=True)
+    embedding = VectorField("embedding", dimensions=EMBEDDING_DIMENSIONS, null=True, blank=True)
+    candidate = models.ForeignKey(
+        NarrativeCandidate,
+        verbose_name="shluk",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="claims",
+    )
+    matched_narrative = models.ForeignKey(
+        Narrative,
+        verbose_name="odpovídá narativu",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Tvrzení je blízké už sledovanému narativu: dokument se posoudí podle něj.",
+    )
+    similarity = models.FloatField("podobnost", null=True, blank=True)
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "nové tvrzení"
+        verbose_name_plural = "nová tvrzení"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.claim[:80]

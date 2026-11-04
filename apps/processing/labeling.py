@@ -10,10 +10,14 @@
 3. Метки. Положительное решение с уверенностью ≥ `labeling-min-confidence` → Label
    (origin = model) на версию нарратива. Ручные метки не трогаются.
 
+4. Новые утверждения. Каждый новый релевантный документ проверяется моделью (Screening) в
+   том же вызове: какие конкретные утверждения в нём есть, которых нет среди известных
+   нарративов. Они складываются в кандидаты (apps/processing/novelty.py).
+
 Близость эмбеддингов ловит тему, а не позицию, а локальная NLI-модель не понимает чешский
 подтекст (проверено на примерах) — поэтому решение за LLM, а эмбеддинги только сужают поток.
-Новая версия нарратива (правка кодбука) → ретроразметка архива: кандидаты по новой версии
-ставятся в очередь, метки прежних версий остаются историей (Label.objects.current()).
+Архив автоматически не переразмечается: нарратив отслеживается с момента появления, его
+история — документы, из которых он вырос. Ретроразметка — только вручную (queue_narrative).
 """
 
 import datetime
@@ -34,6 +38,7 @@ from apps.narratives.models import (
     NarrativeKind,
     NarrativeStatus,
     NarrativeVersion,
+    Screening,
     Stance,
 )
 from apps.panel.defaults import get_setting
@@ -45,11 +50,14 @@ from .text import fold
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "p2"  # p2: přísná přítomnost narativu (jen reakce na konkrétní tvrzení)
+PROMPT_VERSION = "p4"  # p2: přísná přítomnost; p3: nová tvrzení; p4: užší rámec nových tvrzení
 MIN_CUES = 2
 HEAD_CHARS = 6000  # начало текста целиком
 CUE_WINDOW = 400  # и окна вокруг сигнальных слов дальше по тексту
 MAX_EXCERPT_CHARS = 9000
+MAX_CLAIMS = 3
+KNOWN_IN_PROMPT = 25  # názvy nejbližších sledovaných narativů, aby je model nehlásil jako nové
+TRACKED = (NarrativeStatus.ACTIVE, NarrativeStatus.CANDIDATE)
 
 
 @dataclass
@@ -62,7 +70,7 @@ class Prototype:
 
 def load_prototypes(narratives=None) -> list[Prototype]:
     narratives = narratives or list(
-        Narrative.objects.filter(status=NarrativeStatus.ACTIVE).select_related("topic")
+        Narrative.objects.filter(status__in=TRACKED).select_related("topic")
     )
     if not narratives:
         return []
@@ -129,6 +137,12 @@ def queue_candidates(document: Document, prototypes=None, center=None) -> int:
     return created
 
 
+def queue_screening(document: Document) -> bool:
+    """Новый релевантный документ → проверка моделью на новые утверждения."""
+    _, created = Screening.objects.get_or_create(document=document, text_hash=document.text_hash)
+    return created
+
+
 # --- Решение LLM ---------------------------------------------------------------
 
 SYSTEM = """You are a careful annotator in an academic research project (Jan Evangelista \
@@ -159,6 +173,31 @@ empty string if not present.
 - reason: one short sentence IN CZECH explaining the decision.
 
 Follow the stance guide of each narrative. Judge only the text given, not the source."""
+
+DISCOVERY = """
+
+Additionally list NEW CLAIMS ("claims"): specific claims (not topics) that the document \
+makes or reports and that are NOT covered by any narrative listed in the codebook or under \
+"Other tracked narratives". Only claims typical of influence narratives: claims that \
+delegitimise or vilify Ukraine, the EU, NATO, the USA or the West, Czech democratic \
+institutions, elections, mainstream media or support for Ukraine; that present Russia or the \
+USSR favourably or justify their actions; or that spread fear (war, energy, migration, \
+economic collapse) to undermine trust in the state. Do NOT list:
+  - factual reporting of events (attacks, battles, votes, statements) without an \
+interpretive claim of that kind;
+  - ordinary criticism of a government, party or politician's policy (e.g. "the government \
+spends too little on defence"), which is normal political debate;
+  - claims about other countries' domestic affairs that do not concern Czechia, the EU, \
+NATO, Ukraine or Russia;
+  - claims mentioned only in passing.
+For each claim:
+- claim: one declarative sentence IN CZECH stating the claim in a general form, so that other \
+texts repeating the same claim would match (no outlet names, no quotation marks). Keep \
+incident-specific details only when the claim is about one incident.
+- stance: "pro" if the document pushes the claim, "neutral" if it reports someone making it, \
+"contra" if it explicitly refutes it.
+- carrier, evidence, confidence as above.
+At most 3 claims; an empty list if there are none."""
 
 
 def _excerpt(document: Document, prototypes: list[Prototype]) -> str:
@@ -200,16 +239,29 @@ def _narrative_block(narrative: Narrative) -> str:
     return "\n".join(lines)
 
 
-def build_prompt(document: Document, prototypes: list[Prototype]) -> str:
+def build_prompt(document: Document, prototypes: list[Prototype], known=()) -> str:
     published = document.published_at.date().isoformat() if document.published_at else "?"
-    codebook = "\n\n".join(_narrative_block(p.narrative) for p in prototypes)
+    codebook = "\n\n".join(_narrative_block(p.narrative) for p in prototypes) or "(žádný)"
+    other = ""
+    if known:
+        other = "## Other tracked narratives\n\n" + "\n".join(f"- {n}" for n in known) + "\n\n"
     return (
-        f"## Codebook\n\n{codebook}\n\n## Document\n\nDatum: {published}\n"
+        f"## Codebook\n\n{codebook}\n\n{other}## Document\n\nDatum: {published}\n"
         f"Titulek: {document.title}\n\n{_excerpt(document, prototypes)}"
     )
 
 
-def schema(codes: list[str]) -> dict:
+def known_names(document: Document, exclude: set[str], prototypes=None, center=None) -> list:
+    """Названия ближайших отслеживаемых нарративов вне кандидатов документа (для поиска новых)."""
+    prototypes = load_prototypes() if prototypes is None else prototypes
+    others = [p for p in prototypes if p.narrative.code not in exclude]
+    if center is not None and document.embedding is not None and others:
+        vector = centered(document.embedding, center)[0]
+        others.sort(key=lambda p: -float(centered(p.vector, center)[0] @ vector))
+    return [p.narrative.name for p in others[:KNOWN_IN_PROMPT]]
+
+
+def schema(codes: list[str], discovery: bool = False) -> dict:
     item = {
         "type": "object",
         "properties": {
@@ -225,28 +277,62 @@ def schema(codes: list[str]) -> dict:
                      "reason"],
         "additionalProperties": False,
     }  # fmt: skip
+    if not codes:
+        item["properties"]["narrative"] = {"type": "string"}
+    properties = {"decisions": {"type": "array", "items": item}}
+    if discovery:
+        claim = {
+            "type": "object",
+            "properties": {
+                "claim": {"type": "string"},
+                "stance": {"type": "string", "enum": list(Stance.values)},
+                "confidence": {"type": "number"},
+                "carrier": {"type": "string"},
+                "evidence": {"type": "string"},
+            },
+            "required": ["claim", "stance", "confidence", "carrier", "evidence"],
+            "additionalProperties": False,
+        }
+        properties["claims"] = {"type": "array", "items": claim}
     return {
         "type": "object",
-        "properties": {"decisions": {"type": "array", "items": item}},
-        "required": ["decisions"],
+        "properties": properties,
+        "required": list(properties),
         "additionalProperties": False,
     }
 
 
 def decide_document(document: Document, decisions: list[LabelDecision], model: str,
-                    client=None, *, save: bool = True):  # fmt: skip
-    """Один вызов модели по всем ожидающим решениям документа.
+                    client=None, *, screening: Screening | None = None, known=(),
+                    save: bool = True):  # fmt: skip
+    """Один вызов модели по всем ожидающим решениям документа (и поиск новых утверждений,
+    если документ ждёт проверки `screening`).
 
     Возвращает (ответы модели по решениям, Completion). save=False — только сравнение моделей.
     """
     prototypes = [_prototype_of(d) for d in decisions]
     codes = [p.narrative.code for p in prototypes]
+    discovery = screening is not None
     completion = llm.complete_json(
-        model, SYSTEM, build_prompt(document, prototypes), schema(codes), client=client
+        model,
+        SYSTEM + (DISCOVERY if discovery else ""),
+        build_prompt(document, prototypes, known if discovery else ()),
+        schema(codes, discovery),
+        client=client,
     )
-    items = completion.data.get("decisions") if isinstance(completion.data, dict) else None
+    data = completion.data if isinstance(completion.data, dict) else {}
+    items = data.get("decisions")
     answers = {a.get("narrative"): a for a in items or [] if isinstance(a, dict)}
-    cost = completion.cost_usd / len(decisions) if completion.cost_usd is not None else None
+    parts = len(decisions) + discovery
+    cost = completion.cost_usd / parts if completion.cost_usd is not None else None
+    if discovery and save:
+        from . import novelty
+
+        screening.model_name, screening.prompt_version = model, PROMPT_VERSION
+        screening.cost_usd, screening.checked_at, screening.error = cost, timezone.now(), ""
+        with transaction.atomic():
+            screening.n_claims = novelty.record_claims(screening, data.get("claims"))
+            screening.save()
     results = []
     for decision in decisions:
         answer = answers.get(decision.narrative.code)
@@ -335,10 +421,11 @@ def _apply(decision: LabelDecision) -> None:
 def month_spend(today: datetime.date | None = None) -> float:
     today = today or timezone.localdate()
     start = today.replace(day=1)
-    total = LabelDecision.objects.filter(decided_at__date__gte=start).aggregate(
-        total=Sum("cost_usd")
-    )["total"]
-    return float(total or 0)
+    decisions = LabelDecision.objects.filter(decided_at__date__gte=start)
+    screenings = Screening.objects.filter(checked_at__date__gte=start)
+    return sum(
+        float(qs.aggregate(total=Sum("cost_usd"))["total"] or 0) for qs in (decisions, screenings)
+    )
 
 
 def pending() -> "LabelDecision.objects":
@@ -347,11 +434,26 @@ def pending() -> "LabelDecision.objects":
     )
 
 
+def pending_screenings() -> "Screening.objects":
+    return Screening.objects.filter(checked_at__isnull=True, error="")
+
+
+def next_document_id() -> int | None:
+    """Следующий документ очереди: ждёт решения по кандидатам или проверки."""
+    ids = [
+        qs.order_by("document_id").values_list("document_id", flat=True).first()
+        for qs in (pending(), pending_screenings())
+    ]
+    ids = [i for i in ids if i is not None]
+    return min(ids) if ids else None
+
+
 @dataclass
 class LabelStats:
     documents: int = 0
     decisions: int = 0
     labels: int = 0
+    claims: int = 0
     errors: int = 0
     cost_usd: float = 0.0
     stopped: str = ""
@@ -369,27 +471,40 @@ def label_pending(limit: int | None = None, time_budget: float | None = None) ->
     model = str(get_setting("labeling-model"))
     budget = float(get_setting("labeling-monthly-budget-usd"))
     started = time.monotonic()
+    prototypes, center = load_prototypes(), get_center()
     while limit is None or stats.documents < limit:
         if month_spend() >= budget:
             stats.stopped = f"vyčerpán měsíční rozpočet {budget} USD"
             _notify_budget(budget)
             break
-        first = pending().order_by("document_id").first()
-        if first is None:
+        document_id = next_document_id()
+        if document_id is None:
             break
-        decisions = list(
-            pending().filter(document_id=first.document_id).order_by("narrative__code")
-        )
+        document = Document.objects.get(pk=document_id)
+        decisions = list(pending().filter(document_id=document_id).order_by("narrative__code"))
+        screening = pending_screenings().filter(document_id=document_id).first()
+        if screening is not None and screening.text_hash != document.text_hash:
+            screening.delete()  # text se změnil; novou kontrolu založí zpracování dokumentu
+            screening = None
+            if not decisions:
+                continue
+        known = []
+        if screening is not None:
+            exclude = {d.narrative.code for d in decisions}
+            known = known_names(document, exclude, prototypes, center)
         try:
-            decide_document(first.document, decisions, model)
+            decide_document(document, decisions, model, screening=screening, known=known)
             minimum = float(get_setting("labeling-min-confidence"))
             stats.labels += sum(1 for d in decisions if d.present and d.confidence >= minimum)
+            stats.claims += screening.n_claims if screening is not None else 0
         except llm.LLMError as exc:
             LabelDecision.objects.filter(pk__in=[d.pk for d in decisions]).update(
                 error=str(exc)[:1000]
             )
-            stats.errors += len(decisions)
-            logger.warning("Anotace dokumentu %s selhala: %s", first.document_id, exc)
+            if screening is not None:
+                Screening.objects.filter(pk=screening.pk).update(error=str(exc)[:1000])
+            stats.errors += len(decisions) + (screening is not None)
+            logger.warning("Anotace dokumentu %s selhala: %s", document_id, exc)
         stats.documents += 1
         stats.decisions += len(decisions)
         if time_budget is not None and time.monotonic() - started > time_budget:
@@ -414,8 +529,13 @@ def _notify_budget(budget: float) -> None:
 
 
 def retry_errors() -> int:
-    """Решения с ошибкой (сеть, лимиты) снова в очередь."""
-    return LabelDecision.objects.filter(present__isnull=True).exclude(error="").update(error="")
+    """Решения и проверки с ошибкой (сеть, лимиты) снова в очередь."""
+    decisions = (
+        LabelDecision.objects.filter(present__isnull=True).exclude(error="").update(error="")
+    )
+    return decisions + Screening.objects.filter(checked_at__isnull=True).exclude(error="").update(
+        error=""
+    )
 
 
 def refresh_relevance(center=None) -> int:
@@ -448,7 +568,11 @@ def refresh_relevance(center=None) -> int:
 
 
 def queue_narrative(narrative: Narrative) -> int:
-    """Ретроразметка: кандидаты новой версии нарратива по всему релевантному архиву."""
+    """Ручная ретроразметка: кандидаты текущей версии нарратива по всему релевантному архиву.
+
+    Автоматически не запускается (новые нарративы отслеживаются с момента появления); нужна,
+    например, для нарратива из литературы, добавленного задним числом.
+    """
     prototypes = load_prototypes([narrative])
     center = get_center()
     refresh_relevance(center)

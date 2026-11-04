@@ -1,4 +1,5 @@
-"""Разметка нарративов вручную: очередь кандидатов, решения модели, сравнение моделей."""
+"""Разметка нарративов вручную: очередь кандидатов, ретроразметка, проверка на новые
+утверждения, решения модели, сравнение моделей."""
 
 import json
 import random
@@ -8,9 +9,11 @@ from itertools import combinations
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
+from django.utils.dateparse import parse_date
 
 from apps.documents.models import Document
-from apps.narratives.models import LabelDecision
+from apps.narratives.models import LabelDecision, Narrative
+from apps.narratives.retro import start_relabel
 from apps.processing import labeling, llm
 from apps.processing.embeddings import get_center
 
@@ -25,6 +28,19 @@ class Command(BaseCommand):
         parser.add_argument(
             "--queue", action="store_true", help="Zařadit kandidáty všech relevantních dokumentů."
         )
+        parser.add_argument(
+            "--retro", metavar="KÓD",
+            help="Zpětně anotovat archiv podle aktuální verze narativu (jinak se nespouští).",
+        )  # fmt: skip
+        parser.add_argument(
+            "--screen-since", metavar="RRRR-MM-DD",
+            help="Zařadit ke kontrole na nová tvrzení relevantní dokumenty publikované od data "
+            "(nové dokumenty se zařazují samy).",
+        )  # fmt: skip
+        parser.add_argument(
+            "--recluster", action="store_true",
+            help="Znovu sestavit nerozhodnuté shluky nových tvrzení (po změně prahů).",
+        )  # fmt: skip
         parser.add_argument("--limit", type=int, help="Posoudit nejvýše N dokumentů.")
         parser.add_argument(
             "--retry",
@@ -50,15 +66,34 @@ class Command(BaseCommand):
                 ).iterator(chunk_size=500)
             )
             self.stdout.write(f"Nových kandidátů ve frontě: {queued}")
+        if options["retro"]:
+            narrative = Narrative.objects.filter(code=options["retro"]).first()
+            if narrative is None:
+                raise CommandError(f"Narativ {options['retro']} neexistuje.")
+            start_relabel(narrative)
+            self.stdout.write(f"Zpětné anotování „{narrative.name}“ zařazeno.")
+        if options["screen_since"]:
+            since = parse_date(options["screen_since"])
+            if since is None:
+                raise CommandError("Datum ve tvaru RRRR-MM-DD.")
+            documents = Document.objects.filter(
+                is_relevant=True, embedding__isnull=False, published_at__date__gte=since
+            )
+            queued = sum(labeling.queue_screening(d) for d in documents.iterator(chunk_size=500))
+            self.stdout.write(f"Ke kontrole na nová tvrzení zařazeno dokumentů: {queued}")
+        if options["recluster"]:
+            from apps.processing import novelty
+
+            self.stdout.write(f"Shluků nových tvrzení po přestavbě: {novelty.recluster()}")
         if options["retry"]:
             self.stdout.write(f"Znovu ve frontě po chybě: {labeling.retry_errors()}")
         if options["compare"]:
             return self.compare(options["compare"], options["sample"], options["out"])
-        waiting = labeling.pending().count()
+        waiting = labeling.pending().count() + labeling.pending_screenings().count()
         if not llm.is_configured():
             self.stdout.write(
                 self.style.WARNING(
-                    f"Kandidátů čeká {waiting}. Model nelze zavolat: v .env chybí "
+                    f"Ve frontě čeká {waiting}. Model nelze zavolat: v .env chybí "
                     "OPENROUTER_API_KEY."
                 )
             )
@@ -66,7 +101,8 @@ class Command(BaseCommand):
         stats = labeling.label_pending(limit=options["limit"])
         message = (
             f"Posouzeno dokumentů {stats.documents}, rozhodnutí {stats.decisions}, nových štítků "
-            f"{stats.labels}, chyb {stats.errors}. Útrata za měsíc: {stats.cost_usd} USD."
+            f"{stats.labels}, nových tvrzení {stats.claims}, chyb {stats.errors}. "
+            f"Útrata za měsíc: {stats.cost_usd} USD."
         )
         self.stdout.write(self.style.SUCCESS(message))
         if stats.stopped:

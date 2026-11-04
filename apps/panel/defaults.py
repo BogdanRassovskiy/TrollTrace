@@ -27,12 +27,28 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     ),
     "reuse-window-days": (30, "Převzetí: maximální odstup originálu a převzetí (dní)."),
     "minhash-shingle-size": (5, "Velikost šindele ve slovech (5–7)."),
-    "narrative-rule-min-posts": (20, "Pravidlo přidání narativu: minimálně N příspěvků."),
+    "narrative-rule-min-posts": (
+        20,
+        "Pravidlo přidání narativu: minimálně N dokumentů s novým tvrzením. Splněný shluk se "
+        "začne sledovat jako narativ ve stavu kandidát.",
+    ),
     "narrative-rule-min-authors": (
         5,
-        "Pravidlo přidání narativu: minimálně K nezávislých autorů.",
+        "Pravidlo přidání narativu: minimálně K nezávislých autorů (aktér, jinak zdroj).",
     ),
     "narrative-rule-window-days": (14, "Pravidlo přidání narativu: okno W (dní)."),
+    "discovery-known-similarity": (
+        0.62,
+        "Nová tvrzení: tvrzení aspoň takto podobné názvu nebo příkladu sledovaného narativu "
+        "není nové, dokument se posoudí podle tohoto narativu (centrovaná kosinová podobnost; "
+        "kalibrace: shody 0,65–0,72, ostatní ≤ 0,57).",
+    ),
+    "discovery-cluster-similarity": (
+        0.75,
+        "Nová tvrzení: aspoň takto podobné tvrzení se přidá do existujícího shluku, jinak "
+        "založí nový. Kalibrace: totéž tvrzení 0,75–0,99, příbuzná různá 0,67–0,79 — raději "
+        "jemnější shluky, sloučí je výzkumník.",
+    ),
     "event-window-before-days": (
         14,
         "Event study (vrstva I, H4): okno před událostí (dní). Fixuje se předem (README §2.1).",

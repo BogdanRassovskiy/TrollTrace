@@ -42,6 +42,7 @@ class Stats:
     links: int = 0
     actors: int = 0
     candidates: int = 0
+    screenings: int = 0
 
     def add(self, other: "Stats"):
         for key in self.__dataclass_fields__:
@@ -75,6 +76,7 @@ def process_documents(documents: list[Document]) -> Stats:
             stats.actors += discovery.record_document(document)
             if document.is_relevant:
                 stats.candidates += labeling.queue_candidates(document, prototypes, center)
+                stats.screenings += labeling.queue_screening(document)
         stats.processed += 1
         if document.is_relevant:
             stats.relevant += 1
