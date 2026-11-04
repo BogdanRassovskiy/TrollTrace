@@ -418,10 +418,40 @@ def retry_errors() -> int:
     return LabelDecision.objects.filter(present__isnull=True).exclude(error="").update(error="")
 
 
+def refresh_relevance(center=None) -> int:
+    """Перепроверка документов, отсеянных только порогом близости, по текущему кодбуку.
+
+    Релевантность считалась по кодбуку на момент обработки: статьи о новом (особенно узком)
+    нарративе могли тогда оказаться ниже порога. Эмбеддинги не пересчитываются. Документы,
+    отсеянные фильтрами (пустой текст, качество 1, рубрика вне рамок), не трогаются.
+    """
+    from . import relevance
+
+    center = get_center() if center is None else center
+    if center is None:
+        return 0
+    codebook = relevance.load_codebook(model_name())
+    revived = 0
+    below = Document.objects.filter(
+        is_relevant=False, embedding__isnull=False, relevance_details__reason="pod prahem"
+    )
+    for document in below.iterator(chunk_size=500):
+        decision = relevance.decide(document, codebook, center)
+        if decision["is_relevant"]:
+            Document.objects.filter(pk=document.pk).update(
+                is_relevant=True,
+                relevance_score=decision["score"],
+                relevance_details={**decision["details"], "revived_by_codebook": True},
+            )
+            revived += 1
+    return revived
+
+
 def queue_narrative(narrative: Narrative) -> int:
     """Ретроразметка: кандидаты новой версии нарратива по всему релевантному архиву."""
     prototypes = load_prototypes([narrative])
     center = get_center()
+    refresh_relevance(center)
     created = 0
     documents = Document.objects.filter(is_relevant=True, embedding__isnull=False)
     for document in documents.iterator(chunk_size=500):

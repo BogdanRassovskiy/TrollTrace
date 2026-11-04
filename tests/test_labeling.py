@@ -43,8 +43,9 @@ def prototype(n: Narrative, vector) -> labeling.Prototype:
 
 
 def doc(text="Pomoc Ukrajině se nevyplácí, říkají kritici.", embedding=None, **kwargs):
+    kwargs.setdefault("is_relevant", True)
     return DocumentFactory(
-        text=text, is_relevant=True, embedding=list(unit(1.0) if embedding is None else embedding),
+        text=text, embedding=list(unit(1.0) if embedding is None else embedding),
         **kwargs,
     )  # fmt: skip
 
@@ -261,3 +262,24 @@ def test_month_spend_counts_current_month():
     )
     assert labeling.month_spend(datetime.date(2026, 11, 20)) == 0.5
     assert labeling.month_spend(datetime.date(2026, 12, 1)) == 0
+
+
+def test_refresh_relevance_revives_documents_below_threshold(monkeypatch):
+    from apps.processing import relevance
+
+    below = doc(is_relevant=False, relevance_details={"reason": "pod prahem"})
+    gated = doc(is_relevant=False, relevance_details={"reason": "prázdný text"})
+    seen = []
+
+    def decide(document, codebook, center):
+        seen.append(document.pk)
+        return {"is_relevant": True, "score": 0.4, "details": {"reason": "podobnost"}}
+
+    monkeypatch.setattr(relevance, "decide", decide)
+    monkeypatch.setattr(relevance, "load_codebook", lambda model: None)
+    assert labeling.refresh_relevance(CENTER) == 1
+    assert seen == [below.pk]  # vyřazené filtry se znovu neposuzují
+    below.refresh_from_db()
+    gated.refresh_from_db()
+    assert below.is_relevant and below.relevance_details["revived_by_codebook"]
+    assert gated.is_relevant is False
