@@ -235,7 +235,8 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
     completion = llm.complete_json(
         model, SYSTEM, build_prompt(document, prototypes), schema(codes), client=client
     )
-    answers = {a.get("narrative"): a for a in completion.data.get("decisions", [])}
+    items = completion.data.get("decisions") if isinstance(completion.data, dict) else None
+    answers = {a.get("narrative"): a for a in items or [] if isinstance(a, dict)}
     cost = completion.cost_usd / len(decisions) if completion.cost_usd is not None else None
     results = []
     for decision in decisions:
@@ -249,17 +250,33 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
             decision.error = "Model o narativu nerozhodl."
             decision.save()
             continue
-        decision.present = bool(answer["present"])
+        problem = _invalid(answer)
+        if problem:
+            decision.error = f"Neplatná odpověď modelu: {problem}"
+            decision.save()
+            continue
+        decision.present = answer["present"]
         decision.stance = answer["stance"] if decision.present else Stance.NEUTRAL
         decision.confidence = max(0.0, min(1.0, float(answer["confidence"])))
-        decision.evidence = answer["evidence"][:1000]
-        decision.carrier = answer["carrier"][:200]
-        decision.reason = answer["reason"][:1000]
+        decision.evidence = str(answer.get("evidence") or "")[:1000]
+        decision.carrier = str(answer.get("carrier") or "")[:200]
+        decision.reason = str(answer.get("reason") or "")[:1000]
         decision.error = ""
         with transaction.atomic():
             decision.save()
             _apply(decision)
     return results, completion
+
+
+def _invalid(answer: dict) -> str:
+    """Ответ проверяется сам: не все провайдеры гарантируют строгую JSON-схему."""
+    if not isinstance(answer.get("present"), bool):
+        return "chybí „present“"
+    if answer.get("stance") not in Stance.values:
+        return f"neznámý postoj {answer.get('stance')!r}"
+    if not isinstance(answer.get("confidence"), int | float):
+        return "chybí „confidence“"
+    return ""
 
 
 def _prototype_of(decision: LabelDecision) -> Prototype:

@@ -133,6 +133,18 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
     assert labeling.pending().count() == 0
 
 
+def test_invalid_model_answer_is_an_error_not_a_label(monkeypatch):
+    n = narrative()
+    labeling.queue_candidates(doc(), [prototype(n, unit(1.0))], CENTER)
+    bad = dict(answer(n.code), present="ano")
+    monkeypatch.setattr(llm, "complete_json", lambda *a, **k: completion(bad))
+    with KEY:
+        labeling.label_pending()
+    decision = LabelDecision.objects.get()
+    assert decision.present is None and "present" in decision.error
+    assert not Label.objects.exists()
+
+
 def test_label_pending_without_key_or_over_budget(monkeypatch):
     n = narrative()
     labeling.queue_candidates(doc(), [prototype(n, unit(1.0))], CENTER)
@@ -178,7 +190,7 @@ def test_openrouter_request_and_retry(monkeypatch):
     with KEY, httpx.Client(transport=httpx.MockTransport(handler)) as client:
         result = llm.complete_json("x/y", "sys", "user", {"type": "object"}, client=client)
     assert result.data == {"decisions": []} and result.cost_usd == 0.01
-    assert calls[0]["provider"]["data_collection"] == "deny"  # data nesmí sloužit k tréninku
+    assert calls[0]["provider"] == {"zdr": True, "data_collection": "deny"}  # bez uchování dat
     assert calls[0]["response_format"]["type"] == "json_schema"
 
     denied = httpx.MockTransport(lambda r: httpx.Response(401))

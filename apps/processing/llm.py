@@ -1,7 +1,9 @@
 """Клиент OpenRouter (OpenAI-совместимый API) для разметки нарративов.
 
-Тексты уходят внешнему провайдеру, поэтому запрос просит только провайдеров, которые не
-сохраняют и не используют данные для обучения (`provider.data_collection = deny`).
+Тексты уходят внешнему провайдеру, поэтому запрос просит только провайдеров с нулевым
+хранением данных (`provider.zdr`), которые не используют их для обучения
+(`provider.data_collection = deny`). `require_parameters` не ставится: с ним OpenRouter
+отсекает почти всех провайдеров Anthropic и OpenAI, — ответ проверяется сам (labeling).
 Ключ — OPENROUTER_API_KEY в .env; без него кандидаты просто ждут.
 """
 
@@ -50,7 +52,7 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
             "type": "json_schema",
             "json_schema": {"name": "decision", "strict": True, "schema": schema},
         },
-        "provider": {"data_collection": "deny", "require_parameters": True},
+        "provider": {"zdr": True, "data_collection": "deny"},
         "usage": {"include": True},
     }
     headers = {
@@ -68,7 +70,7 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
             else:
                 if response.status_code == 200:
                     return _parse(response.json(), model)
-                error = f"HTTP {response.status_code}: {response.text[:300]}"
+                error = f"HTTP {response.status_code}: {response.text[:1000]}"
                 if response.status_code not in {408, 429} and response.status_code < 500:
                     raise LLMError(error)
             logger.warning("OpenRouter, pokus %s/%s: %s", attempt, RETRIES, error)
