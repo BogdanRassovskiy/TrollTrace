@@ -262,6 +262,20 @@ class TestExtractionAndHttp:
         assert types["http_errors"].level == "critical"
         assert "chyb HTTP 100%" in types["http_errors"].description
 
+    def test_internal_error_is_not_blamed_on_source(self, source):
+        for _ in range(3):
+            CollectionRun.objects.create(
+                source=source, status="failed", http_requests=5, finished_at=NOW,
+                details={"http": {"http_200": 5}, "errors": [
+                    'IntegrityError: null value in column "speaking_role" violates not-null'
+                ]},
+            )  # fmt: skip
+        result = monitoring.check_http(source, NOW)
+        assert [s.incident_type for s in result.signals] == ["internal_error"]
+        signal = result.signals[0]
+        assert signal.level == "critical" and "restart worker" in signal.description
+        assert "speaking_role" in signal.examples[0]
+
     def test_monitor_task_skips_sources_without_runs(self, source):
         from apps.ingestion.tasks import monitor_sources
 

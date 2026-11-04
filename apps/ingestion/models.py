@@ -169,6 +169,7 @@ class SourceIncident(models.Model):
         GOLDEN_MISMATCH = "golden_mismatch", "Neshoda s kontrolními stránkami"
         SELECTOR_MISSING = "selector_missing", "Chybí selektor"
         HTTP_ERRORS = "http_errors", "Chyby HTTP / přesměrování / časové limity"
+        INTERNAL_ERROR = "internal_error", "Interní chyba sběru (kód nebo databáze)"
         BLOCKED = "blocked", "Captcha / antibot"
         CHANNEL_UNAVAILABLE = "channel_unavailable", "Kanál není dostupný"
         QUALITY_DROP = "quality_drop", "Pokles průměrného hodnocení kvality"

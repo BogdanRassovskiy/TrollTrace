@@ -252,6 +252,12 @@ def check_quality(source: Source, now) -> CheckResult:
 
 
 UNAVAILABLE = re.compile(r"není dostupný|vypnutý náhled")
+# Исключения Python и БД — поломка у нас (код, миграции), а не у источника.
+INTERNAL = re.compile(
+    r"^(IntegrityError|ProgrammingError|OperationalError|DataError|InterfaceError|"
+    r"AttributeError|TypeError|KeyError|NameError|ImportError|ModuleNotFoundError|"
+    r"FieldError|FieldDoesNotExist)\b"
+)
 
 
 def check_http(source: Source, now) -> CheckResult:
@@ -261,7 +267,7 @@ def check_http(source: Source, now) -> CheckResult:
     if not finished:
         result.details = "Za den neproběhlo žádné spuštění sběru."
         return result
-    result.covers |= {Type.HTTP_ERRORS, Type.CHANNEL_UNAVAILABLE}
+    result.covers |= {Type.HTTP_ERRORS, Type.CHANNEL_UNAVAILABLE, Type.INTERNAL_ERROR}
 
     requests = sum(r.http_requests for r in finished)
     codes: dict[str, int] = {}
@@ -269,7 +275,13 @@ def check_http(source: Source, now) -> CheckResult:
         for code, n in (run.details.get("http") or {}).items():
             codes[code] = codes.get(code, 0) + n
     errors = sum(n for code, n in codes.items() if code[5:6] in {"4", "5"})
-    failed = [r for r in finished if r.status == r.Status.FAILED]
+
+    def internal_run(run) -> bool:
+        return any(INTERNAL.search(str(e)) for e in run.details.get("errors") or [])
+
+    internal_runs = [r for r in finished if internal_run(r)]
+    # Spuštění padlá na naší chybě nejsou chybou zdroje: počítají se zvlášť.
+    failed = [r for r in finished if r.status == r.Status.FAILED and r not in internal_runs]
 
     def total(key):
         return sum(int(r.details.get(key) or 0) for r in finished)
@@ -285,6 +297,18 @@ def check_http(source: Source, now) -> CheckResult:
     }  # fmt: skip
 
     error_samples = [e for r in finished for e in r.details.get("errors", [])]
+    internal = [e for e in error_samples if INTERNAL.search(str(e))]
+    if internal:
+        result.signals.append(
+            Signal(
+                Type.INTERNAL_ERROR, Level.CRITICAL,
+                f"Sběr padá na interní chybě (kód nebo databáze), ne na zdroji: "
+                f"{len(internal_runs)} z {len(finished)} spuštění. Po migraci zřejmě běží "
+                "nerestartovaný worker: docker compose restart worker processor beat.",
+                [str(e)[:300] for e in dict.fromkeys(internal)][:MAX_EXAMPLES],
+            )
+        )  # fmt: skip
+    error_samples = [e for e in error_samples if e not in internal]
     unavailable = [e for e in error_samples if UNAVAILABLE.search(e)]
     if unavailable:
         result.signals.append(
@@ -295,7 +319,7 @@ def check_http(source: Source, now) -> CheckResult:
     problems = []
     if requests and errors / requests >= HTTP_ERROR_SHARE:
         problems.append(f"chyb HTTP {errors / requests:.0%} požadavků")
-    if len(failed) * 2 >= len(finished):
+    if failed and len(failed) * 2 >= len(finished):
         problems.append(f"selhalo {len(failed)} z {len(finished)} spuštění")
     if timeouts >= 3:
         problems.append(f"časových limitů {timeouts}")
@@ -309,7 +333,7 @@ def check_http(source: Source, now) -> CheckResult:
             "kanály s chybou: " + ", ".join(f"{f.url} ({f.last_error})" for f in broken_feeds)
         )
     if problems:
-        level = Level.CRITICAL if len(failed) == len(finished) else Level.WARNING
+        level = Level.CRITICAL if failed and len(failed) == len(finished) else Level.WARNING
         examples = [e for e in error_samples if e not in unavailable][:MAX_EXAMPLES]
         result.signals.append(Signal(Type.HTTP_ERRORS, level, "; ".join(problems) + ".", examples))
     return result

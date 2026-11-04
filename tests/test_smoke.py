@@ -76,3 +76,23 @@ def test_interface_is_czech_even_for_russian_browser(client, django_user_model):
     response = client.get("/admin/", HTTP_ACCEPT_LANGUAGE="ru,en;q=0.8")
     content = response.content.decode()
     assert '<html lang="cs"' in content and "Odhlásit se" in content
+
+
+@pytest.mark.django_db
+def test_stale_worker_code_is_detected(monkeypatch):
+    from django.db import connection
+    from django.db.migrations.recorder import MigrationRecorder
+
+    from apps.core import tasks
+    from apps.panel.models import Notification
+
+    tasks.remember_code_migrations()
+    assert tasks.check_stale_code("worker") == []
+    applied = sorted(MigrationRecorder(connection).applied_migrations())
+    newest = next(m for m in reversed(applied) if m[0] == "documents")
+    monkeypatch.setattr(tasks, "_KNOWN_MIGRATIONS", tasks._KNOWN_MIGRATIONS - {newest})
+
+    assert tasks.check_stale_code("worker") == [f"{newest[0]}.{newest[1]}"]
+    assert tasks.heartbeat() == "zastaralý kód"  # bez pulsu
+    notification = Notification.objects.get()  # jen jednou za den
+    assert notification.level == "critical" and "restartujte" in notification.title

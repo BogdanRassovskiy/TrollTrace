@@ -10,6 +10,10 @@
       "feeds": [
         {
           "url": "https://ct24.ceskatelevize.cz/rss"
+        },
+        {
+          "url": "https://ct24.ceskatelevize.cz/sitemaps/sitemap_news.xml",
+          "kind": "sitemap"
         }
       ],
       "actor": {
@@ -40,6 +44,10 @@
         {
           "url": "https://www.irozhlas.cz/rss/irozhlas/section/zpravy-svet",
           "rubric": "Svět"
+        },
+        {
+          "url": "https://www.irozhlas.cz/sites/default/files/irozhlas_feeds/sitemaps/news.xml",
+          "kind": "sitemap"
         }
       ],
       "actor": {
@@ -58,6 +66,10 @@
       "feeds": [
         {
           "url": "https://www.seznamzpravy.cz/rss"
+        },
+        {
+          "url": "https://www.seznamzpravy.cz/sitemaps/sitemap_news.xml",
+          "kind": "sitemap"
         }
       ],
       "actor": {
@@ -114,6 +126,10 @@
       "feeds": [
         {
           "url": "https://www.novinky.cz/rss"
+        },
+        {
+          "url": "https://www.novinky.cz/sitemaps/sitemap_news.xml",
+          "kind": "sitemap"
         }
       ],
       "actor": {
@@ -142,6 +158,10 @@
       "feeds": [
         {
           "url": "https://www.blesk.cz/rss"
+        },
+        {
+          "url": "https://www.blesk.cz/sitemap-news.xml",
+          "kind": "sitemap"
         }
       ],
       "actor": {

@@ -14,6 +14,10 @@ TIME_BUDGET = 4 * 60  # beat запускает задачу каждые 2 ми
 @shared_task
 def process_pending_documents() -> dict:
     """Новые и изменённые документы проходят воронку (README §4, шаги 3–6)."""
+    from apps.core.tasks import check_stale_code
+
+    if check_stale_code("processor"):
+        return {"skipped": "zastaralý kód: restartujte processor"}
     if not cache.add(LOCK_KEY, "1", LOCK_TTL):
         return {"skipped": "běží jiné zpracování"}
     try:

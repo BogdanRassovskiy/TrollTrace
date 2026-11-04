@@ -1,7 +1,7 @@
 import os
 
 from celery import Celery
-from celery.signals import worker_ready
+from celery.signals import worker_init, worker_ready
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.dev")
 
@@ -16,3 +16,14 @@ def _first_heartbeat(**kwargs):
     from apps.core.tasks import heartbeat
 
     heartbeat.delay()
+
+
+@worker_init.connect
+def _remember_code(**kwargs):
+    """Снимок миграций кода до форка пула: по нему пульс узнаёт устаревший код."""
+    import django
+
+    django.setup()
+    from apps.core.tasks import remember_code_migrations
+
+    remember_code_migrations()

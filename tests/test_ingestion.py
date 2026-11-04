@@ -654,10 +654,12 @@ def test_import_sources_mainstream_is_idempotent():
     call_command("import_sources", path, stdout=io.StringIO())
     assert Source.objects.filter(layer="D").count() == 7
     assert Actor.objects.filter(layer="D", actor_type="media").count() == 7
-    assert SourceFeed.objects.count() == 10
+    assert SourceFeed.objects.count() == 15  # 10 RSS + 5 news sitemap (záloha, když RSS vynechá)
+    assert SourceFeed.objects.filter(kind="sitemap").count() == 5
     assert Source.objects.get(name="Novinky.cz").collector_config["rubrics_in_scope"]
     irozhlas = Source.objects.get(name="iROZHLAS")
-    assert set(irozhlas.feeds.values_list("rubric", flat=True)) == {"Domov", "Svět"}
+    rss = irozhlas.feeds.filter(kind="rss")
+    assert set(rss.values_list("rubric", flat=True)) == {"Domov", "Svět"}
     assert irozhlas.accounts.get().actor.inclusion_periods.count() == 1
 
 
