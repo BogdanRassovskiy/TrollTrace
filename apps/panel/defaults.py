@@ -4,6 +4,19 @@ from .models import Setting
 
 DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "aggregation-window": ("week", "Okno agregace (README §5)."),
+    "aggregation-z-window": (
+        12,
+        "Agregace: z-skóre vůči posledním N týdnům vlastní historie řady (výkyvy u aktéra).",
+    ),
+    "aggregation-z-min-weeks": (
+        4,
+        "Agregace: z-skóre se počítá, až má řada aspoň tolik předchozích týdnů s dokumenty.",
+    ),
+    "aggregation-prior-strength": (
+        5,
+        "Agregace: síla bayesovského vyhlazení podílu k podílu vrstvy (v počtu dokumentů); "
+        "u málo píšících aktérů tlumí výkyvy z jednoho příspěvku.",
+    ),
     "analysis-min-quality": (
         3,
         "Minimální hodnocení kvality dokumentu pro agregáty (README §4.3).",

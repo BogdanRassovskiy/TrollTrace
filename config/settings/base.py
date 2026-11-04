@@ -176,6 +176,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.processing.tasks.label_pending_decisions",
         "schedule": 10 * 60,
     },
+    # Агрегация (README §4, шаг 8): инкрементально, полный пересчёт раз в сутки.
+    "update-aggregates": {
+        "task": "apps.analytics.tasks.update_aggregates",
+        "schedule": 15 * 60,
+    },
+    "rebuild-aggregates": {
+        "task": "apps.analytics.tasks.rebuild_aggregates",
+        "schedule": 24 * 60 * 60,
+    },
 }
 # Эмбеддинги считает только воркер очереди processing: модель (~1 ГБ) грузится в нём одном.
 CELERY_TASK_ROUTES = {"apps.processing.tasks.*": {"queue": "processing"}}

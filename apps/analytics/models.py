@@ -33,10 +33,23 @@ class WeeklyAggregate(models.Model):
     week = models.DateField("týden (pondělí)")
     min_quality = models.PositiveSmallIntegerField("práh kvality", default=3)
 
-    n_documents = models.PositiveIntegerField("dokumentů k narativu")
+    n_documents = models.PositiveIntegerField(
+        "dokumentů k narativu", help_text="Narativ přítomen v jakémkoli postoji."
+    )
+    n_pro = models.PositiveIntegerField("z toho pro", default=0)
+    n_contra = models.PositiveIntegerField("z toho proti", default=0)
+    n_neutral = models.PositiveIntegerField("z toho neutrálně", default=0)
     n_total = models.PositiveIntegerField("dokumentů celkem (jmenovatel)")
     share = models.FloatField("podíl")
-    z_score = models.FloatField("z-skóre", null=True, blank=True)
+    share_smoothed = models.FloatField(
+        "vyhlazený podíl",
+        null=True,
+        blank=True,
+        help_text="Bayesovské vyhlazení k podílu vrstvy v témže týdnu (pro málo píšící aktéry).",
+    )
+    z_score = models.FloatField(
+        "z-skóre", null=True, blank=True, help_text="Vůči vlastní historii řady (výkyvy)."
+    )
     engagement = models.JSONField(
         "odezva", default=dict, blank=True, help_text="Odděleně od podílu: poptávka ≠ nabídka."
     )
@@ -58,6 +71,14 @@ class WeeklyAggregate(models.Model):
             models.CheckConstraint(
                 condition=Q(n_documents__lte=F("n_total")), name="aggregate_n_le_total"
             ),
+            models.CheckConstraint(
+                condition=Q(
+                    n_pro__lte=F("n_documents"),
+                    n_contra__lte=F("n_documents"),
+                    n_neutral__lte=F("n_documents"),
+                ),
+                name="aggregate_stances_le_n",
+            ),  # fmt: skip
             models.CheckConstraint(
                 condition=Q(share__gte=0, share__lte=1), name="aggregate_share_0_1"
             ),
