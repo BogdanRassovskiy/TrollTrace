@@ -21,7 +21,23 @@
     draw();
   }
 
+  function applyURL() {
+    const p = new URLSearchParams(window.location.search);
+    window.TT.setSelect(controls.stance, p.get("stance"));
+    window.TT.setSelect(controls.quality, p.get("q"));
+    controls.smoothed.checked = p.get("smoothed") === "1";
+  }
+
+  function syncURL() {
+    window.TT.syncURL({
+      stance: controls.stance.value === "all" ? "" : controls.stance.value,
+      q: controls.quality.value === String(config.min_quality) ? "" : controls.quality.value,
+      smoothed: controls.smoothed.checked ? "1" : "",
+    });
+  }
+
   function draw() {
+    syncURL();
     const empty = !data.series.length;
     document.getElementById("chart-empty").hidden = !empty;
     el.hidden = empty;
@@ -87,6 +103,7 @@
   controls.stance.addEventListener("change", load);
   controls.quality.addEventListener("change", load);
   controls.smoothed.addEventListener("change", draw);
+  applyURL();
   load().catch((error) => { el.replaceWith(Object.assign(document.createElement("p"), {
     className: "msg msg-error", textContent: error.message })); });
 })();

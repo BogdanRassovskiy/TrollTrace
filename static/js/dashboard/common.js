@@ -82,10 +82,60 @@ window.TT = (function () {
     panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
+  // Ссылка с настройками графика: состояние живёт в GET-параметрах адреса.
+  function syncURL(params) {
+    const url = new URL(window.location);
+    url.search = "";
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
+    }
+    window.history.replaceState(null, "", url);
+    return url.toString();
+  }
+
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text); // jen HTTPS nebo localhost
+      return true;
+    } catch {
+      const area = Object.assign(document.createElement("textarea"), { value: text });
+      area.style.position = "fixed";
+      area.style.opacity = "0";
+      document.body.appendChild(area);
+      area.select();
+      const ok = document.execCommand("copy");
+      area.remove();
+      return ok;
+    }
+  }
+
+  function bindShareButton() {
+    const button = document.getElementById("share-link");
+    const note = document.getElementById("share-note");
+    if (!button) return;
+    button.addEventListener("click", async () => {
+      const url = window.location.href;
+      if (await copyText(url)) {
+        note.textContent = "Odkaz zkopírován do schránky.";
+      } else {
+        window.prompt("Zkopírujte odkaz:", url);
+        note.textContent = "";
+      }
+      clearTimeout(bindShareButton.timer);
+      bindShareButton.timer = setTimeout(() => { note.textContent = ""; }, 3000);
+    });
+  }
+  bindShareButton();
+
+  // Výběr hodnoty v <select>, jen pokud taková volba existuje (ruční úprava odkazu).
+  function setSelect(select, value) {
+    if (value !== null && [...select.options].some((o) => o.value === value)) select.value = value;
+  }
+
   function onResize(chart) {
     window.addEventListener("resize", () => chart.resize());
   }
 
   return { config, layerColor, partyColor, getJSON, percent, weekLabel, escapeHtml, showPosts,
-    onResize, STANCES };
+    onResize, syncURL, setSelect, STANCES };
 })();

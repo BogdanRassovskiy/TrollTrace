@@ -126,3 +126,17 @@ def test_reuse_pages(observer_client):
                                  "/dashboard/prevzeti/"])  # fmt: skip
 def test_pages_require_login(client, url):
     assert client.get(url).status_code == 302
+
+
+@pytest.mark.parametrize("path", ["srovnani/", "akter/{pk}/"])
+def test_share_link_button(observer_client, path):
+    NarrativeFactory()
+    a = actor()
+    page = observer_client.get("/dashboard/" + path.format(pk=a.pk)).content.decode()
+    assert 'id="share-link"' in page and "Kopírovat odkaz s nastavením" in page
+
+
+def test_login_keeps_shared_settings(client):
+    response = client.get("/dashboard/srovnani/", {"narrative": "x", "layers": "A,B", "pin": "3"})
+    assert response.status_code == 302
+    assert "srovnani/%3Fnarrative%3Dx%26layers%3DA%252CB%26pin%3D3" in response["Location"]

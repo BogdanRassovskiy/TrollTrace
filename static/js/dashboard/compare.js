@@ -43,9 +43,6 @@
     state.actors = state.data.series.filter((s) => s.kind === "actor");
     const keys = new Set(state.actors.map((s) => s.key));
     state.pinned = new Set([...state.pinned].filter((k) => keys.has(k)));
-    const url = new URL(window.location);
-    url.searchParams.set("narrative", controls.narrative.value);
-    window.history.replaceState(null, "", url);
     renderLegend();
     draw();
   }
@@ -244,8 +241,55 @@
     );
   }
 
+  // --- Ссылка с настройками ------------------------------------------------------------
+
+  const DEFAULT_LAYERS = [...document.querySelectorAll("#layers input")].filter((i) => i.checked)
+    .map((i) => i.value).join(",");
+
+  function applyURL() {
+    const p = new URLSearchParams(window.location.search);
+    TT.setSelect(controls.stance, p.get("stance"));
+    TT.setSelect(controls.quality, p.get("q"));
+    TT.setSelect(controls.party, p.get("party"));
+    TT.setSelect(controls.colorBy, p.get("color"));
+    TT.setSelect(controls.sort, p.get("sort"));
+    if (p.has("layers")) {
+      const wanted = new Set(p.get("layers").split(","));
+      document.querySelectorAll("#layers input").forEach((i) => { i.checked = wanted.has(i.value); });
+    }
+    if (p.get("groups") === "0") controls.groupLines.checked = false;
+    if (p.get("pin")) state.pinned = new Set(p.get("pin").split(",").filter(Boolean).map((id) => `actor:${id}`));
+    if (p.get("q_actor")) controls.search.value = p.get("q_actor");
+    setView(p.get("view") === "heatmap" ? "heatmap" : "lines");
+  }
+
+  function syncURL() {
+    const chosen = layers().join(",");
+    TT.syncURL({
+      narrative: controls.narrative.value,
+      stance: controls.stance.value === "all" ? "" : controls.stance.value,
+      q: controls.quality.value === String(config.min_quality) ? "" : controls.quality.value,
+      party: controls.party.value,
+      layers: chosen === DEFAULT_LAYERS ? "" : chosen || "-",
+      color: controls.colorBy.value === "layer" ? "" : controls.colorBy.value,
+      groups: controls.groupLines.checked ? "" : "0",
+      view: state.view === "lines" ? "" : state.view,
+      sort: state.view === "heatmap" && controls.sort.value !== "first" ? controls.sort.value : "",
+      pin: [...state.pinned].map((k) => k.split(":")[1]).join(","),
+      q_actor: controls.search.value.trim(),
+    });
+  }
+
+  function setView(view) {
+    state.view = view;
+    document.querySelectorAll(".toggle-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    $("sort-wrap").hidden = view !== "heatmap";
+    controls.groupLines.parentElement.hidden = view === "heatmap";
+  }
+
   function draw() {
     if (!state.data) return;
+    syncURL();
     setHovered(null);
     tip.hidden = true;
     if (!state.actors.length) {
@@ -298,13 +342,10 @@
   });
   $("legend").addEventListener("mouseleave", () => setHovered(null));
   $("unpin-all").addEventListener("click", () => { state.pinned.clear(); renderLegend(); draw(); });
-  controls.search.addEventListener("input", renderLegend);
+  controls.search.addEventListener("input", () => { renderLegend(); syncURL(); });
 
   document.querySelectorAll(".toggle-btn").forEach((button) => button.addEventListener("click", () => {
-    document.querySelectorAll(".toggle-btn").forEach((b) => b.classList.toggle("active", b === button));
-    state.view = button.dataset.view;
-    $("sort-wrap").hidden = state.view !== "heatmap";
-    controls.groupLines.parentElement.hidden = state.view === "heatmap";
+    setView(button.dataset.view);
     draw();
   }));
 
@@ -312,5 +353,6 @@
   $("layers").addEventListener("change", load);
   [controls.colorBy, controls.groupLines, controls.sort].forEach((c) => c.addEventListener("change", () => { renderLegend(); draw(); }));
 
+  applyURL();
   load();
 })();
