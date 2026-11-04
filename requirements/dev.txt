@@ -5,3 +5,4 @@ pytest-django==4.14.0
 factory-boy==3.3.3
 ruff==0.17.3
 pre-commit==4.7.0
+watchfiles==1.1.0  # dev: Celery se po změně kódu restartuje sám (docker-compose.yml)

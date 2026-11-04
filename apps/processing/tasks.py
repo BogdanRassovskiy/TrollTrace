@@ -27,12 +27,15 @@ def process_pending_documents() -> dict:
 
 
 LABEL_LOCK_KEY = "labeling:lock"
+# Kratší než LOCK_TTL: úloha běží nejvýš TIME_BUDGET (+ jedno volání modelu), a když ji
+# přeruší restart workeru, zámek nesmí blokovat frontu půl hodiny.
+LABEL_LOCK_TTL = TIME_BUDGET + 6 * 60
 
 
 @shared_task
 def label_pending_decisions() -> dict:
     """Кандидаты разметки → LLM (README §4, шаг 7), в пределах месячного бюджета."""
-    if not cache.add(LABEL_LOCK_KEY, "1", LOCK_TTL):
+    if not cache.add(LABEL_LOCK_KEY, "1", LABEL_LOCK_TTL):
         return {"skipped": "běží jiná anotace"}
     try:
         return labeling.label_pending(time_budget=TIME_BUDGET).as_dict()

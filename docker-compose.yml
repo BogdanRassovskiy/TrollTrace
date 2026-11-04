@@ -77,17 +77,19 @@ services:
       timeout: 5s
       retries: 10
 
+  # Celery kód sám nepřečte: watchfiles ho po změně .py restartuje (jinak worker po migraci
+  # zapisuje podle starých modelů — viz 3.–4. 11. 2026). V produkci kód je v obrazu.
   worker:
     <<: *app
-    command: celery -A config worker --loglevel=info
+    command: watchfiles --filter python "celery -A config worker --loglevel=info" apps config
 
   processor:
     <<: *app
-    command: celery -A config worker -Q processing --concurrency=1 --loglevel=info -n processing@%h
+    command: watchfiles --filter python "celery -A config worker -Q processing --concurrency=1 --loglevel=info -n processing@%h" apps config
 
   beat:
     <<: *app
-    command: celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule
+    command: watchfiles --filter python "celery -A config beat --loglevel=info --schedule /tmp/celerybeat-schedule" apps config
 
 volumes:
   pgdata:
