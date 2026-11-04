@@ -10,7 +10,9 @@ from django.contrib.auth.models import Group, Permission
 
 RESEARCHER = "Výzkumník"
 OBSERVER = "Pozorovatel"
-ROLES = {"researcher": RESEARCHER, "observer": OBSERVER}
+# Разметчик валидационной выборки (этап 10): видит только интерфейс разметки, вслепую.
+ANNOTATOR = "Anotátor"
+ROLES = {"researcher": RESEARCHER, "observer": OBSERVER, "annotator": ANNOTATOR}
 # Прежние (русские) названия групп: при migrate переименовываются, участники сохраняются.
 LEGACY_NAMES = {"Исследователь": RESEARCHER, "Наблюдатель": OBSERVER}
 
@@ -45,11 +47,17 @@ def can_view_dashboard(user) -> bool:
     return is_researcher(user) or _in_group(user, OBSERVER)
 
 
+def can_annotate(user) -> bool:
+    return is_researcher(user) or _in_group(user, ANNOTATOR)
+
+
 def role_label(user) -> str:
     if is_researcher(user):
         return RESEARCHER
     if _in_group(user, OBSERVER):
         return OBSERVER
+    if _in_group(user, ANNOTATOR):
+        return ANNOTATOR
     return "Bez role"
 
 
@@ -60,6 +68,7 @@ def ensure_roles(**kwargs) -> None:
             Group.objects.filter(name=old).update(name=new)
     researcher, _ = Group.objects.get_or_create(name=RESEARCHER)
     observer, _ = Group.objects.get_or_create(name=OBSERVER)
+    Group.objects.get_or_create(name=ANNOTATOR)  # без прав на модели: работает через страницы
 
     perms = Permission.objects.filter(content_type__app_label__in=RESEARCH_APPS).select_related(
         "content_type"
@@ -112,3 +121,9 @@ class ResearcherRequiredMixin(RoleRequiredMixin):
     """Панель исследователя: только исследователь."""
 
     role_check = staticmethod(is_researcher)
+
+
+class AnnotatorRequiredMixin(RoleRequiredMixin):
+    """Разметка валидационной выборки: разметчик или исследователь."""
+
+    role_check = staticmethod(can_annotate)

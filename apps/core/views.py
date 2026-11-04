@@ -9,11 +9,15 @@ from django.views.decorators.http import require_GET
 from apps.documents.models import Document
 from apps.ingestion.models import CollectionRun
 
+from .roles import can_annotate, can_view_dashboard
 from .tasks import HEARTBEAT_MAX_AGE, heartbeat_age
 
 
 @require_GET
 def home(request):
+    # разметчик без доступа к рабочей части сразу попадает в разметку
+    if can_annotate(request.user) and not can_view_dashboard(request.user):
+        return redirect("validation:index")
     return redirect("dashboard:index")
 
 

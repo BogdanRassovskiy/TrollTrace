@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Spor #{{ item.position }} — validace{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:validation' %}">Validace</a> / <a href="{% url 'panel:validation_sample' sample.pk %}">{{ sample.name }}</a> /</p>
+  <h1>Položka #{{ item.position }}</h1>
+
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kdo</th>{% for key, label in keys %}<th>{{ label }}</th>{% endfor %}<th>Poznámka</th></tr></thead>
+      <tbody>
+        {% for a in answers %}
+          <tr><td>{{ a.name }}</td>{% if a.unclear %}<td colspan="{{ keys|length }}" class="muted">nelze posoudit</td>{% else %}{% for v in a.values %}<td>{{ v }}</td>{% endfor %}{% endif %}<td class="small">{{ a.note|default:"—" }}</td></tr>
+        {% endfor %}
+        <tr class="highlight"><td>model</td>{% for v in model_row %}<td>{{ v }}</td>{% endfor %}<td></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <form method="post" class="form form-wide card">
+    {% csrf_token %}
+    <h2>Referenční hodnota</h2>
+    {% include "panel/_form_errors.html" %}
+    {% for field in form %}{% include "panel/_field.html" %}{% endfor %}
+    <button class="button" type="submit">Uložit a další spor</button>
+  </form>
+
+  {% if sample.kind == "reuse" %}
+    <div class="grid-2">
+      <div><h2 class="small muted">Dřívější text</h2>{% include "validation/_document.html" with doc=item.source_document %}</div>
+      <div><h2 class="small muted">Pozdější text</h2>{% include "validation/_document.html" with doc=item.target_document %}</div>
+    </div>
+  {% else %}
+    {% include "validation/_document.html" with doc=item.document %}
+  {% endif %}
+{% endblock %}

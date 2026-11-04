@@ -1,0 +1,8 @@
+<article class="card doc-text">
+  <h3>{{ doc.title|default:"(bez titulku)" }}</h3>
+  <p class="muted small">
+    {{ doc.published_at|date:"j. n. Y"|default:"datum neznámé" }}
+    {% if not sample.hide_source %} · {{ doc.source.name }}{% if doc.actor %} · {{ doc.actor.name }}{% endif %} · <a href="{{ doc.url }}" target="_blank" rel="noopener">originál</a>{% endif %}
+  </p>
+  <div class="pre">{{ doc.text }}</div>
+</article>

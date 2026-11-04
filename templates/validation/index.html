@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Anotace{% endblock %}
+
+{% block content %}
+  <h1>Anotace validačních vzorků</h1>
+  <p class="muted">
+    Posuzujete text podle kódové knihy, nezávisle na ostatních anotátorech. Výsledky modelu ani jiných
+    anotátorů neuvidíte — jen tak se dá měřit shoda a přesnost automatiky. Rozpracovanou práci můžete
+    kdykoli přerušit; pokračuje se první neoznačenou položkou.
+  </p>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Vzorek</th><th>Druh</th><th>Hotovo</th><th></th></tr></thead>
+      <tbody>
+        {% for s in samples %}
+          <tr>
+            <td><strong>{{ s.name }}</strong>{% if s.description %}<div class="muted small">{{ s.description }}</div>{% endif %}</td>
+            <td>{{ s.get_kind_display }}</td>
+            <td class="nowrap">{{ s.n_done }} / {{ s.n_items }}
+              <span class="progress"><span style="width: {% widthratio s.n_done s.n_items 100 %}%"></span></span></td>
+            <td><a class="button" href="{% url 'validation:next' s.pk %}">{% if s.n_done %}Pokračovat{% else %}Začít{% endif %}</a></td>
+          </tr>
+        {% empty %}<tr><td colspan="4" class="muted">Žádný otevřený vzorek.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

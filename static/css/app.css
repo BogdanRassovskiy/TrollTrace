@@ -240,3 +240,11 @@ ins.new { color: #1f7a3d; text-decoration: none; background: rgba(31, 122, 61, 0
 tr.row-error > td { background: rgba(163, 38, 31, 0.05); }
 tr.highlight > td { background: rgba(224, 164, 0, 0.1); }
 .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; word-break: break-word; }
+
+/* Разметка валидационной выборки (этап 10). */
+.annotate { display: grid; grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); gap: 16px; align-items: start; }
+.annotate-form { position: sticky; top: 8px; }
+.doc-text .pre { max-height: 70vh; overflow-y: auto; line-height: 1.55; }
+.narrative-q { border-top: 1px solid var(--border); padding-top: 8px; display: grid; gap: 4px; }
+.narrative-q .choice { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+@media (max-width: 800px) { .annotate { grid-template-columns: 1fr; } .annotate-form { position: static; } }

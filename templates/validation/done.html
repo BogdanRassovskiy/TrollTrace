@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+
+{% block title %}Hotovo — {{ sample.name }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs"><a href="{% url 'validation:index' %}">Anotace</a> /</p>
+  <h1>{{ sample.name }}: hotovo</h1>
+  <p>Všechny položky vzorku máte označené. Děkujeme. Své anotace můžete ještě upravit
+    <a href="{% url 'validation:item' sample.pk 1 %}">od první položky</a>{% if sample.status == "closed" %} (vzorek je už uzavřen, jen pro čtení){% endif %}.</p>
+{% endblock %}

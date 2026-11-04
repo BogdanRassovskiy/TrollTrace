@@ -73,7 +73,15 @@ def test_login_page_and_login_flow(client, make_user):
     assert client.get(reverse("login")).status_code == 200
     response = client.post(reverse("login"), {"username": "ivana", "password": "tajne-heslo-1"})
     assert response.status_code == 302
-    assert response.url == DASHBOARD
+    assert response.url == "/"  # главная разводит по ролям
+    assert client.get("/").url == DASHBOARD
+
+
+def test_annotator_lands_on_annotation_after_login(client, make_user):
+    make_user("kolega", "annotator", password="tajne-heslo-1")
+    client.post(reverse("login"), {"username": "kolega", "password": "tajne-heslo-1"})
+    assert client.get("/").url == "/validace/"
+    assert client.get(DASHBOARD).status_code == 403
 
 
 def test_login_logout_and_failure_are_audited(client, make_user):

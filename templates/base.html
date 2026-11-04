@@ -15,6 +15,9 @@
       {% if user_can_view_dashboard %}
         <a href="{% url 'dashboard:index' %}" class="{% if ns == 'dashboard' %}active{% endif %}">Pracovní část</a>
       {% endif %}
+      {% if user_can_annotate %}
+        <a href="{% url 'validation:index' %}" class="{% if ns == 'validation' %}active{% endif %}">Anotace</a>
+      {% endif %}
       {% if user_is_researcher %}
         <a href="{% url 'panel:index' %}" class="{% if ns == 'panel' %}active{% endif %}">Panel výzkumníka</a>
       {% endif %}

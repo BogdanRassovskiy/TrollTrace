@@ -98,7 +98,7 @@ AUTH_PASSWORD_VALIDATORS = [
 OPEN_ACCESS = env.bool("OPEN_ACCESS", default=False)
 
 LOGIN_URL = "login"
-LOGIN_REDIRECT_URL = "dashboard:index"
+LOGIN_REDIRECT_URL = "core:home"  # главная разводит по ролям (разметчик → разметка)
 LOGOUT_REDIRECT_URL = "login"
 SESSION_COOKIE_AGE = 60 * 60 * 12  # рабочий день; база закрытая (README §6)
 

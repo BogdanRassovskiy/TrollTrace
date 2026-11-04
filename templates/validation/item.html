@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sample.name }} #{{ item.position }}{% endblock %}
+
+{% block content %}
+  <p class="crumbs"><a href="{% url 'validation:index' %}">Anotace</a> / {{ sample.name }} /</p>
+  <div class="chart-head">
+    <h1>Položka {{ item.position }} z {{ total }}</h1>
+    <span class="muted">Hotovo {{ done }} / {{ total }} <span class="progress"><span style="width: {% widthratio done total 100 %}%"></span></span></span>
+  </div>
+  {% for e in errors %}<p class="msg msg-error">{{ e }}</p>{% endfor %}
+  {% if closed %}<p class="msg">Vzorek je uzavřen — jen pro čtení.</p>{% endif %}
+
+  {% if sample.kind == "reuse" %}
+    <p class="muted">Je pozdější text převzetím dřívějšího? Převzetí = text vychází z toho původního (doslova nebo převyprávěním).
+      Stejné téma nebo stejná událost psaná nezávisle převzetím není.</p>
+    <div class="grid-2">
+      <div><h2 class="small muted">Dřívější text</h2>{% include "validation/_document.html" with doc=item.source_document %}</div>
+      <div><h2 class="small muted">Pozdější text</h2>{% include "validation/_document.html" with doc=item.target_document %}</div>
+    </div>
+    <form method="post" class="card form annotate-form">
+      {% csrf_token %}
+      <fieldset {% if closed %}disabled{% endif %}>
+        <legend>Posouzení</legend>
+        {% for code, label in verdict_choices %}
+          <label><input type="radio" name="verdict" value="{{ code }}" {% if review.reuse_verdict == code %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+        {% include "validation/_common_fields.html" %}
+      </fieldset>
+    </form>
+  {% else %}
+    <div class="annotate">
+      {% include "validation/_document.html" with doc=item.document %}
+      <form method="post" class="form annotate-form">
+        {% csrf_token %}
+        <fieldset {% if closed %}disabled{% endif %}>
+          <legend>Narativy v textu</legend>
+          <p class="muted small">Narativ je konkrétní tvrzení, ne téma. „Proti“ jen tehdy, když text tvrzení výslovně vyvrací. Pokud text tvrzení jen cituje bez postoje, zvolte „neutrálně“.</p>
+          {% for version, value in rows %}
+            <div class="narrative-q">
+              <strong>{{ version.name }}</strong>
+              <details class="small"><summary>definice a vodítko</summary>
+                <p>{{ version.definition }}</p>
+                {% if version.stance_guide %}<dl class="dl">{% for k, v in version.stance_guide.items %}<dt>{% if k == "pro" %}pro{% elif k == "contra" %}proti{% elif k == "neutral" %}neutrálně{% elif k == "absent" %}není narativ{% else %}{{ k }}{% endif %}</dt><dd>{{ v }}</dd>{% endfor %}</dl>{% endif %}
+                {% if version.examples %}<p class="muted">Příklady (pro): {{ version.examples|join:" · " }}</p>{% endif %}
+                {% if version.counter_examples %}<p class="muted">Příklady (proti): {{ version.counter_examples|join:" · " }}</p>{% endif %}
+              </details>
+              <div class="choice">
+                {% for code, label in value_choices %}
+                  <label><input type="radio" name="v{{ version.pk }}" value="{{ code }}" {% if value == code %}checked{% endif %}> {{ label }}</label>
+                {% endfor %}
+              </div>
+            </div>
+          {% endfor %}
+          {% include "validation/_common_fields.html" %}
+        </fieldset>
+      </form>
+    </div>
+  {% endif %}
+  <p class="actions">
+    {% if previous %}<a href="{% url 'validation:item' sample.pk previous %}">← předchozí</a>{% endif %}
+    {% if following %}<a href="{% url 'validation:item' sample.pk following %}">další →</a>{% endif %}
+    <a href="{% url 'validation:next' sample.pk %}">první neoznačená</a>
+  </p>
+{% endblock %}

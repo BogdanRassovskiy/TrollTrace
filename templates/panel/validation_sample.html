@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}{{ sample.name }} — validace{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:validation' %}">Validace</a> /</p>
+  <h1>{{ sample.name }}</h1>
+  <p class="muted">{{ sample.get_kind_display }} · {{ sample.get_status_display }} · položek {{ n_items }}
+    · semínko {{ sample.params.seed }}{% if sample.hide_source %} · zdroj skryt{% endif %}
+    · <a href="{% url 'validation:next' sample.pk %}">anotovat</a></p>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Výběr</h2>
+      <table class="table">
+        <thead><tr><th>Vrstva výběru</th><th>V populaci</th><th>Vybráno</th></tr></thead>
+        <tbody>
+          {% for label, population, drawn in selection %}
+            <tr><td>{{ label }}</td><td>{% if population is None %}<span class="muted">neurčeno</span>{% else %}{{ population }}{% endif %}</td><td>{{ drawn }}</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <section class="card">
+      <h2>Průběh anotace</h2>
+      <table class="table">
+        <thead><tr><th>Anotátor</th><th>Hotovo</th><th>Nelze posoudit</th></tr></thead>
+        <tbody>
+          {% for p in progress %}<tr><td>{{ p.annotator__username }}</td><td>{{ p.n }} / {{ n_items }}</td><td>{{ p.unclear }}</td></tr>
+          {% empty %}<tr><td colspan="3" class="muted">Zatím nikdo neanotoval.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      <form method="post" class="actions">
+        {% csrf_token %}
+        {% if sample.status == "open" %}<input type="hidden" name="action" value="close"><button class="button" type="submit">Uzavřít vzorek</button>
+        {% else %}<input type="hidden" name="action" value="reopen"><button class="button" type="submit">Znovu otevřít</button>{% endif %}
+      </form>
+    </section>
+  </div>
+
+  <h2>Výsledky</h2>
+  <p class="muted small">
+    Referenční hodnota = shoda všech (nejméně dvou) anotátorů, nebo rozhodnutí sporu. Alfa: nominální,
+    přes 4 kategorie (není / pro / proti / neutrálně) a zvlášť jen přítomnost. Přesnost a úplnost
+    přítomnosti narativu: „vzorek“ s 95% intervalem Wilsona, „populace“ s vahami vrstev výběru.
+    Dokument bez rozhodnutí modelu se počítá jako „narativ není“ — hodnotí se celá automatika včetně
+    filtru relevance a výběru kandidátů. Otevřené spory: <strong>{{ report.disagreements_open }}</strong>.
+  </p>
+  {% if models %}
+    <form method="get" class="filters">
+      <select name="model" aria-label="Model">
+        <option value="">Všechna rozhodnutí modelu</option>
+        {% for m in models %}<option {% if m == model %}selected{% endif %}>{{ m }}</option>{% endfor %}
+      </select>
+      <button class="button" type="submit">Hodnotit model</button>
+    </form>
+  {% endif %}
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>{% if sample.kind == "reuse" %}Úloha{% else %}Narativ{% endif %}</th><th>α (4 kat.)</th><th>α (přítomnost)</th><th>Shoda</th><th>Ref. hodnot</th>
+        <th>Přesnost (vzorek)</th><th>Úplnost (vzorek)</th><th>F1</th><th>Přesnost (populace)</th><th>Úplnost (populace)</th><th>Postoj správně</th></tr></thead>
+      <tbody>
+        {% for r in report.results %}
+          <tr>
+            <td>{{ r.label }}{% if r.pending_model %}<div class="muted small">čeká na model: {{ r.pending_model }}</div>{% endif %}</td>
+            <td>{% include "panel/_metric.html" with value=r.alpha %}</td>
+            <td>{% include "panel/_metric.html" with value=r.alpha_presence %}</td>
+            <td>{% include "panel/_metric.html" with value=r.percent_agreement %}</td>
+            <td>{{ r.gold_items }} <span class="muted small">(2+ anot. {{ r.items_with_2_annotations }})</span></td>
+            <td>{% include "panel/_metric.html" with value=r.presence.precision %}{% if r.presence.precision_ci %}<div class="muted small">{{ r.presence.precision_ci.0|floatformat:2 }}–{{ r.presence.precision_ci.1|floatformat:2 }}</div>{% endif %}</td>
+            <td>{% include "panel/_metric.html" with value=r.presence.recall %}{% if r.presence.recall_ci %}<div class="muted small">{{ r.presence.recall_ci.0|floatformat:2 }}–{{ r.presence.recall_ci.1|floatformat:2 }}</div>{% endif %}</td>
+            <td>{% include "panel/_metric.html" with value=r.presence.f1 %}</td>
+            <td>{% include "panel/_metric.html" with value=r.presence_weighted.precision %}</td>
+            <td>{% include "panel/_metric.html" with value=r.presence_weighted.recall %}</td>
+            <td>{% include "panel/_metric.html" with value=r.stance_accuracy %}{% if r.stance_total %} <span class="muted small">z {{ r.stance_total }}</span>{% endif %}</td>
+          </tr>
+          <tr class="small"><td></td><td colspan="10" class="muted">
+            TP {{ r.presence.tp }} · FP {{ r.presence.fp }} · FN {{ r.presence.fn }} · TN {{ r.presence.tn }}
+            {% for stratum, c in r.by_stratum.items %} · {% for code, label in strata.items %}{% if code == stratum %}{{ label }}{% endif %}{% endfor %}: TP {{ c.tp }}, FP {{ c.fp }}, FN {{ c.fn }}, TN {{ c.tn }}{% endfor %}
+          </td></tr>
+        {% empty %}<tr><td colspan="11" class="muted">Zatím nic k výpočtu.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="actions">
+    <a href="{% url 'panel:validation_export' sample.pk 'csv' %}">Anotace (CSV)</a>
+    <a href="{% url 'panel:validation_export' sample.pk 'json' %}{% if model %}?model={{ model|urlencode }}{% endif %}">Výsledky (JSON)</a>
+    <form method="post" class="actions">
+      {% csrf_token %}<input type="hidden" name="action" value="report"><input type="hidden" name="model" value="{{ model }}">
+      <input type="text" name="note" placeholder="Poznámka ke zprávě" aria-label="Poznámka">
+      <button class="button" type="submit">Uložit zprávu</button>
+    </form>
+  </div>
+
+  <h2>Spory k rozhodnutí ({{ n_disputes }})</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Položka</th><th>Vrstva výběru</th><th>{% if sample.kind == "reuse" %}Úloha{% else %}Narativ{% endif %}</th><th></th></tr></thead>
+      <tbody>
+        {% for item, version in disputes %}
+          <tr><td>#{{ item.position }}</td><td class="small">{% for code, label in strata.items %}{% if code == item.stratum %}{{ label }}{% endif %}{% endfor %}</td>
+            <td>{% if version %}{{ version.name }}{% else %}převzetí{% endif %}</td>
+            <td><a href="{% url 'panel:validation_adjudicate' sample.pk item.pk %}">rozhodnout</a></td></tr>
+        {% empty %}<tr><td colspan="4" class="muted">Žádné otevřené spory.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Uložené zprávy</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kdy</th><th>Model</th><th>Kdo</th><th>Poznámka</th><th></th></tr></thead>
+      <tbody>
+        {% for r in reports %}
+          <tr><td class="nowrap">{{ r.created_at|date:"Y-m-d H:i" }}</td><td>{{ r.model_name|default:"všechny" }}</td><td>{{ r.created_by|default:"—" }}</td>
+            <td class="small">{{ r.note|default:"—" }}</td><td><a href="{% url 'panel:validation_export' sample.pk 'json' %}?report={{ r.pk }}">JSON</a></td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Žádné zprávy.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

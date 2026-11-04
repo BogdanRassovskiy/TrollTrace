@@ -1,0 +1,4 @@
+<label><input type="checkbox" name="unclear" {% if review.unclear %}checked{% endif %}> nelze posoudit (nečitelný, cizojazyčný nebo jinak neposouditelný text)</label>
+<label for="note">Poznámka</label>
+<textarea id="note" name="note" rows="2">{{ review.note }}</textarea>
+<button class="button" type="submit">Uložit a další</button>

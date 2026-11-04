@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_actors, views_codebook
+from . import views, views_actors, views_codebook, views_validation
 
 app_name = "panel"
 
@@ -35,6 +35,20 @@ urlpatterns = [
     path("nastaveni/", views_codebook.SettingsView.as_view(), name="settings"),
     path("nastaveni/<slug:key>/", views_codebook.SettingEditView.as_view(), name="setting"),
     path("ulohy/", views_codebook.JobListView.as_view(), name="jobs"),
+    path("validace/", views_validation.ValidationListView.as_view(), name="validation"),
+    path(
+        "validace/<int:pk>/", views_validation.SampleDetailView.as_view(), name="validation_sample"
+    ),
+    path(
+        "validace/<int:pk>/spor/<int:item>/",
+        views_validation.AdjudicateView.as_view(),
+        name="validation_adjudicate",
+    ),
+    path(
+        "validace/<int:pk>/export.<str:fmt>",
+        views_validation.ExportView.as_view(),
+        name="validation_export",
+    ),
     path(
         "notifications/read/", views.NotificationMarkReadView.as_view(), name="notifications-read"
     ),

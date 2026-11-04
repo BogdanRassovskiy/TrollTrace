@@ -24,7 +24,7 @@ SECTIONS = [
         reverse_lazy("admin:narratives_narrativecandidate_changelist"),
     ),
     ("Nastavení", "Hotovo (9)", reverse_lazy("panel:settings")),
-    ("Validace", "Etapa 10", None),
+    ("Validace", "Hotovo (10)", reverse_lazy("panel:validation")),
     ("Úlohy", "Hotovo (9)", reverse_lazy("panel:jobs")),
     ("Upozornění", "Hotovo (3.1)", reverse_lazy("panel:notifications")),
     ("Auditní protokol", "Hotovo", reverse_lazy("panel:audit")),

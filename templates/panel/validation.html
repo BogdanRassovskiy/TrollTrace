@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Validace — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Validace</h1>
+  <p class="muted">
+    Ruční anotace vzorku, shoda anotátorů (Krippendorffova alfa) a srovnání s automatikou (přesnost a úplnost),
+    README §4, krok 9. Anotátoři pracují naslepo v sekci <a href="{% url 'validation:index' %}">Anotace</a>;
+    účet anotátora: <code>python manage.py assign_role JMÉNO annotator --create</code>.
+  </p>
+
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Vzorek</th><th>Druh</th><th>Stav</th><th>Položek</th><th>Anotátorů</th><th>Anotací</th><th>Vytvořen</th></tr></thead>
+      <tbody>
+        {% for s in samples %}
+          <tr><td><a href="{% url 'panel:validation_sample' s.pk %}">{{ s.name }}</a></td><td>{{ s.get_kind_display }}</td>
+            <td>{{ s.get_status_display }}</td><td>{{ s.n_items }}</td><td>{{ s.n_annotators }}</td><td>{{ s.n_reviews }}</td>
+            <td class="nowrap small">{{ s.created_at|date:"Y-m-d" }}</td></tr>
+        {% empty %}<tr><td colspan="7" class="muted">Zatím žádný vzorek.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <details class="card"{% if form.errors %} open{% endif %}>
+    <summary>Nový vzorek</summary>
+    <p class="muted small">
+      Výběr je stratifikovaný, aby šla odhadnout přesnost i úplnost. U narativů:
+      {% for code, label in strata.items %}{% if forloop.counter <= 4 %}<em>{{ label }}</em>{% if forloop.counter < 4 %}, {% endif %}{% endif %}{% endfor %}
+      (40 / 30 / 20 / 10 %). U převzetí: nalezené doslovné vazby, parafráze a blízké dvojice bez vazby (40 / 30 / 30 %).
+      Výsledky se přepočítávají na populaci podle vah vrstev. Pořadí položek je náhodné.
+    </p>
+    <form method="post" class="form form-wide">
+      {% csrf_token %}
+      {% include "panel/_form_errors.html" %}
+      {% for field in form %}{% include "panel/_field.html" %}{% endfor %}
+      <button class="button" type="submit">Vybrat vzorek</button>
+    </form>
+  </details>
+{% endblock %}
