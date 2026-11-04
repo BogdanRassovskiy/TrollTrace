@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ narrative.name }}{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'dashboard:narratives' %}">Narativy</a> /</p>
+  <h1>{{ narrative.name }}</h1>
+  <p class="muted">
+    {{ narrative.code }} · {{ narrative.topic.name }} · verze {{ version.version }} z {{ version.changed_at|date:"j. n. Y" }}
+    · v kódové knize od {{ narrative.added_at|date:"j. n. Y" }}
+    <span class="badge {% if narrative.status == 'candidate' %}badge-warn{% else %}badge-ready{% endif %}">{{ narrative.get_status_display }}</span>
+    {% if narrative.discovered %}<span class="badge">navržen automaticky</span>{% endif %}
+    {% if narrative.status == "active" %}· <a href="{% url 'dashboard:compare' %}?narrative={{ narrative.code }}">srovnání aktérů</a>{% endif %}
+  </p>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Definice</h2>
+      <p>{{ narrative.definition }}</p>
+      {% if guide %}<dl class="guide">{% for label, text in guide %}<dt>{{ label }}</dt><dd>{{ text }}</dd>{% endfor %}</dl>{% endif %}
+      {% if narrative.examples %}<h3>Příklady (pro)</h3><ul>{% for e in narrative.examples %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if narrative.counter_examples %}<h3>Příklady (proti)</h3><ul>{% for e in narrative.counter_examples %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      {% if narrative.attribution %}<p class="muted small">Zdroj a atribuce: {{ narrative.attribution }}</p>{% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Životní cyklus</h2>
+      {% if life.first %}
+        <p><strong>První fixace:</strong> {{ life.first.moment|date:"j. n. Y H:i" }} —
+          <a href="{{ life.first.document.url }}" rel="noopener" target="_blank">{{ life.first.document.title|truncatechars:90 }}</a>
+          <span class="muted small">({{ life.first.document.actor.name }}, vrstva {{ life.first.layer }}, {{ life.first.stance }})</span></p>
+        <h3>Vrstvy podle pořadí výskytu</h3>
+        <ol>{% for l in life.layers %}<li>{{ l.layer }} — {{ l.moment|date:"j. n. Y" }} <span class="muted small">({{ l.document.actor.name }})</span></li>{% endfor %}</ol>
+        {% if life.peak %}<p><strong>Vrchol:</strong> týden od {{ life.peak.week|date:"j. n. Y" }} — {{ life.peak.share|floatformat:"-3" }} dokumentů všech vrstev ({{ life.peak.n_documents }} z {{ life.peak.n_total }})</p>{% endif %}
+        {% if life.pickup %}<h3>První aktéři s postojem pro</h3>
+          <ol>{% for actor, moment in life.pickup %}<li><a href="{% url 'dashboard:actor' actor.pk %}">{{ actor.name }}</a> <span class="muted small">{{ moment|date:"j. n. Y" }}</span></li>{% endfor %}</ol>{% endif %}
+      {% else %}
+        <p class="muted">Narativ zatím nebyl zachycen v žádném dokumentu analyzovaného vzorku.</p>
+      {% endif %}
+      <p class="muted small">Podle dokumentů s kvalitou ≥ {{ chart_config.min_quality }} v obdobích zařazení aktérů a platných štítků v jakémkoli postoji.</p>
+    </section>
+  </div>
+
+  {% if narrative.status == "active" %}
+  <section class="card">
+    <h2>Podíl podle vrstev</h2>
+    <div id="narrative-chart" class="chart" role="img" aria-label="Podíl narativu podle vrstev po týdnech"></div>
+  </section>
+  {% endif %}
+
+  <section class="card">
+    <h2>Externí vyvrácení</h2>
+    {% if debunks %}
+      <ul>{% for d in debunks %}<li><a href="{{ d.url }}" rel="noopener" target="_blank">{{ d.title|default:d.url }}</a> <span class="muted small">{{ d.get_organization_display }}{% if d.published_at %}, {{ d.published_at|date:"j. n. Y" }}{% endif %}</span></li>{% endfor %}</ul>
+    {% else %}<p class="muted">Bez odkazů na vyvrácení (Demagog.cz, Manipulátoři, AFP Fakty, EUvsDisinfo).</p>{% endif %}
+  </section>
+
+  {{ chart_config|json_script:"chart-config" }}
+{% endblock %}
+
+{% block scripts %}
+  {% if narrative.status == "active" %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/dashboard/common.js' %}"></script>
+  <script src="{% static 'js/dashboard/narrative.js' %}"></script>
+  {% endif %}
+{% endblock %}

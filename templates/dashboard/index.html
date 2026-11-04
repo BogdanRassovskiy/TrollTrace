@@ -1,23 +1,71 @@
 {% extends "base.html" %}
-{% load static %}
 
-{% block title %}Přehled{% endblock %}
+{% block title %}Aktéři{% endblock %}
 
 {% block content %}
-  <h1>Pracovní část</h1>
+  {% include "dashboard/_nav.html" %}
+  <h1>Aktéři</h1>
   <p class="muted">
-    Zde bude seznam aktérů, grafy narativů v čase, režim srovnání
-    a teplotní mapa (README §7.1, etapa 8).
+    Klikněte na aktéra pro graf jeho narativů v čase (podíl dokumentů za týden). Výkyv = týden,
+    kdy je podíl narativu výrazně nad vlastní historií aktéra (z-skóre).
+    {% if narratives %}Srovnání všech aktérů:
+      {% for n in narratives %}<a href="{% url 'dashboard:compare' %}?narrative={{ n.code }}">{{ n.name }}</a>{% if not forloop.last %} · {% endif %}{% endfor %}
+    {% endif %}
   </p>
 
-  <section class="card">
-    <h2>Kontrola grafů</h2>
-    <p class="muted">Demonstrační data: ověřuje, že se ECharts načítá a kreslí na canvas.</p>
-    <div id="demo-chart" class="chart" role="img" aria-label="Demonstrační graf"></div>
-  </section>
-{% endblock %}
+  <form method="get" class="filters">
+    <input type="search" name="q" value="{{ filters.q }}" placeholder="Jméno nebo název" aria-label="Hledat">
+    <select name="layer" aria-label="Vrstva">
+      <option value="">Všechny vrstvy</option>
+      {% for code, label in layers %}<option value="{{ code }}" {% if filters.layer == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="party" aria-label="Strana">
+      <option value="">Všechny strany</option>
+      {% for party in parties %}<option {% if filters.party == party %}selected{% endif %}>{{ party }}</option>{% endfor %}
+    </select>
+    <input type="text" name="role" value="{{ filters.role }}" placeholder="Role (např. ministr)" aria-label="Role">
+    <select name="cohort" aria-label="Kohorta aktivity">
+      <option value="">Jakákoli aktivita</option>
+      {% for code, label in cohorts %}<option value="{{ code }}" {% if filters.cohort == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="hybrid" aria-label="Hybridnost">
+      <option value="">Hybridní i ne</option>
+      <option value="1" {% if filters.hybrid == "1" %}selected{% endif %}>Jen hybridní</option>
+      <option value="0" {% if filters.hybrid == "0" %}selected{% endif %}>Bez hybridních</option>
+    </select>
+    <label class="small"><input type="checkbox" name="excluded" value="1" {% if filters.excluded == "1" %}checked{% endif %}> i vyřazení</label>
+    <button class="button" type="submit">Filtrovat</button>
+  </form>
 
-{% block scripts %}
-  <script src="{% static 'vendor/echarts.min.js' %}"></script>
-  <script src="{% static 'js/demo-chart.js' %}"></script>
+  <p class="muted small">Nalezeno: {{ paginator.count }}</p>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Aktér</th><th>Vrstva</th><th>Strana</th><th>Role</th><th>Dokumentů</th><th>Výkyv</th></tr></thead>
+      <tbody>
+        {% for actor in actors %}
+          <tr>
+            <td>
+              <a href="{% url 'dashboard:actor' actor.pk %}">{{ actor.name }}</a>
+              {% if actor.is_hybrid %}<span class="badge" title="Hybridní aktér">hybridní</span>{% endif %}
+              {% if actor.status == "excluded" %}<span class="badge badge-warn">vyřazen</span>{% endif %}
+            </td>
+            <td>{{ actor.layer|default:"—" }}</td>
+            <td>{{ actor.party|default:"—" }}</td>
+            <td class="small">{{ actor.role|default:"—"|truncatechars:80 }}</td>
+            <td>{{ actor.n_documents }}</td>
+            <td>{% for name in actor.spikes %}<span class="badge level-warning" title="Výkyv v posledních týdnech">{{ name|truncatechars:40 }}</span> {% empty %}<span class="muted">—</span>{% endfor %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="muted">Žádní aktéři neodpovídají filtru.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+    <div class="pager">
+      {% if page_obj.has_previous %}<a href="?{{ query }}&page={{ page_obj.previous_page_number }}">← předchozí</a>{% endif %}
+      <span class="muted">strana {{ page_obj.number }} z {{ paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?{{ query }}&page={{ page_obj.next_page_number }}">další →</a>{% endif %}
+    </div>
+  {% endif %}
 {% endblock %}

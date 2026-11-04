@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ actor.name }}{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'dashboard:index' %}">Aktéři</a> /</p>
+  <h1>{{ actor.name }}
+    {% if actor.is_hybrid %}<span class="badge">hybridní</span>{% endif %}
+    {% if actor.status == "excluded" %}<span class="badge badge-warn">vyřazen</span>{% endif %}
+  </h1>
+  <p class="muted">
+    {{ actor.get_layer_display|default:"bez vrstvy" }}{% if actor.party %} · {{ actor.party }}{% endif %}{% if actor.role %} · {{ actor.role }}{% endif %}
+    · dokumentů {{ n_documents }}
+    {% if actor.added_automatically %}· <span class="badge badge-warn">přidán automaticky</span>{% endif %}
+  </p>
+
+  <section class="card">
+    <div class="chart-head">
+      <h2>Narativy v čase</h2>
+      <div class="filters compact">
+        <label class="small">Postoj
+          <select id="stance">
+            <option value="all">jakýkoli</option><option value="pro">pro</option>
+            <option value="contra">proti</option><option value="neutral">neutrálně</option>
+          </select>
+        </label>
+        <label class="small">Kvalita ≥
+          <select id="min-quality">
+            {% for t in chart_config.thresholds %}<option value="{{ t }}" {% if t == chart_config.min_quality %}selected{% endif %}>{{ t }}</option>{% endfor %}
+          </select>
+        </label>
+        <label class="small"><input type="checkbox" id="smoothed"> vyhlazený podíl</label>
+      </div>
+    </div>
+    <p class="muted small">Podíl dokumentů aktéra s narativem za týden; v popisku i absolutní počet.
+      Kosočtverec = výkyv (z-skóre nad prahem). Kliknutím na bod se otevřou příspěvky.</p>
+    <div id="actor-chart" class="chart" role="img" aria-label="Podíl narativů aktéra po týdnech"></div>
+    <p id="chart-empty" class="muted" hidden>Pro aktéra zatím nejsou agregáty (žádné dokumenty v období zařazení).</p>
+  </section>
+
+  {% include "dashboard/_posts.html" %}
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Období zařazení</h2>
+      <ul class="plain">
+        {% for p in periods %}<li>{{ p.start_date|date:"j. n. Y" }} – {{ p.end_date|date:"j. n. Y"|default:"dosud" }}{% if p.inclusion_reason %} <span class="muted small">({{ p.inclusion_reason|truncatechars:120 }})</span>{% endif %}</li>
+        {% empty %}<li class="muted">Aktér není v žádném období zařazen — do agregátů nevstupuje.</li>{% endfor %}
+      </ul>
+    </section>
+    <section class="card">
+      <h2>Funkce</h2>
+      <ul class="plain">
+        {% for p in positions %}<li>{{ p.title }}{% if p.organization %}, {{ p.organization }}{% endif %} <span class="muted small">{{ p.start_date|date:"j. n. Y"|default:"?" }} – {{ p.end_date|date:"j. n. Y"|default:"dosud" }}</span></li>
+        {% empty %}<li class="muted">—</li>{% endfor %}
+      </ul>
+    </section>
+  </div>
+
+  {{ chart_config|json_script:"chart-config" }}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/dashboard/common.js' %}"></script>
+  <script src="{% static 'js/dashboard/actor.js' %}"></script>
+{% endblock %}

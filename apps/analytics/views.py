@@ -2,6 +2,7 @@
 
 /api/series/     — ряды акторов и групп по одному нарративу: недели + массивы по неделям
                    (n, n_total, доля, сглаженная доля, z). Компактно: 350 рядов × 26 недель.
+/api/actor/      — ряды одного актора по всем активным нарративам (страница актора).
 /api/documents/  — документы за точкой графика (актор или группа × неделя).
 /api/narratives/ — активные нарративы для выбора.
 """
@@ -146,6 +147,63 @@ class SeriesView(ViewerRequiredMixin, View):
         return head | {name: [None] * size for name in ("n", "total", "share", "smoothed", "z")}
 
 
+class ActorSeriesView(ViewerRequiredMixin, View):
+    """Ряды одного актора по всем активным нарративам. Parametry: actor, min_quality, stance."""
+
+    def get(self, request):
+        actor_id = request.GET.get("actor") or ""
+        actor = Actor.objects.filter(pk=actor_id).first() if actor_id.isdigit() else None
+        if actor is None:
+            return _bad("Neznámý nebo chybějící parametr „actor“.")
+        quality = request.GET.get("min_quality") or get_setting("analysis-min-quality")
+        stance = request.GET.get("stance") or "all"
+        if not str(quality).isdigit() or int(quality) not in aggregation.thresholds():
+            return _bad(f"Agregáty existují jen pro práh kvality {aggregation.thresholds()}.")
+        if stance not in STANCES:
+            return _bad(f"Parametr „stance“: jedno z {', '.join(STANCES)}.")
+        numerator = _numerator(stance)
+        rows = list(
+            WeeklyAggregate.objects.filter(
+                actor=actor, min_quality=int(quality), narrative__status=NarrativeStatus.ACTIVE
+            ).values_list(
+                "narrative_id", "week", numerator, "n_total", "share_smoothed", "z_score"
+            )  # fmt: skip
+        )
+        weeks = sorted({r[1] for r in rows})
+        index = {week: i for i, week in enumerate(weeks)}
+        narratives = {n.pk: n for n in Narrative.objects.filter(pk__in={r[0] for r in rows})}
+        series: dict = {}
+        for narrative_id, week, n, total, smoothed, z in rows:
+            item = series.get(narrative_id)
+            if item is None:
+                narrative = narratives[narrative_id]
+                item = series[narrative_id] = {
+                    "code": narrative.code, "name": narrative.name,
+                    **{k: [None] * len(weeks) for k in ("n", "total", "share", "smoothed", "z")},
+                }  # fmt: skip
+            i = index[week]
+            item["n"][i], item["total"][i] = n, total
+            item["share"][i] = round(n / total, 4) if total else None
+            item["smoothed"][i] = round(smoothed, 4) if stance == "all" and smoothed else None
+            item["z"][i] = z if stance == "all" else None
+        if stance != "all":
+            for item in series.values():
+                pairs = zip(item["n"], item["total"], strict=True)
+                points = [(weeks[i], n, t) for i, (n, t) in enumerate(pairs) if t]
+                for (week, _, _), z in zip(points, aggregation.z_scores(points), strict=True):
+                    item["z"][index[week]] = z
+        return JsonResponse(
+            {
+                "actor": {"id": actor.pk, "name": actor.name, "layer": actor.layer},
+                "min_quality": int(quality),
+                "stance": stance,
+                "spike_z": float(get_setting("spike-z-threshold")),
+                "weeks": [w.isoformat() for w in weeks],
+                "series": sorted(series.values(), key=lambda s: s["code"]),
+            }
+        )
+
+
 class DocumentsView(ViewerRequiredMixin, View):
     """Dokumenty za bodem grafu. Parametry: narrative, week (pondělí nebo libovolný den
     týdne), actor (ID) nebo group (klíč skupiny), min_quality, stance."""
@@ -185,7 +243,7 @@ class DocumentsView(ViewerRequiredMixin, View):
                 else None,
                 "actor": label.document.actor.name,
                 "source": label.document.source.name,
-                "layer": label.document.source.layer,
+                "layer": label.document.actor.layer or label.document.source.layer,
                 "stance": label.stance,
                 "origin": label.origin,
                 "confidence": label.confidence,

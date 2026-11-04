@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+
+{% block title %}Narativy{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <h1>Narativy</h1>
+  <p class="muted">Aktivní narativy jsou v analýze. Kandidáti se už sledují v nových dokumentech, ale do agregátů vstoupí až po přijetí výzkumníkem.</p>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Narativ</th><th>Téma</th><th>Stav</th><th>Verze</th><th>Štítků</th><th></th></tr></thead>
+      <tbody>
+        {% for n in narratives %}
+          <tr>
+            <td><a href="{% url 'dashboard:narrative' n.code %}">{{ n.name }}</a>
+              {% if n.discovered %}<span class="badge" title="Vznikl ze shluku nových tvrzení">navržen automaticky</span>{% endif %}
+              <div class="muted small">{{ n.code }}{% if n.kind == "theme" %} · téma vlivu{% endif %}</div></td>
+            <td>{{ n.topic.name }}</td>
+            <td><span class="badge {% if n.status == 'candidate' %}badge-warn{% else %}badge-ready{% endif %}">{{ n.get_status_display }}</span></td>
+            <td>v{{ n.current_version }}</td>
+            <td>{{ n.n_labels }}</td>
+            <td>{% if n.status == "active" %}<a href="{% url 'dashboard:compare' %}?narrative={{ n.code }}">srovnání</a>{% endif %}</td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6" class="muted">Kódová kniha je prázdná.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

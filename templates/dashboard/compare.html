@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Srovnání aktérů{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <h1>Srovnání aktérů</h1>
+  <p class="muted">
+    Všichni aktéři po jednom narativu na společné časové ose. Najetím zvýrazníte čáru, zaškrtnutím
+    v seznamu ji připnete. Příspěvky za bodem se otevřou kliknutím, pokud je v grafu nejvýše
+    {{ chart_config.click_max_lines }} čar; jinak nejdřív připněte konkrétní čáru. V teplotní mapě
+    funguje kliknutí na buňku vždy.
+  </p>
+
+  <form class="filters" id="controls" onsubmit="return false">
+    <label class="small">Narativ
+      <select id="narrative">
+        {% for n in narratives %}<option value="{{ n.code }}" {% if n.code == chart_config.narrative %}selected{% endif %}>{{ n.name }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="small">Postoj
+      <select id="stance">
+        <option value="all">jakýkoli</option><option value="pro">pro</option>
+        <option value="contra">proti</option><option value="neutral">neutrálně</option>
+      </select>
+    </label>
+    <label class="small">Kvalita ≥
+      <select id="min-quality">
+        {% for t in chart_config.thresholds %}<option value="{{ t }}" {% if t == chart_config.min_quality %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="small">Strana
+      <select id="party"><option value="">všechny</option>
+        {% for p in chart_config.parties %}<option>{{ p }}</option>{% endfor %}
+      </select>
+    </label>
+    <fieldset class="layers" id="layers">
+      <legend class="small">Vrstvy</legend>
+      {% for code, label in chart_config.layers.items %}
+        <label class="small" title="{{ label }}"><input type="checkbox" value="{{ code }}" {% if code != "I" %}checked{% endif %}> {{ code }}</label>
+      {% endfor %}
+    </fieldset>
+    <label class="small">Barva podle
+      <select id="color-by"><option value="layer">vrstvy</option><option value="party">strany</option></select>
+    </label>
+    <label class="small"><input type="checkbox" id="group-lines" checked> čáry skupin (medián + IQR)</label>
+    <div class="toggle" role="group" aria-label="Zobrazení">
+      <button type="button" class="toggle-btn active" data-view="lines">Čáry</button>
+      <button type="button" class="toggle-btn" data-view="heatmap">Teplotní mapa</button>
+    </div>
+    <label class="small" id="sort-wrap" hidden>Řadit
+      <select id="sort">
+        <option value="first">podle první fixace</option><option value="layer">podle vrstvy</option>
+        <option value="party">podle strany</option><option value="name">podle jména</option>
+      </select>
+    </label>
+  </form>
+
+  <div class="compare">
+    <section class="card compare-chart">
+      <p id="status" class="muted small" aria-live="polite">Načítám…</p>
+      <div id="compare-chart" class="chart chart-tall" role="img" aria-label="Podíl narativu u aktérů po týdnech"></div>
+    </section>
+    <aside class="card legend-panel">
+      <input type="search" id="legend-search" placeholder="Hledat aktéra" aria-label="Hledat aktéra">
+      <p class="muted small"><span id="legend-count"></span> · <button type="button" class="link-button" id="unpin-all">zrušit připnutí</button></p>
+      <ul id="legend" class="legend-list"></ul>
+    </aside>
+  </div>
+
+  {% include "dashboard/_posts.html" %}
+  {{ chart_config|json_script:"chart-config" }}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/dashboard/common.js' %}"></script>
+  <script src="{% static 'js/dashboard/compare.js' %}"></script>
+{% endblock %}

@@ -1,0 +1,91 @@
+// Общие функции рабочей части (этап 8): данные из /api/…, цвета, панель с постами.
+window.TT = (function () {
+  const config = JSON.parse(document.getElementById("chart-config")?.textContent || "{}");
+
+  // Цвет по слою: линии красятся по слою или партии, а не уникально на актора (README §7.1).
+  const LAYER_COLORS = {
+    A: "#c62828", B: "#ef6c00", C: "#8e24aa", D: "#1565c0", E: "#2e7d32",
+    F: "#00838f", G: "#6d4c41", H: "#455a64", I: "#7b1fa2",
+  };
+  const PALETTE = ["#1565c0", "#c62828", "#2e7d32", "#ef6c00", "#6a1b9a", "#00838f", "#ad1457",
+    "#558b2f", "#4e342e", "#283593", "#f9a825", "#37474f"];
+  const STANCES = { pro: "pro", contra: "proti", neutral: "neutrálně" };
+
+  function partyColor(party) {
+    if (!party) return "#9e9e9e";
+    let hash = 0;
+    for (const ch of party) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return PALETTE[hash % PALETTE.length];
+  }
+
+  function layerColor(layer) {
+    return LAYER_COLORS[layer] || "#9e9e9e";
+  }
+
+  async function getJSON(url, params) {
+    const query = new URLSearchParams();
+    for (const [key, value] of Object.entries(params || {})) {
+      if (Array.isArray(value)) value.forEach((v) => query.append(key, v));
+      else if (value !== undefined && value !== null && value !== "") query.append(key, value);
+    }
+    const response = await fetch(`${url}?${query}`, { credentials: "same-origin" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || `Chyba ${response.status}`);
+    return data;
+  }
+
+  function percent(value, digits = 1) {
+    return value === null || value === undefined ? "—" : `${(value * 100).toFixed(digits)} %`;
+  }
+
+  function weekLabel(iso) {
+    const [y, m, d] = iso.split("-");
+    return `${Number(d)}. ${Number(m)}. ${y}`;
+  }
+
+  function escapeHtml(text) {
+    return String(text ?? "").replace(/[&<>"']/g, (c) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[c]);
+  }
+
+  // Панель «příspěvky za bodem grafu».
+  const panel = document.getElementById("posts");
+  document.getElementById("posts-close")?.addEventListener("click", () => { panel.hidden = true; });
+
+  async function showPosts(params, title) {
+    if (!panel) return;
+    panel.hidden = false;
+    document.getElementById("posts-title").textContent = title;
+    const meta = document.getElementById("posts-meta");
+    const list = document.getElementById("posts-list");
+    meta.textContent = "Načítám…";
+    list.innerHTML = "";
+    try {
+      const data = await getJSON("/api/documents/", params);
+      meta.textContent = data.count
+        ? `Dokumentů s narativem: ${data.count}${data.count > data.documents.length ? ` (zobrazeno ${data.documents.length})` : ""}.`
+        : "V tomto bodě nejsou žádné dokumenty s narativem.";
+      list.innerHTML = data.documents.map((d) => `
+        <li>
+          <a href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.title || d.url)}</a>
+          <div class="muted small">${escapeHtml(d.actor)} · ${escapeHtml(d.source)} (${escapeHtml(d.layer)})
+            · ${d.published_at ? new Date(d.published_at).toLocaleDateString("cs-CZ") : "?"}
+            · <span class="stance-${d.stance}">${STANCES[d.stance] || d.stance}</span>
+            ${d.origin === "human" ? "· ruční štítek" : ""}
+            ${d.carrier && d.carrier !== "autor" ? `· nese: ${escapeHtml(d.carrier)}` : ""}</div>
+          ${d.evidence ? `<p class="evidence small">„${escapeHtml(d.evidence)}“</p>` : ""}
+        </li>`).join("");
+    } catch (error) {
+      meta.textContent = error.message;
+    }
+    panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function onResize(chart) {
+    window.addEventListener("resize", () => chart.resize());
+  }
+
+  return { config, layerColor, partyColor, getJSON, percent, weekLabel, escapeHtml, showPosts,
+    onResize, STANCES };
+})();

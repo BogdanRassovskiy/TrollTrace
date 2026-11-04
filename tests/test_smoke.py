@@ -38,9 +38,9 @@ def test_home_redirects_to_dashboard(client):
 def test_dashboard_renders_with_echarts(observer_client):
     response = observer_client.get(reverse("dashboard:index"))
     assert response.status_code == 200
-    content = response.content.decode()
-    assert "Pracovní část" in content
-    assert "vendor/echarts.min.js" in content
+    assert "Pracovní část" in response.content.decode()
+    compare = observer_client.get(reverse("dashboard:compare")).content.decode()
+    assert "vendor/echarts.min.js" in compare and "js/dashboard/compare.js" in compare
 
 
 @pytest.mark.django_db

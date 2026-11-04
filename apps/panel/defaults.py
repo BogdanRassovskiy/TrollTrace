@@ -69,6 +69,10 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "event-window-after-days": (14, "Event study (vrstva I, H4): okno po události (dní)."),
     "actor-min-activity": (4, "Minimum dokumentů za období pro zařazení aktéra."),
     "chart-click-max-lines": (10, "N: do kolika čar otevře kliknutí na bod grafu příspěvky."),
+    "spike-z-threshold": (
+        2.0,
+        "Výkyv u aktéra: týden se z-skóre aspoň tímto se v grafech a seznamu aktérů označí.",
+    ),
     "embedding-model": ("intfloat/multilingual-e5-base", "Model embeddingů (README §4, krok 4)."),
     "labeling-model": (
         "openai/gpt-6-luna",

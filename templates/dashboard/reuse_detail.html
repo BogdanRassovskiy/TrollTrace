@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Převzetí: porovnání{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'dashboard:reuse' %}">Převzetí</a> /</p>
+  <h1>{{ link.get_link_type_display }} · podobnost {{ link.similarity|floatformat:2 }}</h1>
+  <p class="muted">
+    Zvýrazněny jsou shodné úseky o délce aspoň {{ min_words }} slov (bez ohledu na velikost písmen a diakritiku).
+    Shodných slov v převzetí: {% widthratio matched_share 1 100 %} %.
+    Metoda: {{ link.get_method_display }}{% if link.is_confirmed is not None %} · ručně {% if link.is_confirmed %}potvrzeno{% else %}zamítnuto{% endif %}{% endif %}.
+  </p>
+  <div class="grid-2 reuse">
+    <section class="card">
+      <h2>Originál</h2>
+      <p class="muted small">{{ link.source_document.actor.name }} ({{ link.source_document.source.name }}, vrstva {{ link.source_document.source.layer }}) · {{ link.source_document.published_at|date:"j. n. Y H:i" }}</p>
+      <h3><a href="{{ link.source_document.url }}" rel="noopener" target="_blank">{{ link.source_document.title }}</a></h3>
+      <div class="reuse-text">{% for text, hit in source_parts %}{% if hit %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</div>
+    </section>
+    <section class="card">
+      <h2>Převzetí</h2>
+      <p class="muted small">{{ link.target_document.actor.name }} ({{ link.target_document.source.name }}, vrstva {{ link.target_document.source.layer }}) · {{ link.target_document.published_at|date:"j. n. Y H:i" }}</p>
+      <h3><a href="{{ link.target_document.url }}" rel="noopener" target="_blank">{{ link.target_document.title }}</a></h3>
+      <div class="reuse-text">{% for text, hit in target_parts %}{% if hit %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</div>
+    </section>
+  </div>
+{% endblock %}

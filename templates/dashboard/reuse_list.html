@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Převzetí textů{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <h1>Převzetí textů</h1>
+  <p class="muted">Páry textů s vysokou podobností: doslovné převzetí (MinHash) a parafráze (embeddingy). Kliknutím otevřete oba texty se zvýrazněnými shodnými úseky.</p>
+  <form method="get" class="filters">
+    <select name="type" aria-label="Typ">
+      <option value="">Všechny typy</option>
+      {% for code, label in types %}<option value="{{ code }}" {% if filters.type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="layer" aria-label="Vrstva převzetí">
+      <option value="">Převzetí ve všech vrstvách</option>
+      {% for code, label in layers %}<option value="{{ code }}" {% if filters.layer == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="confirmed" aria-label="Kontrola">
+      <option value="">Kontrolované i ne</option>
+      <option value="1" {% if filters.confirmed == "1" %}selected{% endif %}>Potvrzené</option>
+      <option value="0" {% if filters.confirmed == "0" %}selected{% endif %}>Zamítnuté</option>
+      <option value="none" {% if filters.confirmed == "none" %}selected{% endif %}>Nekontrolované</option>
+    </select>
+    <button class="button" type="submit">Filtrovat</button>
+  </form>
+  <p class="muted small">Nalezeno: {{ paginator.count }}</p>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Originál</th><th>Převzetí</th><th>Typ</th><th>Podobnost</th><th></th></tr></thead>
+      <tbody>
+        {% for link in links %}
+          <tr>
+            <td>{{ link.source_document.title|truncatechars:70 }}<div class="muted small">{{ link.source_document.actor.name }} ({{ link.source_document.source.layer }}) · {{ link.source_document.published_at|date:"j. n. Y" }}</div></td>
+            <td>{{ link.target_document.title|truncatechars:70 }}<div class="muted small">{{ link.target_document.actor.name }} ({{ link.target_document.source.layer }}) · {{ link.target_document.published_at|date:"j. n. Y" }}</div></td>
+            <td>{{ link.get_link_type_display }}{% if link.is_confirmed %} <span class="badge badge-ready">potvrzeno</span>{% elif link.is_confirmed is False %} <span class="badge badge-warn">zamítnuto</span>{% endif %}</td>
+            <td>{{ link.similarity|floatformat:2 }}</td>
+            <td><a href="{% url 'dashboard:reuse_detail' link.pk %}">porovnat</a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="5" class="muted">Zatím nebylo nalezeno žádné převzetí.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if is_paginated %}
+    <div class="pager">
+      {% if page_obj.has_previous %}<a href="?{{ query }}&page={{ page_obj.previous_page_number }}">← předchozí</a>{% endif %}
+      <span class="muted">strana {{ page_obj.number }} z {{ paginator.num_pages }}</span>
+      {% if page_obj.has_next %}<a href="?{{ query }}&page={{ page_obj.next_page_number }}">další →</a>{% endif %}
+    </div>
+  {% endif %}
+{% endblock %}
