@@ -11,15 +11,28 @@
       "Západ se topí v chaosu, zatímco politici posílají peníze na válku."
     ],
     "counter_examples": [
-      "BIS varuje, že za sabotážemi stojí ruské tajné služby, které z nich vyrábějí propagandu.",
-      "Žhářské útoky na evropskou infrastrukturu jsou součástí ruské hybridní kampaně."
+      "Videa ze žhářských útoků nejsou důkazem rozpadu Evropy, ale materiálem ruské propagandy, upozorňuje BIS.",
+      "Obraz „hořící Evropy“ šíří proruské kanály záměrně; sabotáže si objednávají ruské služby."
     ],
     "stance_guide": {
-      "pro": "Text líčí požáry, sabotáže a výpadky jako znak rozpadu a selhání Evropy či jejích vlád, bez zmínky o ruském podílu, nebo ho zlehčuje.",
-      "contra": "Text upozorňuje na ruskou sabotážní a propagandistickou kampaň, vysvětluje, jak se obsah o útocích vyrábí, nebo obraz chaosu vyvrací.",
-      "neutral": "Zpravodajská zmínka o požáru, sabotáži či vyšetřování bez rámce „Evropa v plamenech“ a bez hodnocení."
+      "pro": "Text líčí požáry, sabotáže, výbuchy a výpadky jako znak rozpadu, chaosu a selhání Evropy či jejích vlád, bez zmínky o ruském podílu, nebo ho zlehčuje.",
+      "contra": "Text výslovně reaguje na rámec „Evropa v plamenech“: vyvrací obraz rozpadu a chaosu, nebo upozorňuje, že sabotáže a záběry z nich slouží ruské kampani a propagandě.",
+      "neutral": "Text informuje o tom, že někdo tento rámec šíří (např. cituje kanál nebo politika), bez vlastního hodnocení.",
+      "absent": "Zpráva o požáru, sabotáži, útoku nebo vyšetřování – i s připsáním Rusku či s výzvou k obraně – bez vztahu k obrazu chaosu a rozpadu Evropy."
     },
-    "cues": ["sabotaz", "diverz", "zhar", "podpal", "pozar", "vybuch", "hori", "plamen", "utok na zeleznic", "infrastruktur", "chaos"],
+    "cues": [
+      "sabotaz",
+      "diverz",
+      "zhar",
+      "podpal",
+      "pozar",
+      "vybuch",
+      "hori",
+      "plamen",
+      "utok na zeleznic",
+      "infrastruktur",
+      "chaos"
+    ],
     "attribution": "BIS, Výroční zpráva 2025 (https://www.bis.cz/public/site/bis.cz/content/vyrocni-zpravy/2025-vz-cj.pdf): ruská operace, vykonavatelé diverzí natáčejí přípravu a následky útoků pro mediální obsah."
   },
   {
@@ -35,15 +48,29 @@
       "Ukrajinští uprchlíci nás stojí víc, než si můžeme dovolit."
     ],
     "counter_examples": [
-      "Podpora Ukrajiny je investice do naší bezpečnosti; ustoupit Rusku by bylo dražší.",
-      "Tvrzení, že pomoc Ukrajině ožebračuje Čechy, je ruská propaganda."
+      "Tvrzení, že pomoc Ukrajině ožebračuje Čechy, je ruská propaganda.",
+      "Kdo říká, že se nám podpora Ukrajiny nevyplácí, zapomíná, kolik by nás stálo ustoupit Rusku."
     ],
     "stance_guide": {
       "pro": "Text tvrdí nebo naznačuje, že pomoc Ukrajině je drahá, zbytečná či nebezpečná, staví ji proti zájmům „obyčejných Čechů“, nebo doporučuje ustoupit Rusku.",
-      "contra": "Text hájí podporu Ukrajiny jako výhodnou či nutnou, nebo narativ označuje za propagandu a vyvrací ho.",
-      "neutral": "Text o pomoci Ukrajině informuje (částky, rozhodnutí, debata) bez vlastního hodnocení."
+      "contra": "Text se výslovně vymezuje proti tezi, že pomoc Ukrajině se nevyplácí nebo že je třeba ustoupit Rusku: vyvrací ji argumenty, nebo ji označuje za propagandu či manipulaci.",
+      "neutral": "Text referuje o tom, že někdo tuto tezi šíří (např. cituje politika), bez vlastního hodnocení.",
+      "absent": "Obecná podpora Ukrajiny, zprávy o pomoci (částky, rozhodnutí) nebo o válce, které na tezi o nevýhodnosti pomoci či ustoupení Rusku nereagují."
     },
-    "cues": ["pomoc ukrajin", "podpor ukrajin", "pomahat ukrajin", "pro ukrajin", "munic", "zbran", "nevypla", "ustoup", "nedrazd", "uprchlik", "miliard", "valk"],
+    "cues": [
+      "pomoc ukrajin",
+      "podpor ukrajin",
+      "pomahat ukrajin",
+      "pro ukrajin",
+      "munic",
+      "zbran",
+      "nevypla",
+      "ustoup",
+      "nedrazd",
+      "uprchlik",
+      "miliard",
+      "valk"
+    ],
     "attribution": "BIS, Výroční zpráva 2025: Rusko usiluje, aby ve veřejné debatě převládl názor, že podpora Ukrajiny se nevyplácí ekonomicky ani bezpečnostně."
   },
   {
@@ -58,15 +85,30 @@
       "Neziskovky placené ze zahraničí rozhodují o tom, co si smíme myslet."
     ],
     "counter_examples": [
-      "BIS odhalila síť falešných účtů na TikToku, které šířily antisystémové narativy.",
-      "Kampaně podkopávající důvěru v demokratické instituce slouží ruským zájmům."
+      "BIS odhalila síť falešných účtů na TikToku, které šířily tvrzení, že volby jsou zmanipulované a systém řídí cizina.",
+      "Tvrzení, že o Česku rozhodují „neziskovky a Brusel“ místo voličů, je manipulace, která má podkopat důvěru v demokracii."
     ],
     "stance_guide": {
-      "pro": "Text vykresluje systém, instituce, volby nebo média jako zkorumpované, nelegitimní či cizí a staví „lid“ proti „elitám“.",
-      "contra": "Text na tyto narativy upozorňuje jako na manipulaci, popisuje neautentické sítě nebo hájí důvěryhodnost institucí.",
-      "neutral": "Text o kritice systému či o neautentických sítích jen informuje bez vlastního hodnocení."
+      "pro": "Text vykresluje systém, instituce, volby nebo média jako zkorumpované, nelegitimní či řízené zvenčí a staví „lid“ proti „elitám“.",
+      "contra": "Text výslovně vyvrací tvrzení, že systém, volby nebo instituce jsou zkorumpované, nelegitimní či řízené zvenčí, nebo takové tvrzení označuje za manipulaci; patří sem i odhalení neautentických sítí, které tyto narativy šíří.",
+      "neutral": "Text informuje o tom, že někdo tyto narativy šíří, bez vlastního hodnocení.",
+      "absent": "Běžná kritika vlády, politiků či konkrétních kroků; obhajoba nezávislosti institucí bez reakce na antisystémové tvrzení; zprávy o volbách a politice v zahraničí."
     },
-    "cues": ["elit", "zkorumpova", "korupc", "nelegitim", "diktat", "cenzur", "mainstream", "neziskov", "zrad", "loutk", "tiktok", "falesn ucet", "neautentick"],
+    "cues": [
+      "elit",
+      "zkorumpova",
+      "korupc",
+      "nelegitim",
+      "diktat",
+      "cenzur",
+      "mainstream",
+      "neziskov",
+      "zrad",
+      "loutk",
+      "tiktok",
+      "falesn ucet",
+      "neautentick"
+    ],
     "attribution": "BIS, Výroční zpráva 2025: neautentická síť na TikToku před volbami 2025 (většina účtů falešných); vliv na výsledky voleb BIS nezjistila."
   },
   {
@@ -80,15 +122,25 @@
       "Vláda si korespondenční volbou zajistí výsledek, jaký potřebuje."
     ],
     "counter_examples": [
-      "Korespondenční volba je bezpečná a používá ji většina zemí EU.",
-      "Obavy z podvodů při korespondenční volbě nemají oporu ve faktech."
+      "Obavy, že korespondenční volba umožní podvod, nemají oporu ve faktech: hlasy ze zahraničí se ověřují stejně jako ostatní.",
+      "Tvrzení o „ukradených volbách“ přes korespondenční hlasování je dezinformace."
     ],
     "stance_guide": {
-      "pro": "Text tvrdí nebo naznačuje, že korespondenční volba či jiné nové prvky voleb umožní podvod nebo manipulaci výsledku.",
-      "contra": "Text tato tvrzení vyvrací nebo vysvětluje zabezpečení hlasování.",
-      "neutral": "Text o korespondenční volbě informuje (pravidla, registrace, počty voličů) bez hodnocení."
+      "pro": "Text tvrdí nebo naznačuje, že korespondenční volba či jiné nové prvky českých voleb umožní podvod nebo manipulaci výsledku.",
+      "contra": "Text výslovně vyvrací tvrzení, že korespondenční volba umožní podvod či manipulaci, nebo ho označuje za dezinformaci.",
+      "neutral": "Text referuje o tom, že někdo taková tvrzení šíří, bez vlastního hodnocení.",
+      "absent": "Informace o pravidlech, registraci či počtech voličů bez zmínky o podvodu; korespondenční hlasování v jiných zemích (např. v USA) bez vztahu k českým volbám."
     },
-    "cues": ["korespondencn", "volb ze zahranic", "hlasovan ze zahranic", "postou", "volebn podvod", "zmanipul", "ukradn", "sciti hlas"],
+    "cues": [
+      "korespondencn",
+      "volb ze zahranic",
+      "hlasovan ze zahranic",
+      "postou",
+      "volebn podvod",
+      "zmanipul",
+      "ukradn",
+      "sciti hlas"
+    ],
     "attribution": "BIS, Výroční zpráva 2025: narativy rezonovaly na začátku kampaně, pak utichly. BIS je Rusku přímo nepřipisuje."
   },
   {
@@ -104,14 +156,28 @@
     ],
     "counter_examples": [
       "Osvobození v roce 1945 nelze zneužívat k ospravedlnění dnešní ruské agrese.",
-      "Rusko přepisuje historii a role SSSR se instrumentalizuje k propagandě."
+      "Rusko přepisuje historii: vděk Rudé armádě neznamená vděk Putinovu režimu."
     ],
     "stance_guide": {
       "pro": "Text zdůrazňuje výhradní roli SSSR, spojuje ji s dnešním Ruskem nebo z ní vyvozuje vděk a ústupky Rusku.",
-      "contra": "Text upozorňuje na zneužívání výročí a historie k ruskému vlivu nebo historické zkreslení vyvrací.",
-      "neutral": "Text o výročí, pietních akcích či historii informuje bez tohoto rámce."
+      "contra": "Text výslovně upozorňuje na zneužívání výročí a role SSSR k ruskému vlivu, nebo vyvrací zkreslení (výhradní role Rudé armády, přenášení vděku na dnešní Rusko).",
+      "neutral": "Text informuje o tom, že někdo tento rámec šíří, bez vlastního hodnocení.",
+      "absent": "Zprávy o výročí, pietních akcích, pomnících či historii války bez tohoto rámce."
     },
-    "cues": ["osvobozen", "rud armad", "rudoarmej", "sovetsk", "=sssr", "konec valk", "vyroc", "kveten 1945", "pomnik", "konev", "patton", "pieta"],
+    "cues": [
+      "osvobozen",
+      "rud armad",
+      "rudoarmej",
+      "sovetsk",
+      "=sssr",
+      "konec valk",
+      "vyroc",
+      "kveten 1945",
+      "pomnik",
+      "konev",
+      "patton",
+      "pieta"
+    ],
     "attribution": "BIS, Výroční zpráva 2025: mezi kontakty ruských agentů vlivu byli organizátoři akcí k 80. výročí konce války věnovaných roli SSSR. Téma vlivu, nikoli zformulovaný narativ."
   }
 ]

@@ -45,7 +45,7 @@ from .text import fold
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "p1"
+PROMPT_VERSION = "p2"  # p2: přísná přítomnost narativu (jen reakce na konkrétní tvrzení)
 MIN_CUES = 2
 HEAD_CHARS = 6000  # начало текста целиком
 CUE_WINDOW = 400  # и окна вокруг сигнальных слов дальше по тексту
@@ -135,14 +135,21 @@ SYSTEM = """You are a careful annotator in an academic research project (Jan Eva
 Purkyně University) that measures how narratives attributed to Russian influence operations \
 spread in Czech media, Telegram channels and parliament. You annotate; you do not fact-check.
 
+Narratives are defined STRICTLY. A narrative is a specific claim, not a topic; some are \
+broad, some are very narrow (e.g. one claim about a single incident). Apply each definition \
+literally.
+
 For EVERY codebook narrative listed by the user decide:
-- present: true only if the document substantively conveys, repeats, argues against or \
-explicitly reports on the narrative's claim. Mere topical overlap (the document is about \
-Ukraine, elections, a fire …) is NOT enough.
+- present: true ONLY if the document engages with this specific claim: it states or \
+endorses it, explicitly refutes it or labels it propaganda/manipulation, or reports that \
+someone makes it. Topical overlap is NOT enough. A document that merely holds the opposite \
+general position on the topic without addressing the claim (e.g. supports aid to Ukraine \
+without reacting to the claim that aid does not pay off) does NOT contain the narrative: \
+present = false. The "Není narativ" line of each narrative lists such cases.
 - stance (of the document as a whole, i.e. its author or outlet):
-  "pro" = the document pushes or endorses the narrative;
-  "contra" = it refutes the narrative or presents it as propaganda/manipulation;
-  "neutral" = it reports the narrative (e.g. quotes someone spreading it) without taking a side.
+  "pro" = the document pushes or endorses the claim;
+  "contra" = it explicitly refutes the claim or presents it as propaganda/manipulation;
+  "neutral" = it reports that someone makes the claim, without taking a side.
   Use "neutral" when present is false.
 - carrier: who voices the narrative in the text — "autor" if it is the author/outlet, \
 otherwise the name of the quoted person or organisation; empty string if not present.
@@ -181,7 +188,9 @@ def _narrative_block(narrative: Narrative) -> str:
         else "Druh: narativ",
         f"Definice: {narrative.definition}",
     ]  # fmt: skip
-    for key, label in (("pro", "Postoj pro"), ("contra", "Postoj proti"), ("neutral", "Neutrálně")):
+    labels = (("pro", "Postoj pro"), ("contra", "Postoj proti"), ("neutral", "Neutrálně"),
+              ("absent", "Není narativ"))  # fmt: skip
+    for key, label in labels:
         if guide.get(key):
             lines.append(f"{label}: {guide[key]}")
     if narrative.examples:

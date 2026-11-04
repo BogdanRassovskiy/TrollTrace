@@ -85,8 +85,9 @@ class Narrative(VersionedModel):
         "vodítko k postojům",
         default=dict,
         blank=True,
-        help_text='Co znamená postoj pro / proti / neutrálně: {"pro": …, "contra": …, '
-        '"neutral": …}. Pro anotátory i pro model.',
+        help_text='Co znamená postoj pro / proti / neutrálně a co narativem není: {"pro": …, '
+        '"contra": …, "neutral": …, "absent": …}. Narativ se určuje přísně: „proti“ je '
+        "výslovná reakce na tvrzení, ne opačný názor na téma. Pro anotátory i pro model.",
     )
     cues = models.JSONField(
         "signální slova",

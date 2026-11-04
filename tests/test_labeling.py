@@ -29,7 +29,7 @@ def unit(*weights) -> np.ndarray:
 
 
 def narrative(code="pomoc", cues=("pomoc ukrajin", "nevypla")):
-    guide = {"pro": "Tlačí narativ.", "contra": "Vyvrací ho."}
+    guide = {"pro": "Tlačí narativ.", "contra": "Vyvrací ho.", "absent": "Jen téma."}
     return NarrativeFactory(code=code, name=f"Narativ {code}", cues=list(cues), stance_guide=guide)
 
 
@@ -119,6 +119,7 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
     assert (stats.documents, stats.decisions, stats.labels, stats.errors) == (1, 3, 1, 0)
     assert seen["model"] == "openai/gpt-6-luna"
     assert "### a" in seen["user"] and "Postoj proti: Vyvrací ho." in seen["user"]
+    assert "Není narativ: Jen téma." in seen["user"]
     assert seen["schema"]["properties"]["decisions"]["items"]["properties"]["narrative"][
         "enum"
     ] == ["a", "b", "c"]
