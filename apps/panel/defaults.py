@@ -42,9 +42,9 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "chart-click-max-lines": (10, "N: do kolika čar otevře kliknutí na bod grafu příspěvky."),
     "embedding-model": ("intfloat/multilingual-e5-base", "Model embeddingů (README §4, krok 4)."),
     "labeling-model": (
-        "anthropic/claude-haiku-5.5",
+        "openai/gpt-6-luna",
         "Anotace narativů: model OpenRouter, který rozhoduje o kandidátech (README §4, krok 7). "
-        "Srovnání modelů: manage.py label_narratives --compare.",
+        "Vybrán srovnáním 4. 11. 2026 (manage.py label_narratives --compare).",
     ),
     "labeling-candidate-similarity": (
         0.25,

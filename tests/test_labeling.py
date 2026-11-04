@@ -117,7 +117,7 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
     with KEY:
         stats = labeling.label_pending()
     assert (stats.documents, stats.decisions, stats.labels, stats.errors) == (1, 3, 1, 0)
-    assert seen["model"] == "anthropic/claude-haiku-5.5"
+    assert seen["model"] == "openai/gpt-6-luna"
     assert "### a" in seen["user"] and "Postoj proti: Vyvrací ho." in seen["user"]
     assert seen["schema"]["properties"]["decisions"]["items"]["properties"]["narrative"][
         "enum"
