@@ -228,7 +228,9 @@ general opinion on the topic without reacting to the claim is "absent");
 - examples: up to 3 typical wordings pushing the claim;
 - counter_examples: up to 2 wordings explicitly refuting it;
 - cues: up to 8 Czech word stems without diacritics, lower case (e.g. "nemocnic", "raket");
-- topic: the code of the best matching topic from the list."""
+- topic: the code of the best matching topic from the list.
+Every text field must be entirely in Czech — no English words or phrases such as "Claim \
+asserts that" (start the definition e.g. with "Tvrzení říká, že…")."""
 
 
 def _card_schema(topics: list[str]) -> dict:
