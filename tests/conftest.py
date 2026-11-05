@@ -1,6 +1,21 @@
 import pytest
 
 from apps.core.roles import assign_role
+from apps.ingestion.parsers import PARSERS, register
+from apps.ingestion.parsers.base import SiteParser, inside
+
+if "example" not in PARSERS:
+
+    @register
+    class ExampleSite(SiteParser):
+        """Testovací weby *.example: článek v <article>, tělo případně v articleBody."""
+
+        key = "example"
+        name = "Testovací web"
+        hosts = ("example",)
+        blocks = inside("//article")
+        origin = '//*[@class="source-link"]/@data-source-url'
+        listing_pattern = r"^/a/\d+$"
 
 
 @pytest.fixture

@@ -26,6 +26,7 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
       "url": "https://example.cz/",
       "layer": "B",
       "platform": "web",
+      "parser": "nazev-webu",
       "collect_interval_minutes": 60,
       "request_delay_seconds": 3,
       "external_rating": "…", "external_rating_source": "konspiratori.sk",
@@ -50,19 +51,20 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
 }
 ```
 
+- **`parser` обязателен для веб-источника** (этап 3.5): ключ парсера из `apps/ingestion/parsers/`.
+  Без него `import_sources` источник не подключает. Новый сайт: сначала модуль парсера и
+  фикстуры (`tests/fixtures/parsers/<ключ>/`), потом запись здесь. Вёрстку (тело, дата, автор,
+  первоисточник, ссылки на странице-списке) задаёт только парсер, не `collector_config`.
 - **Слой A** (атрибутированные сети): `layer: "A"`, `"actor": {"type": "attributed_network", …}`, плюс
   `attribution_by` и `attribution_url` — ссылка на внешний отчёт (собственной атрибуции нет, README §1).
 - Ленты (`feeds[].kind`): `rss` (по умолчанию), `sitemap` (в т. ч. индекс — читаются
   `max_child_sitemaps` свежих), `listing` — HTML-страница со списком статей для сайтов без
-  пригодной ленты; ссылки отбираются по `collector_config.listing_link_pattern` (regex пути).
+  пригодной ленты; ссылки отбираются по `listing_pattern` / `listing_xpath` парсера сайта.
 - `collector_config`:
   - `rubrics_in_scope` / `rubrics_out_of_scope` — начала рубрик (без регистра и диакритики)
     для `Document.in_scope`; без списков в рамках всё;
   - `max_articles` — новых статей за запуск (100);
-  - `listing_link_xpath` — XPath к href ссылок на статьи на странице-списке;
-  - `date_regex` — дата из текста страницы (группы `day`, `month`, `year`), если htmldate ошибается;
-  - `max_date_lag_days` — допустимое отставание даты от сбора (30; у органов 730);
-  - `origin_xpath` — XPath к адресу первоисточника на странице → `meta.origin_urls`.
+  - `max_date_lag_days` — допустимое отставание даты от сбора (30; у органов 730).
 - `expected_language: ""` — язык не проверяется (сайт на нескольких языках).
 - Сайты: `actor` — сайт целиком как один актор. Telegram: один источник, по актору на канал.
 - Telegram собирается из публичного веб-превью `t.me/s/<канал>`: без логина и API-ключей, только

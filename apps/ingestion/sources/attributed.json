@@ -5,6 +5,7 @@
       "url": "https://czechia.news-pravda.com/",
       "layer": "A",
       "platform": "web",
+      "parser": "pravda",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "expected_language": "cs",
@@ -23,8 +24,7 @@
         "reference": "https://dfrlab.org/2025/02/24/russia-pravda-network-expands-worldwide/"
       },
       "collector_config": {
-        "max_articles": 100,
-        "origin_xpath": "//*[contains(@class, \"source-link\")]/@data-source-url"
+        "max_articles": 100
       }
     },
     {
@@ -32,6 +32,7 @@
       "url": "https://42tcen.com/",
       "layer": "A",
       "platform": "web",
+      "parser": "42tcen",
       "collect_interval_minutes": 60,
       "request_delay_seconds": 5,
       "expected_language": "",
@@ -55,7 +56,6 @@
         "reference": "https://www.bis.cz/public/site/bis.cz/content/vyrocni-zpravy/2024-vz-cj.pdf"
       },
       "collector_config": {
-        "listing_link_pattern": "^/entry/[^/]+$",
         "max_articles": 50
       }
     }

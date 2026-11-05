@@ -17,7 +17,7 @@ class SourceFeed(models.Model):
 
     У медиа — по ленте на политическую рубрику. Страница-список — для сайтов без
     пригодной ленты (42tcen.com: RSS пуст, вложенные sitemap запрещены в robots.txt);
-    ссылки на статьи отбираются по collector_config["listing_link_pattern"].
+    ссылки на статьи отбираются по listing_pattern / listing_xpath парсера сайта.
     """
 
     class Kind(models.TextChoices):

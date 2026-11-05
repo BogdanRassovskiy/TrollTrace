@@ -5,14 +5,15 @@ import logging
 
 from celery import shared_task
 from django.core.cache import cache
+from django.db import transaction
 from django.db.models import F, Max, Q
 from django.utils import timezone
 
 from apps.actors.models import Platform, Source
 from apps.documents.models import Document
 
+from . import parsers
 from .collectors import collector_for
-from .extract import extract_article
 from .http import PoliteClient, RobotsDisallowed
 from .models import CollectionRun
 
@@ -51,10 +52,21 @@ def run_collector(source: Source, client: PoliteClient | None = None) -> Collect
         "timeouts": client.stats["timeouts"],
         "redirect_offsite": client.stats["redirect_offsite"],
         "robots_disallowed": client.stats["robots_disallowed"],
+        # Статьи, где парсер сайта не нашёл обязательное поле (этап 3.5).
+        "selectors_missing": stats["selectors_missing"],
     }
     run.status = status
     run.finished_at = timezone.now()
     run.save()
+    if source.platform == Platform.WEB:
+        # Strukturní otisk hned po sběru: změna rozvržení se ukáže do hodiny, ne až ráno.
+        from .monitoring import apply, check_selectors
+
+        try:
+            if (result := check_selectors(source, run.finished_at)) is not None:
+                apply(source, result, run.finished_at)
+        except Exception:  # noqa: BLE001 — сбой проверки не должен ронять запуск сбора
+            logger.exception("Kontrola selektorů %s selhala", source)
     return run
 
 
@@ -124,14 +136,14 @@ def recheck_document(doc: Document, client: PoliteClient) -> str:
         return "deleted"
     if not result.ok:
         return f"http_{result.status}"
-    extracted = extract_article(
-        result.text,
-        result.final_url,
-        text_xpath=(doc.source.collector_config or {}).get("text_xpath", ""),
-    )
+    extracted = parsers.extract(doc.source, result.text, result.final_url, doc.published_at)
     version = doc.record_version(text=extracted.text, title=extracted.title, raw_html=result.text)
     doc.last_checked_at = now
-    doc.save(update_fields=["last_checked_at"])
+    fields = ["last_checked_at"]
+    if extracted.parser:
+        doc.meta = parsers.merge_meta(doc.meta, extracted)
+        fields.append("meta")
+    doc.save(update_fields=fields)
     return "version" if version else "unchanged"
 
 
@@ -216,28 +228,78 @@ def incident_documents(incident):
     )
 
 
-def reextract_document(doc: Document) -> bool:
-    """Повторное извлечение текста из сохранённого HTML (без запроса к сайту).
+def reparse_document(doc: Document, *, apply: bool = True) -> tuple[list[str], list[str]] | None:
+    """Повторный разбор сохранённого HTML парсером источника (без запроса к сайту).
 
-    Новая редакция сохраняется версией и заново проходит обработку. True — текст изменился.
+    Возвращает (изменившиеся поля — text, title, published_at, rubric, language, meta;
+    поля, которые парсер не нашёл) или None, если HTML не сохранён. С apply=False только
+    сравнивает (reparse_archive без --apply).
+    Новый текст сохраняется версией и заново проходит обработку. Текст и заголовок — из
+    последней версии страницы, дата — из первой: ČTK под тем же адресом публикует
+    обновлённую заметку с новым «Vydáno», а документ датируется первой публикацией.
+    Дата меняется, только если парсер нашёл её на странице (дату из ленты он не знает).
     """
     version = doc.versions.order_by("-version").first()
     if version is None or not version.raw_html_compressed:
-        return False
+        return None
     html = version.raw_html
-    extracted = extract_article(
-        html,
-        (doc.meta or {}).get("final_url") or doc.url,
-        text_xpath=(doc.source.collector_config or {}).get("text_xpath", ""),
-    )
-    if not extracted.text or extracted.text.strip() == doc.text.strip():
-        return False
-    if not doc.record_version(text=extracted.text, title=doc.title, raw_html=html):
-        return False
+    url = (doc.meta or {}).get("final_url") or doc.url
+    extracted = parsers.extract(doc.source, html, url, doc.published_at)
+    first = doc.versions.order_by("version").first()
+    dated = extracted
+    if first.pk != version.pk and first.raw_html_compressed:
+        dated = parsers.extract(doc.source, first.raw_html, url, doc.published_at)
+
+    changes = {}
+    if extracted.text and extracted.text.strip() != doc.text.strip():
+        changes["text"] = extracted.text
+    if extracted.title and extracted.title != doc.title:
+        changes["title"] = extracted.title
+    if (
+        dated.date_source == Document.DateSource.PAGE
+        and dated.published_at is not None
+        and (
+            doc.date_source != dated.date_source
+            or doc.published_at is None
+            # секунды и миллисекунды страница то показывает, то нет — это не новая дата
+            or abs(doc.published_at - dated.published_at) >= datetime.timedelta(minutes=1)
+        )
+    ):
+        changes["published_at"] = dated.published_at
+    # Рубрика — только если её не было: у части документов она из ленты, и на её формат
+    # опираются rubrics_in_scope (как и в save_item).
+    if extracted.rubric and not doc.rubric:
+        changes["rubric"] = extracted.rubric[:200]
     if extracted.language and extracted.language != doc.language:
-        doc.language = extracted.language
-        doc.save(update_fields=["language"])
-    return True
+        changes["language"] = extracted.language
+    meta = parsers.merge_meta(doc.meta, extracted) if extracted.parser else doc.meta
+    if meta != doc.meta:
+        changes["meta"] = meta
+    if not apply or not changes:
+        return list(changes), extracted.missing
+
+    from .scope import rubric_in_scope
+
+    with transaction.atomic():
+        title = changes.get("title", doc.title)
+        if "text" in changes:
+            doc.record_version(text=changes["text"], title=title, raw_html=html)
+        doc.title = title
+        if "published_at" in changes:
+            doc.published_at, doc.date_source = changes["published_at"], Document.DateSource.PAGE
+        if "rubric" in changes:
+            doc.rubric = changes["rubric"]
+            doc.in_scope = rubric_in_scope(doc.source, doc.rubric)
+        doc.language = changes.get("language", doc.language)
+        doc.meta = meta
+        doc.save()
+    return list(changes), extracted.missing
+
+
+def reextract_document(doc: Document) -> bool:
+    """Повторное извлечение после инцидента. True — текст изменился (новая версия)."""
+    result = reparse_document(doc)
+    return result is not None and "text" in result[0]
 
 
 def recover_duplicates(doc: Document, client: PoliteClient) -> tuple[int, int]:

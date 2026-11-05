@@ -42,7 +42,7 @@ def page(title: str, body: str) -> str:
 @pytest.fixture
 def source():
     source = Source.objects.create(
-        name="Pravda", layer=Layer.ATTRIBUTED, platform=Platform.WEB,
+        name="Pravda", layer=Layer.ATTRIBUTED, platform=Platform.WEB, parser="example",
         url="https://p.example/", expected_language="cs", min_text_length=300,
     )  # fmt: skip
     actor = Actor.objects.create(name="Pravda", actor_type="media", layer=Layer.ATTRIBUTED)

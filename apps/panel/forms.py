@@ -8,6 +8,7 @@ from django.urls import reverse
 from django.utils.html import format_html
 
 from apps.actors.models import Actor, ActorAccount, Layer, Platform, Source
+from apps.ingestion import parsers
 from apps.narratives.models import Narrative, Topic
 
 from . import actors as service
@@ -133,6 +134,12 @@ class ActorCreateForm(forms.Form):
                 if not ok:
                     self.warnings.append(f"Kontrola dostupnosti: {message}.")
                 data["availability"] = message
+                if data.get("new_source_platform") == Platform.WEB and parsers.guess(url) is None:
+                    # Правило этапа 3.5: у каждого веб-источника свой парсер.
+                    self.warnings.append(
+                        "Pro tento web zatím není parser (apps/ingestion/parsers). Zdroj se "
+                        "založí se sběrem vypnutým; zapněte ho po doplnění parseru."
+                    )
             if not (data.get("new_source_layer") or data.get("layer")):
                 self.add_error("new_source_layer", "Zdroj musí mít vrstvu.")
             if not data.get("new_source_platform"):

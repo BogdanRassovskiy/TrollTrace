@@ -8,7 +8,7 @@ import datetime
 import html as html_lib
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
 import lxml.etree
@@ -34,6 +34,11 @@ class Extracted:
     categories: list[str]
     canonical_url: str
     rubric: str = ""
+    # Заполняют парсеры сайтов (apps.ingestion.parsers); у общего экстрактора пусто.
+    author: str = ""
+    origin_urls: list[str] = field(default_factory=list)
+    parser: str = ""  # «ключ/версия» парсера
+    missing: list[str] = field(default_factory=list)  # обязательные поля, не найденные селекторами
 
 
 def parse_dt(value: str | None) -> datetime.datetime | None:

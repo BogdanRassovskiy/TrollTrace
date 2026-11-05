@@ -4,6 +4,7 @@ import datetime
 
 from django.contrib.postgres.constraints import ExclusionConstraint
 from django.contrib.postgres.fields import DateRangeField, RangeOperators
+from django.core.exceptions import ValidationError
 from django.db import models, transaction
 from django.db.models import F, Func, Q
 from django.db.models.functions import Lower
@@ -65,6 +66,14 @@ class Source(TimeStampedModel):
         blank=True,
         help_text="Např.: max_articles, backfill_pages, term (PSP).",
     )
+    # Правило проекта (этап 3.5): у каждого веб-источника свой парсер —
+    # apps.ingestion.parsers, ключ модуля сайта. Без него веб-источник не собирается.
+    parser = models.CharField(
+        "parser",
+        max_length=40,
+        blank=True,
+        help_text="Parser webu (apps/ingestion/parsers). Povinný pro aktivní webový zdroj.",
+    )
 
     # Атрибуция и внешний рейтинг — ссылки на чужие оценки, не наш вывод.
     attribution_by = models.CharField(
@@ -98,6 +107,23 @@ class Source(TimeStampedModel):
 
     def __str__(self):
         return f"{self.name} ({self.layer})"
+
+    def parser_error(self) -> str:
+        """Почему источник нельзя собирать без своего парсера; пустая строка — можно."""
+        if self.platform != Platform.WEB or not self.is_active:
+            return ""
+        from apps.ingestion.parsers import PARSERS
+
+        if not self.parser:
+            return "Aktivní webový zdroj musí mít vlastní parser (apps/ingestion/parsers)."
+        if self.parser not in PARSERS:
+            return f"Parser „{self.parser}“ neexistuje."
+        return ""
+
+    def clean(self):
+        super().clean()
+        if error := self.parser_error():
+            raise ValidationError({"parser": error})
 
 
 class Actor(TimeStampedModel):

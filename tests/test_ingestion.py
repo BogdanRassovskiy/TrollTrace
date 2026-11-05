@@ -110,6 +110,7 @@ def web_source(**kwargs):
         name="Zprávy",
         layer=Layer.MAINSTREAM,
         platform=Platform.WEB,
+        parser="example",
         url="https://zpravy.example/",
         **kwargs,
     )
@@ -756,12 +757,7 @@ def test_parse_listing_same_host_pattern_and_scheme():
 
 
 def test_listing_feed_collects_with_origin_and_text_language(web):
-    source = web_source(
-        collector_config={
-            "listing_link_pattern": r"^/a/\d+$",
-            "origin_xpath": '//*[@class="source-link"]/@data-source-url',
-        }
-    )
+    source = web_source()  # шаблон ссылок и первоисточник — в парсере «example»
     source.feeds.update(url="https://zpravy.example/", kind=SourceFeed.Kind.LISTING)
     web.add("https://zpravy.example/", '<a href="/a/1">1</a><a href="/o-nas">O nás</a>')
     page = (

@@ -134,6 +134,7 @@ class TestOpenAccess:
                 "name": "Nový název",
                 "layer": source.layer,
                 "platform": source.platform,
+                "parser": source.parser,
                 "url": source.url,
                 "is_active": "on",
                 "expected_language": "cs",

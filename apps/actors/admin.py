@@ -1,3 +1,4 @@
+from django import forms
 from django.contrib import admin
 from django.templatetags.static import static
 from django.utils.html import format_html
@@ -30,9 +31,29 @@ class SourceFeedInline(admin.TabularInline):
     readonly_fields = ["last_success_at", "last_item_count", "last_error"]
 
 
+class SourceForm(forms.ModelForm):
+    """Parser se vybírá ze zaregistrovaných (apps/ingestion/parsers); u nového webu
+    se předvyplní podle domény."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.ingestion import parsers
+
+        self.fields["parser"].widget = forms.Select(
+            choices=[("", "— bez parseru (ne web) —"), *parsers.choices()]
+        )
+        if not self.instance.pk and not self.initial.get("parser"):
+            url = self.data.get("url") or self.initial.get("url") or ""
+            if guessed := parsers.guess(url):
+                self.initial["parser"] = guessed.key
+
+
 @admin.register(Source)
 class SourceAdmin(AuditedModelAdmin):
-    list_display = ["name", "layer", "platform", "url", "is_active", "collect_interval_minutes"]
+    form = SourceForm
+    list_display = [
+        "name", "layer", "platform", "parser", "url", "is_active", "collect_interval_minutes",
+    ]  # fmt: skip
     list_filter = ["layer", "platform", "is_active"]
     search_fields = ["name", "url", "feeds__url"]
     inlines = [SourceFeedInline]

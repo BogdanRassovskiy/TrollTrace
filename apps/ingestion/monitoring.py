@@ -23,8 +23,7 @@ from apps.panel import telegram
 from apps.panel.defaults import get_setting
 from apps.panel.models import Notification
 
-from . import quality
-from .extract import extract_article
+from . import parsers, quality
 from .http import PoliteClient
 from .models import GoldenPage, Level, SourceHealthCheck, SourceIncident
 
@@ -251,6 +250,50 @@ def check_quality(source: Source, now) -> CheckResult:
     return result
 
 
+FIELD_LABELS = {"title": "titulek", "text": "text", "published_at": "datum", "html": "HTML"}
+SELECTOR_MIN_DOCS = 2  # jeden článek bez pole bývá jiný typ stránky (galerie, přímý přenos)
+
+
+def check_selectors(source: Source, now) -> CheckResult | None:
+    """Strukturní otisk (этап 3.5): парсер сайта не нашёл обязательное поле — вёрстка
+    сменилась. Текст при этом взят общим экстрактором, но документ помечен selectors_ok=False."""
+    if source.platform != Platform.WEB:
+        return None
+    result = CheckResult(CheckType.SELECTORS, set())
+    if error := source.parser_error():
+        result.covers.add(Type.SELECTOR_MISSING)
+        result.signals.append(Signal(Type.SELECTOR_MISSING, Level.CRITICAL, error))
+        return result
+    recent = Document.objects.filter(
+        source=source,
+        collected_at__gte=now - datetime.timedelta(days=1),
+        meta__has_key="parser",
+    ).order_by("-collected_at")
+    missing = recent.filter(meta__has_key="selectors_missing")
+    n, m = recent.count(), missing.count()
+    fields: dict[str, int] = {}
+    for meta in missing.values_list("meta", flat=True):
+        for name in meta.get("selectors_missing") or []:
+            fields[name] = fields.get(name, 0) + 1
+    result.metrics = {"n": n, "missing": m, "fields": fields}
+    if n == 0:
+        result.details = "Za den žádné dokumenty z parseru — otisk se nehodnotí."
+        return result
+    result.covers.add(Type.SELECTOR_MISSING)
+    if m >= SELECTOR_MIN_DOCS:
+        share = m / n
+        level = Level.CRITICAL if n >= MIN_DOCS and share >= SHARE_ALERT else Level.WARNING
+        what = ", ".join(f"{FIELD_LABELS.get(k, k)} {v}×" for k, v in sorted(fields.items()))
+        result.signals.append(
+            Signal(Type.SELECTOR_MISSING, level,
+                   f"Parser „{source.parser}“ nenašel povinné pole u {m} z {n} dok. za den "
+                   f"({share:.0%}; {what}) — pravděpodobně se změnilo rozvržení stránky. "
+                   "Text byl vzat obecným extraktorem.",
+                   _examples(missing))
+        )  # fmt: skip
+    return result
+
+
 UNAVAILABLE = re.compile(r"není dostupný|vypnutý náhled")
 # Исключения Python и БД — поломка у нас (код, миграции), а не у источника.
 INTERNAL = re.compile(
@@ -348,9 +391,7 @@ def _normalize(text: str) -> str:
 
 def compare_golden(page: GoldenPage, html: str) -> list[str]:
     """Расхождения извлечения с эталоном; пустой список — совпадает."""
-    extracted = extract_article(
-        html, page.url, text_xpath=(page.source.collector_config or {}).get("text_xpath", "")
-    )
+    extracted = parsers.extract(page.source, html, page.url)
     problems = []
     if _normalize(extracted.title) != _normalize(page.expected_title):
         problems.append(f"titulek „{extracted.title[:80]}»")
@@ -491,9 +532,8 @@ def apply(source: Source, result: CheckResult, now) -> None:
 
 def monitor_source(source: Source, now=None) -> list[CheckResult]:
     now = now or timezone.now()
-    results = [
-        check(source, now) for check in (check_volume, check_extraction, check_quality, check_http)
-    ]
+    checks = (check_volume, check_extraction, check_quality, check_http, check_selectors)
+    results = [r for r in (check(source, now) for check in checks) if r is not None]
     for result in results:
         apply(source, result, now)
     return results

@@ -19,6 +19,7 @@ class SourceFactory(factory.django.DjangoModelFactory):
     name = factory.Sequence(lambda n: f"Zdroj {n}")
     layer = Layer.ALTERNATIVE
     platform = Platform.WEB
+    parser = "example"
     url = factory.Sequence(lambda n: f"https://source-{n}.example/")
 
 

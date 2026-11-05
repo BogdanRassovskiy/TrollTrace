@@ -19,6 +19,7 @@ from apps.documents.models import Document
 from apps.documents.utils import normalize_url, text_hash
 
 from . import quality
+from .parsers import PARSER_META_KEYS
 from .scope import rubric_in_scope
 
 MAX_DUPLICATE_URLS = 10
@@ -63,6 +64,10 @@ def save_item(source: Source, actor: Actor, item: Item) -> tuple[Outcome, Docume
             if item.engagement:
                 doc.engagement = item.engagement
             fields = ["last_checked_at", "engagement"]
+            if item.meta.get("parser"):  # результат парсера сайта — по последнему извлечению
+                kept = {k: v for k, v in doc.meta.items() if k not in PARSER_META_KEYS}
+                doc.meta = kept | {k: v for k, v in item.meta.items() if k in PARSER_META_KEYS}
+                fields.append("meta")
             if item.rubric and not doc.rubric:
                 doc.rubric = item.rubric[:200]
                 doc.in_scope = rubric_in_scope(source, doc.rubric)

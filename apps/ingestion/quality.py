@@ -16,7 +16,9 @@ from apps.actors.models import Platform
 from apps.documents.models import Document, DocumentQuality
 
 BOILERPLATE_MIN_DUPLICATES = 2
-RULES_VERSION = "q2"  # q2: штраф только за инциденты, влияющие на извлечённый текст
+# q2: штраф только за инциденты, влияющие на извлечённый текст;
+# q3: selectors_ok по результату парсера сайта (этап 3.5).
+RULES_VERSION = "q3"
 
 EMPTY_TEXT = 20  # символов: короче — текста нет (у статей)
 EMPTY_TEXT_SHORT_FORM = 3  # реплики в стенограммах и посты Telegram бывают в одно слово
@@ -76,6 +78,15 @@ def _max_date_lag(document: Document) -> datetime.timedelta | None:
     return datetime.timedelta(days=int(config.get("max_date_lag_days", DEFAULT_MAX_DATE_LAG_DAYS)))
 
 
+def selectors_ok(document: Document) -> bool | None:
+    """Нашёл ли парсер сайта все обязательные поля. None — документ извлечён без парсера
+    (не веб или собран до этапа 3.5)."""
+    meta = document.meta or {}
+    if not meta.get("parser"):
+        return None
+    return not meta.get("selectors_missing")
+
+
 def compute_flags(document: Document, raw_html: str = "", incident_level: str = "") -> dict:
     source = document.source
     text, title = document.text.strip(), document.title.strip()
@@ -114,7 +125,7 @@ def compute_flags(document: Document, raw_html: str = "", incident_level: str = 
         "boilerplate_dup": len((document.meta or {}).get("duplicate_urls") or [])
         >= BOILERPLATE_MIN_DUPLICATES,
         "blocked_page": blocked,
-        "selectors_ok": None,  # собственных селекторов пока нет — только trafilatura
+        "selectors_ok": selectors_ok(document),
         "extraction_ratio_ok": ratio_ok,
         "incident_level": incident_level,
     }

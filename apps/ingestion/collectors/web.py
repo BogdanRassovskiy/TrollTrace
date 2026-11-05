@@ -1,7 +1,9 @@
-"""Сайты (слои A, B, D): RSS/Atom или sitemap → страница статьи → текст (trafilatura)."""
+"""Сайты (слои A, B, D, I): RSS/Atom, sitemap или страница-список → страница статьи →
+парсер сайта (apps.ingestion.parsers, этап 3.5). Веб-источник без своего парсера не собирается."""
 
 import calendar
 import datetime
+import logging
 import re
 import xml.etree.ElementTree as ET
 from urllib.parse import urljoin, urlsplit
@@ -12,12 +14,15 @@ from django.utils import timezone
 
 from apps.documents.models import Document
 from apps.documents.utils import normalize_url
-from apps.ingestion.extract import PRAGUE, extract_article, parse_dt
+from apps.ingestion import parsers
+from apps.ingestion.extract import parse_dt
 from apps.ingestion.http import RobotsDisallowed
 from apps.ingestion.models import SourceFeed
 from apps.ingestion.store import Item
 
 from .base import Collector
+
+logger = logging.getLogger(__name__)
 
 SITEMAP_NS = {
     "sm": "http://www.sitemaps.org/schemas/sitemap/0.9",
@@ -75,38 +80,6 @@ def parse_sitemap(content: bytes, rubric: str = "") -> tuple[list[FeedEntry], li
     return entries, []
 
 
-def page_values(html: str, xpath: str) -> list[str]:
-    try:
-        values = lxml.html.fromstring(html).xpath(xpath)
-    except (ValueError, lxml.etree.ParserError, lxml.etree.XPathError):
-        return []
-    result = []
-    for value in values:
-        text = str(value if isinstance(value, str) else value.text_content()).strip()
-        if text and text not in result:
-            result.append(text)
-    return result
-
-
-def page_date(html: str, pattern: str) -> datetime.datetime | None:
-    """Дата по шаблону сайта (группы day, month, year; hour, minute — по желанию), время — пражское.
-
-    Для страниц, где дата есть только в тексте («Publikováno: 3.6.2025» у BIS), и htmldate
-    берёт вместо неё что-то другое.
-    """
-    match = re.search(pattern, html)
-    if match is None:
-        return None
-    parts = match.groupdict()
-    try:
-        return datetime.datetime(
-            int(parts["year"]), int(parts["month"]), int(parts["day"]),
-            int(parts.get("hour") or 0), int(parts.get("minute") or 0), tzinfo=PRAGUE,
-        )  # fmt: skip
-    except (KeyError, ValueError):
-        return None
-
-
 def parse_listing(
     content: bytes, base_url: str, pattern: str = "", rubric: str = "", xpath: str = ""
 ) -> list[FeedEntry]:
@@ -134,14 +107,14 @@ def parse_listing(
 
 class WebCollector(Collector):
     """Настройки (collector_config): max_articles — сколько новых статей за запуск (100),
-    max_child_sitemaps — сколько свежих вложенных sitemap читать из индекса (2),
-    listing_link_pattern — регулярное выражение пути статьи для лент типа «listing»,
-    listing_link_xpath — XPath к атрибутам href ссылок на статьи (по умолчанию все ссылки),
-    date_regex — шаблон даты на странице, если htmldate её не находит (см. page_date),
-    origin_xpath — XPath к адресам первоисточника на странице (у агрегаторов сети Pravda:
-    Telegram-канал, откуда взят текст); сохраняются в meta["origin_urls"],
-    text_xpath — XPath к телу статьи, если trafilatura берёт не тот блок (без него
-    используется schema.org articleBody, когда текст trafilatura с ним не совпадает)."""
+    max_child_sitemaps — сколько свежих вложенных sitemap читать из индекса (2).
+
+    Всё, что зависит от вёрстки сайта (тело статьи, дата, автор, первоисточник, ссылки на
+    странице-списке), задаёт парсер источника (Source.parser), а не настройки."""
+
+    @property
+    def parser(self):
+        return parsers.parser_for(self.source)
 
     def notify_feed_disabled(self, feed: SourceFeed) -> None:
         from apps.ingestion.monitoring import notify
@@ -157,6 +130,10 @@ class WebCollector(Collector):
         )
 
     def collect(self):
+        if error := self.source.parser_error():
+            self.error(error)
+            logger.error("%s: %s", self.source, error)
+            return
         account = (
             self.active_accounts().filter(account_id="").first() or self.active_accounts().first()
         )
@@ -206,9 +183,9 @@ class WebCollector(Collector):
                     entries = parse_listing(
                         result.content,
                         result.final_url,
-                        self.config.get("listing_link_pattern", ""),
+                        self.parser.listing_pattern,
                         feed.rubric,
-                        self.config.get("listing_link_xpath", ""),
+                        self.parser.listing_xpath,
                     )
                 else:
                     entries = parse_rss(result.content, feed.rubric)
@@ -252,6 +229,9 @@ class WebCollector(Collector):
         return entries
 
     def _collect_article(self, actor, entry: FeedEntry):
+        if self.parser is None:
+            self.error(self.source.parser_error() or "Zdroj nemá parser.")
+            return
         try:
             result = self.client.get(entry.url)
         except RobotsDisallowed:
@@ -264,21 +244,11 @@ class WebCollector(Collector):
             self.error(f"{entry.url}: HTTP {result.status}")
             return
         html = result.text
-        extracted = extract_article(
-            html,
-            result.final_url,
-            feed_published_at=entry.published_at,
-            text_xpath=self.config.get("text_xpath", ""),
-        )
-        if self.config.get("date_regex"):
-            found = page_date(html, self.config["date_regex"])
-            if found is not None:
-                extracted.published_at, extracted.date_source = found, Document.DateSource.PAGE
+        extracted = self.parser.parse(html, result.final_url, entry.published_at)
+        if extracted.missing:
+            self.stats["selectors_missing"] += 1
         meta = {"final_url": result.final_url} if result.final_url != entry.url else {}
-        if self.config.get("origin_xpath"):
-            origins = page_values(html, self.config["origin_xpath"])
-            if origins:
-                meta["origin_urls"] = origins
+        meta = parsers.merge_meta(meta, extracted)
         self.save(
             actor,
             Item(

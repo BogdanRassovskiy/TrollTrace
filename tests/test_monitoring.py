@@ -29,7 +29,8 @@ NOW = timezone.now()
 @pytest.fixture
 def source():
     source = Source.objects.create(
-        name="Zprávy", layer=Layer.MAINSTREAM, platform=Platform.WEB, url="https://z.example/",
+        name="Zprávy", layer=Layer.MAINSTREAM, platform=Platform.WEB, parser="example",
+        url="https://z.example/",
         expected_language="cs", min_text_length=300,
     )  # fmt: skip
     actor = Actor.objects.create(name="Zprávy", actor_type="media", layer=Layer.MAINSTREAM)

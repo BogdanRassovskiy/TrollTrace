@@ -20,6 +20,7 @@ NOTE = "import_sources"
 SOURCE_FIELDS = {
     "layer",
     "platform",
+    "parser",
     "collect_interval_minutes",
     "request_delay_seconds",
     "collector_config",
@@ -73,6 +74,10 @@ class Command(BaseCommand):
         for spec in data["sources"]:
             source = Source.objects.filter(url=spec["url"]).first()
             fields = {k: v for k, v in spec.items() if k in SOURCE_FIELDS}
+            # Правило этапа 3.5: веб-источник без своего парсера не подключается.
+            candidate = Source(name=spec["name"], url=spec["url"], **fields)
+            if error := candidate.parser_error():
+                raise CommandError(f"{spec['name']}: {error}")
             if source is None:
                 source = Source.objects.create(name=spec["name"], url=spec["url"], **fields)
                 audit.log_create(None, source, note=NOTE)

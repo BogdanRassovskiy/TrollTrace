@@ -5,6 +5,7 @@
       "url": "https://ct24.ceskatelevize.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "ct24",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -34,6 +35,7 @@
       "url": "https://www.irozhlas.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "irozhlas",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -61,6 +63,7 @@
       "url": "https://www.seznamzpravy.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "seznamzpravy",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -96,6 +99,7 @@
       "url": "https://www.idnes.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "idnes",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -121,6 +125,7 @@
       "url": "https://www.novinky.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "novinky",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -153,6 +158,7 @@
       "url": "https://www.blesk.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "blesk",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "feeds": [
@@ -184,6 +190,7 @@
       "url": "https://www.ceskenoviny.cz/",
       "layer": "D",
       "platform": "web",
+      "parser": "ctk",
       "collect_interval_minutes": 30,
       "request_delay_seconds": 3,
       "notes": "Zpravodajská agentura jako událostní základna vrstvy D (README §2).",

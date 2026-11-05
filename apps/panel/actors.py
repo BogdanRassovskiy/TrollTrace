@@ -15,6 +15,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from apps.actors.models import Actor, ActorAccount, Layer, Platform, Source
+from apps.ingestion import parsers
 from apps.ingestion.http import PoliteClient, RobotsDisallowed
 
 from . import audit
@@ -199,13 +200,21 @@ def create_actor(request, draft: ActorDraft, *, note: str = "", queue: bool = Tr
         source = draft.source
         new_sources = []
         if draft.new_source is not None:
+            parser = ""
+            if draft.new_source.platform == Platform.WEB:
+                guessed = parsers.guess(draft.new_source.url)
+                parser = guessed.key if guessed else ""
             source = Source.objects.create(
                 url=draft.new_source.url,
                 name=draft.new_source.name or draft.name,
                 platform=draft.new_source.platform,
                 layer=draft.new_source.layer or draft.layer,
+                parser=parser,
+                # веб без своего парсера не собирается (этап 3.5): сбор включат после парсера
+                is_active=draft.new_source.platform != Platform.WEB or bool(parser),
             )
-            new_sources.append(source)
+            if source.is_active:
+                new_sources.append(source)
             audit.log_create(request, source, note=note)
         if source is not None:
             account = ActorAccount.objects.create(

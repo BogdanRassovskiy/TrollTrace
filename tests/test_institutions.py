@@ -2,8 +2,6 @@
 
 import datetime
 import io
-import json
-from pathlib import Path
 
 import pytest
 from django.core.exceptions import ValidationError
@@ -11,8 +9,9 @@ from django.core.management import call_command
 from django.db import IntegrityError, transaction
 
 from apps.actors.models import ANALYSIS_LAYERS, Actor, Layer, Source
-from apps.ingestion.collectors.web import page_date, parse_listing
+from apps.ingestion.collectors.web import parse_listing
 from apps.ingestion.extract import PRAGUE
+from apps.ingestion.parsers import PARSERS
 from apps.institutions.models import Institution, InstitutionalEvent
 from apps.narratives.models import Narrative, Topic
 from apps.panel.defaults import get_setting
@@ -103,11 +102,10 @@ def test_import_security_sources_and_institutions():
 
 
 def test_bis_date_from_text_pattern():
-    sources = json.loads(Path("apps/ingestion/sources/security.json").read_text())["sources"]
-    pattern = sources[0]["collector_config"]["date_regex"]
+    bis = PARSERS["bis"]
     html = "<p><strong>Publikováno: 3.6.2025</strong></p>"
-    assert page_date(html, pattern) == datetime.datetime(2025, 6, 3, tzinfo=PRAGUE)
-    assert page_date("<p>bez data</p>", pattern) is None
+    assert bis.parse_date(html) == datetime.datetime(2025, 6, 3, tzinfo=PRAGUE)
+    assert bis.parse_date("<p>bez data</p>") is None
 
 
 def test_listing_by_xpath_without_common_prefix():
