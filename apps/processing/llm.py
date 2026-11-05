@@ -40,8 +40,12 @@ def is_configured() -> bool:
 
 
 def complete_json(model: str, system: str, user: str, schema: dict, *,
-                  client: httpx.Client | None = None) -> Completion:  # fmt: skip
-    """Один запрос со строгой JSON-схемой ответа; повтор при 429/5xx и сетевых ошибках."""
+                  client: httpx.Client | None = None,
+                  max_tokens: int | None = None) -> Completion:  # fmt: skip
+    """Один запрос со строгой JSON-схемой ответа; повтор при 429/5xx и сетевых ошибках.
+
+    max_tokens — потолок ответа: без него OpenRouter резервирует под ответ максимум модели
+    и при малом остатке кредитов отказывает (402), даже если ответ короткий."""
     if not is_configured():
         raise LLMError("Chybí OPENROUTER_API_KEY.")
     payload = {
@@ -55,6 +59,8 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
         "provider": {"zdr": True, "data_collection": "deny"},
         "usage": {"include": True},
     }
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
     headers = {
         "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
         "X-Title": "TrollTrace (research, UJEP)",  # hlavička musí být ASCII

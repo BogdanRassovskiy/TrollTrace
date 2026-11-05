@@ -53,17 +53,52 @@ class NarrativeKind(models.TextChoices):
     THEME = "theme", "Téma vlivu (ne zformulovaný narativ)"
 
 
+class NarrativeLevel(models.IntegerChoices):
+    """Уровни строгого дерева под темой: nadnarativ → narativ → podnarativ (README §3)."""
+
+    META = 1, "Nadnarativ"
+    NARRATIVE = 2, "Narativ"
+    SUB = 3, "Podnarativ"
+
+
 class Narrative(VersionedModel):
-    """Нарратив кодбука. Любое изменение определения создаёт новую NarrativeVersion."""
+    """Нарратив кодбука. Любое изменение определения создаёт новую NarrativeVersion.
+
+    Кодбук — строгое дерево: у узла не больше одного родителя уровнем выше, в той же теме;
+    глубина веток разная (нарратив может быть корнем, пока для него нет nadnarativu).
+    Перенос узла в другую ветку — тоже новая версия, но разметку он не трогает: доли верхних
+    уровней считаются сложением поддерева.
+    """
 
     VERSIONED_FIELDS = (
-        "topic", "kind", "name", "definition", "examples", "counter_examples", "stance_guide",
-        "cues", "attribution", "status",
+        "topic", "parent", "level", "kind", "name", "definition", "examples", "counter_examples",
+        "stance_guide", "cues", "attribution", "status",
     )  # fmt: skip
 
     code = models.SlugField("ID", max_length=50, unique=True)
     topic = models.ForeignKey(
         Topic, verbose_name="téma", on_delete=models.PROTECT, related_name="narratives"
+    )
+    parent = models.ForeignKey(
+        "self",
+        verbose_name="nadřazený uzel",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="children",
+        help_text="O úroveň výš ve stejném tématu. Prázdné — kořen větve.",
+    )
+    level = models.PositiveSmallIntegerField(
+        "úroveň", choices=NarrativeLevel.choices, default=NarrativeLevel.NARRATIVE
+    )
+    merged_into = models.ForeignKey(
+        "self",
+        verbose_name="sloučen do",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="merged",
+        help_text="Duplicitní narativ: štítky převedeny na tento narativ, sám je v archivu.",
     )
     name = models.CharField("stručná formulace", max_length=300)
     definition = models.TextField("definice")
@@ -122,9 +157,49 @@ class Narrative(VersionedModel):
         verbose_name = "narativ"
         verbose_name_plural = "narativy"
         ordering = ["code"]
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(level__gte=1, level__lte=3), name="narrative_level_1_3"
+            ),
+            models.CheckConstraint(
+                condition=~Q(level=1) | Q(parent__isnull=True), name="narrative_meta_is_root"
+            ),
+        ]
 
     def __str__(self):
         return f"{self.code}: {self.name}"
+
+    def clean(self):
+        super().clean()
+        errors = {}
+        if self.parent_id is not None:
+            parent = self.parent
+            if parent.pk == self.pk:
+                errors["parent"] = "Narativ nemůže být nadřazený sám sobě."
+            elif parent.level != self.level - 1:
+                below = NarrativeLevel(parent.level + 1).label if parent.level < 3 else "—"
+                errors["parent"] = (
+                    f"Nadřazený uzel musí být o úroveň výš: pod „{parent.get_level_display()}“ "
+                    f"patří „{below}“."
+                )
+            elif parent.topic_id != self.topic_id:
+                errors["parent"] = "Nadřazený uzel musí být ve stejném tématu."
+            elif parent.status == NarrativeStatus.ARCHIVED:
+                errors["parent"] = "Nadřazený uzel je v archivu."
+        if self.pk:
+            children = self.children.exclude(status=NarrativeStatus.ARCHIVED)
+            if children.exclude(level=self.level + 1).exists():
+                errors["level"] = "Podřízené uzly mají jinou úroveň — nejdřív je přesuňte."
+            if children.exclude(topic_id=self.topic_id).exists() or (
+                self.topic_id and children.exists() and self._topic_changed()
+            ):
+                errors["topic"] = "Uzel má podřízené: téma měňte u celé větve (přesunem)."
+        if errors:
+            raise ValidationError(errors)
+
+    def _topic_changed(self) -> bool:
+        stored = type(self).objects.filter(pk=self.pk).values_list("topic_id", flat=True).first()
+        return stored is not None and stored != self.topic_id
 
     def create_version_record(self, snapshot, *, changed_by, change_note):
         NarrativeVersion.objects.create(
@@ -148,6 +223,17 @@ class NarrativeVersion(VersionRecord):
     )
     topic = models.ForeignKey(
         Topic, verbose_name="téma", on_delete=models.PROTECT, related_name="+"
+    )
+    parent = models.ForeignKey(
+        Narrative,
+        verbose_name="nadřazený uzel",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    level = models.PositiveSmallIntegerField(
+        "úroveň", choices=NarrativeLevel.choices, default=NarrativeLevel.NARRATIVE
     )
     name = models.CharField("stručná formulace", max_length=300)
     definition = models.TextField("definice")
@@ -503,3 +589,43 @@ class NovelClaim(models.Model):
 
     def __str__(self):
         return self.claim[:80]
+
+
+class TreeDraft(models.Model):
+    """Návrh stromu kódové knihy pro jedno téma od modelu; schvaluje výzkumník (README §3).
+
+    `proposal` = {"groups": [{key, name, definition, from_existing, stance_guide}],
+    "assignments": [{code, parent, reason}]}; parent je klíč skupiny (narativ pod
+    nadnarativem), kód narativu (podnarativ) nebo "" (zůstává kořenem).
+    """
+
+    class Status(models.TextChoices):
+        NEW = "new", "Čeká na rozhodnutí"
+        APPLIED = "applied", "Použit"
+        REJECTED = "rejected", "Zamítnut"
+
+    topic = models.ForeignKey(
+        Topic, verbose_name="téma", on_delete=models.CASCADE, related_name="tree_drafts"
+    )
+    proposal = models.JSONField("návrh", default=dict)
+    model_name = models.CharField("model", max_length=100, blank=True)
+    cost_usd = models.FloatField("cena (USD)", null=True, blank=True)
+    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.NEW)
+    created_at = models.DateTimeField("vytvořen", auto_now_add=True)
+    decided_at = models.DateTimeField("rozhodnuto", null=True, blank=True)
+    decided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="rozhodl",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+
+    class Meta:
+        verbose_name = "návrh stromu"
+        verbose_name_plural = "návrhy stromu"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.topic}: {self.get_status_display()} ({self.created_at:%Y-%m-%d})"

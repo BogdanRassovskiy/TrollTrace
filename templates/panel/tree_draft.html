@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Návrh stromu — {{ draft.topic.name }} — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="muted small"><a href="{% url 'panel:tree' %}">← Strom kódové knihy</a></p>
+  <h1>Návrh stromu: {{ draft.topic.name }}</h1>
+  <p class="muted">
+    Návrh č. {{ draft.pk }} · {{ draft.created_at|date:"j. n. Y H:i" }} · model {{ draft.model_name|default:"—" }}{% if draft.cost_usd %} · {{ draft.cost_usd|floatformat:4 }} USD{% endif %}
+    · {{ draft.get_status_display }}
+  </p>
+
+  {% if errors %}
+    <ul class="messages">{% for e in errors %}<li class="msg msg-error">{{ e }}</li>{% endfor %}</ul>
+  {% endif %}
+
+  <form method="post">{% csrf_token %}
+    <h2>Nadnarativy</h2>
+    <p class="muted small">Nadnarativ je samo tvrzení (ne téma). Nepřijatý nadnarativ se nevytvoří; narativy pod ním přeřaďte.</p>
+    {% for g in groups %}
+      <section class="card">
+        <label><input type="checkbox" name="accept-{{ g.key }}" value="on" {% if g.accepted %}checked{% endif %}> přijmout</label>
+        {% if g.existing %}
+          <p><strong>{{ g.existing.name }}</strong> <span class="muted small">stávající narativ {{ g.existing.code }} se povýší na nadnarativ</span></p>
+          <input type="hidden" name="name-{{ g.key }}" value="{{ g.name }}">
+          <input type="hidden" name="definition-{{ g.key }}" value="{{ g.definition }}">
+        {% else %}
+          <label class="block">Název<input type="text" name="name-{{ g.key }}" value="{{ g.name }}" maxlength="300"></label>
+          <label class="block">Definice<textarea name="definition-{{ g.key }}" rows="2">{{ g.definition }}</textarea></label>
+          {% if g.stance_guide %}
+            <details class="small"><summary>Vodítko k postojům</summary>
+              <dl class="guide">{% for key, text in g.stance_guide.items %}<dt>{% if key == "pro" %}Pro{% elif key == "contra" %}Proti{% elif key == "neutral" %}Neutrálně{% else %}Není přítomen{% endif %}</dt><dd>{{ text }}</dd>{% endfor %}</dl>
+            </details>
+          {% endif %}
+        {% endif %}
+      </section>
+    {% endfor %}
+
+    <h2>Zařazení narativů</h2>
+    <div class="table-wrap card">
+      <table class="table">
+        <thead><tr><th>Narativ</th><th>Zařadit pod</th><th>Zdůvodnění modelu</th></tr></thead>
+        <tbody>
+          {% for r in rows %}
+            <tr>
+              <td><a href="{% url 'panel:narrative_history' r.node.code %}">{{ r.node.name }}</a>
+                <div class="muted small">{{ r.node.code }} · nyní {{ r.node.get_level_display|lower }}{% if r.node.parent %} pod „{{ r.node.parent.name }}“{% endif %}</div></td>
+              <td><select name="parent-{{ r.node.code }}" aria-label="Zařadit pod">
+                {% for value, label in choices %}{% if value != r.node.code %}<option value="{{ value }}" {% if value == r.parent %}selected{% endif %}>{{ label|truncatechars:90 }}</option>{% endif %}{% endfor %}
+              </select></td>
+              <td class="small muted">{{ r.reason }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% if draft.status == "new" %}
+      <div class="actions">
+        <button type="submit" name="action" value="apply" class="button">Použít strom</button>
+        <button type="submit" name="action" value="reject" class="link-button">Zamítnout návrh</button>
+      </div>
+    {% endif %}
+  </form>
+{% endblock %}

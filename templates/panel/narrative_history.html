@@ -4,9 +4,11 @@
 
 {% block content %}
   {% include "panel/_nav.html" %}
-  <p class="crumbs"><a href="{% url 'panel:codebook' %}">Kódová kniha</a> /</p>
+  <p class="crumbs"><a href="{% url 'panel:codebook' %}">Kódová kniha</a> / {{ narrative.topic }} /
+    {% for p in path %}<a href="{% url 'panel:narrative_history' p.code %}">{{ p.name|truncatechars:60 }}</a> / {% endfor %}</p>
   <h1>{{ narrative.name }}</h1>
-  <p class="muted">{{ narrative.code }} · {{ narrative.topic }} · {{ narrative.get_status_display }} · aktuální verze v{{ narrative.current_version }}
+  <p class="muted">{{ narrative.code }} · {{ narrative.get_level_display }} · {{ narrative.get_status_display }} · aktuální verze v{{ narrative.current_version }}
+    {% if narrative.merged_into %}· sloučen do <a href="{% url 'panel:narrative_history' narrative.merged_into.code %}">{{ narrative.merged_into.name }}</a>{% endif %}
     · <a href="{% url 'panel:narrative_edit' narrative.code %}">upravit</a>
     {% if narrative.status != "archived" %}· <a href="{% url 'dashboard:narrative' narrative.code %}">karta v pracovní části</a>{% endif %}</p>
 
@@ -17,6 +19,26 @@
       <span class="muted small">Zpětné anotování archivu podle verze v{{ narrative.current_version }}: kandidáty podle podobnosti posoudí model. Spouští se jen ručně — stojí čas i peníze.</span>
     </form>
     {% for j in jobs %}<p class="small muted">Úloha #{{ j.pk }} ({{ j.params.version|default:"?" }}): {{ j.get_status_display }}{% if j.message %} — {{ j.message }}{% endif %}</p>{% endfor %}
+  {% endif %}
+
+  {% if children %}
+    <h2>Podřízené uzly</h2>
+    <ul class="plain">{% for c in children %}<li><a href="{% url 'panel:narrative_history' c.code %}">{{ c.name }}</a> <span class="muted small">{{ c.get_level_display }} · {{ c.code }}</span></li>{% endfor %}</ul>
+  {% endif %}
+
+  {% if narrative.status != "archived" and merge_targets %}
+    <details class="card">
+      <summary>Sloučit jako duplikát</summary>
+      <form method="post" class="filters">{% csrf_token %}
+        <input type="hidden" name="action" value="merge">
+        <label class="small">Sloučit do
+          <select name="keeper">{% for t in merge_targets %}<option value="{{ t.code }}">{{ t.get_level_display }}: {{ t.name|truncatechars:90 }}</option>{% endfor %}</select>
+        </label>
+        <label class="small">Komentář <input type="text" name="note" placeholder="Proč jde o duplikát"></label>
+        <button class="button" type="submit">Sloučit</button>
+      </form>
+      <p class="muted small">Štítky se převedou na vybraný narativ (kde ještě nejsou), podřízené uzly přejdou pod něj a tento narativ se archivuje. Historie zůstává.</p>
+    </details>
   {% endif %}
 
   <h2>Verze</h2>

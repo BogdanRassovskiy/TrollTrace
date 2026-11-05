@@ -6,7 +6,8 @@
   {% include "panel/_nav.html" %}
   <h1>Kódová kniha</h1>
   <p class="muted">
-    Témata a narativy. Každá změna definice narativu vytvoří novou verzi; štítky odkazují na verzi,
+    Témata a strom narativů (nadnarativ → narativ → podnarativ). Každá změna definice nebo
+    zařazení narativu vytvoří novou verzi; štítky odkazují na verzi,
     podle které vznikly, takže historie anotace zůstává dohledatelná. Nové verze se použijí pro nové
     dokumenty, archiv se dohledává jen ručně (tlačítko u narativu).
     {% if candidates %}<a href="{% url 'panel:candidates' %}">Kandidáti na narativ čekající na rozhodnutí: {{ candidates }}</a>.{% endif %}
@@ -14,6 +15,7 @@
   <div class="actions">
     <a class="button" href="{% url 'panel:narrative_create' %}">Nový narativ</a>
     <a class="button" href="{% url 'panel:topic_create' %}">Nové téma</a>
+    <a class="button" href="{% url 'panel:tree' %}">Strom a návrhy seskupení</a>
   </div>
 
   {% for topic, narratives in topics %}
@@ -21,18 +23,10 @@
       <h2>{{ topic.name }} <a class="small" href="{% url 'panel:topic_edit' topic.pk %}">upravit téma</a></h2>
       {% if topic.description %}<p class="muted small">{{ topic.description }}</p>{% endif %}
       <table class="table">
-        <thead><tr><th>Narativ</th><th>Stav</th><th>Verze</th><th>Platné štítky</th><th></th></tr></thead>
+        <thead><tr><th>Uzel</th><th>Úroveň</th><th>Stav</th><th>Verze</th><th>Platné štítky</th><th></th></tr></thead>
         <tbody>
-          {% for n in narratives %}
-            <tr>
-              <td><a href="{% url 'panel:narrative_history' n.code %}">{{ n.name }}</a>
-                <div class="muted small">{{ n.code }} · {{ n.get_kind_display }}{% if n.discovered %} · navržen automaticky{% endif %}</div></td>
-              <td>{% if n.status == "active" %}{{ n.get_status_display }}{% else %}<span class="badge badge-warn">{{ n.get_status_display }}</span>{% endif %}</td>
-              <td>v{{ n.current_version }}</td>
-              <td>{{ n.n_labels }}</td>
-              <td class="nowrap"><a href="{% url 'panel:narrative_edit' n.code %}">upravit</a></td>
-            </tr>
-          {% empty %}<tr><td colspan="5" class="muted">Téma zatím nemá narativy.</td></tr>{% endfor %}
+          {% include "panel/_tree_rows.html" with rows=narratives show_labels=True %}
+          {% if not narratives %}<tr><td colspan="6" class="muted">Téma zatím nemá narativy.</td></tr>{% endif %}
         </tbody>
       </table>
     </section>

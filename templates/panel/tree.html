@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Strom kódové knihy — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="muted small"><a href="{% url 'panel:codebook' %}">← Kódová kniha</a></p>
+  <h1>Strom kódové knihy</h1>
+  <p class="muted">
+    Pod každým tématem je strom: nadnarativ → narativ → podnarativ. Anotuje se nejkonkrétnější
+    uzel, vyšší úrovně se počítají součtem větve (dokument v uzlu jednou). Model navrhne
+    seskupení narativů tématu, vy ho upravíte a použijete; každý přesun je nová verze kódové
+    knihy, štítky dokumentů se nemění.
+  </p>
+
+  {% for t in topics %}
+    <section class="card">
+      <h2>{{ t.topic.name }}</h2>
+      {% if t.drafts %}
+        <p>Čekající návrh{{ t.drafts|length|pluralize:"y" }}:
+          {% for d in t.drafts %}<a href="{% url 'panel:tree_draft' d.pk %}">č. {{ d.pk }} ({{ d.created_at|date:"j. n. H:i" }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+      {% if t.rows %}
+        <table class="table">
+          <thead><tr><th>Uzel</th><th>Úroveň</th><th>Stav</th></tr></thead>
+          <tbody>{% include "panel/_tree_rows.html" with rows=t.rows %}</tbody>
+        </table>
+      {% else %}<p class="muted">Téma zatím nemá narativy.</p>{% endif %}
+      {% if t.can_propose %}
+        <form method="post" class="actions">{% csrf_token %}
+          <input type="hidden" name="topic" value="{{ t.topic.pk }}">
+          <button type="submit" class="button">Navrhnout seskupení modelem</button>
+        </form>
+      {% endif %}
+    </section>
+  {% endfor %}
+{% endblock %}

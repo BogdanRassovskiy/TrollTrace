@@ -250,3 +250,14 @@ tr.highlight > td { background: rgba(224, 164, 0, 0.1); }
 .decide textarea { width: 100%; box-sizing: border-box; font: inherit; }
 .decide .actions { align-items: center; }
 @media (prefers-color-scheme: dark) { .fragment-text mark { background: #5a4b00; } }
+
+/* Strom kódové knihy */
+.tree-indent { display: inline-block; padding-left: calc(var(--depth, 0) * 1.4rem); }
+.tree-level-1 { background: #e6eefb; color: #1d4f9c; }
+.tree-level-3 { background: #f1f1f1; color: #555; }
+@media (prefers-color-scheme: dark) {
+  .tree-level-1 { background: #16294a; color: #9cc0f5; }
+  .tree-level-3 { background: #2a2a2a; color: #bbb; }
+}
+label.block { display: block; margin: .4rem 0; }
+label.block input[type="text"], label.block textarea { display: block; width: 100%; }

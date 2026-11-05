@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views, views_actors, views_candidates, views_codebook, views_validation
+from . import views, views_actors, views_candidates, views_codebook, views_tree, views_validation
 
 app_name = "panel"
 
@@ -15,6 +15,8 @@ urlpatterns = [
     path("akteri/import/", views_actors.ActorImportView.as_view(), name="actor_import"),
     path("akteri/<int:pk>/", views_actors.ActorPanelDetailView.as_view(), name="actor"),
     path("kodova-kniha/", views_codebook.CodebookView.as_view(), name="codebook"),
+    path("kodova-kniha/strom/", views_tree.TreeView.as_view(), name="tree"),
+    path("kodova-kniha/strom/<int:pk>/", views_tree.TreeDraftView.as_view(), name="tree_draft"),
     path(
         "kodova-kniha/narativ/novy/",
         views_codebook.NarrativeEditView.as_view(),

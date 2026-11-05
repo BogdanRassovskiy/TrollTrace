@@ -22,6 +22,9 @@ from apps.narratives.models import (
     Topic,
 )
 from apps.narratives.retro import start_relabel
+from apps.narratives.tree import flatten
+from apps.narratives.tree import merge as tree_merge
+from apps.narratives.tree import path as tree_path
 
 from . import actors as service
 from . import audit
@@ -40,13 +43,13 @@ class CodebookView(ResearcherRequiredMixin, TemplateView):
         counts = dict(
             Label.objects.current().values_list("narrative").annotate(n=Count("pk")).order_by()
         )
-        narratives = Narrative.objects.select_related("topic")
+        narratives = Narrative.objects.select_related("topic", "parent")
         by_topic: dict = {}
         for narrative in narratives.order_by("status", "code"):
             narrative.n_labels = counts.get(narrative.pk, 0)
             by_topic.setdefault(narrative.topic, []).append(narrative)
         context |= {
-            "topics": [(t, by_topic.get(t, [])) for t in Topic.objects.order_by("name")],
+            "topics": [(t, flatten(by_topic.get(t, []))) for t in Topic.objects.order_by("name")],
             "candidates": NarrativeCandidate.objects.filter(
                 status=NarrativeCandidate.Status.NEW
             ).count(),
@@ -128,6 +131,8 @@ COMPARED_FIELDS = [
     "definition",
     "kind",
     "topic",
+    "level",
+    "parent",
     "status",
     "examples",
     "counter_examples",
@@ -143,7 +148,10 @@ def compare_versions(old: NarrativeVersion, new: NarrativeVersion) -> list[dict]
         label = NarrativeVersion._meta.get_field(field).verbose_name
         if field == "topic":
             before, after = str(old.topic), str(new.topic)
-        elif field in {"kind", "status"}:
+        elif field == "parent":
+            before = old.parent.name if old.parent else "—"
+            after = new.parent.name if new.parent else "—"
+        elif field in {"kind", "status", "level"}:
             before = getattr(old, f"get_{field}_display")()
             after = getattr(new, f"get_{field}_display")()
         else:
@@ -174,7 +182,7 @@ class NarrativeHistoryView(ResearcherRequiredMixin, View):
 
     def get(self, request, code):
         narrative = get_object_or_404(Narrative, code=code)
-        versions = list(narrative.versions.select_related("changed_by", "topic"))
+        versions = list(narrative.versions.select_related("changed_by", "topic", "parent"))
         by_number = {v.version: v for v in versions}
         try:
             new_n = int(request.GET.get("b") or narrative.current_version)
@@ -203,12 +211,20 @@ class NarrativeHistoryView(ResearcherRequiredMixin, View):
                 "jobs": Job.objects.filter(
                     job_type=Job.Type.RELABEL, params__narrative=narrative.code
                 )[:5],
+                "path": tree_path(narrative)[:-1],
+                "children": narrative.children.exclude(status=NarrativeStatus.ARCHIVED),
+                "merge_targets": Narrative.objects.filter(topic=narrative.topic)
+                .exclude(status=NarrativeStatus.ARCHIVED)
+                .exclude(pk=narrative.pk)
+                .order_by("level", "name"),
             },
         )
 
     def post(self, request, code):
-        """«Dohledat v archivu»: ручная ретроразметка по текущей версии."""
+        """«Dohledat v archivu»: ручная ретроразметка по текущей версии; «sloučit» — дубль."""
         narrative = get_object_or_404(Narrative, code=code)
+        if request.POST.get("action") == "merge":
+            return self.merge(request, narrative)
         if narrative.status == NarrativeStatus.ARCHIVED:
             messages.error(request, "Archivovaný narativ se nesleduje.")
             return redirect("panel:narrative_history", code=code)
@@ -222,6 +238,30 @@ class NarrativeHistoryView(ResearcherRequiredMixin, View):
             )
         messages.success(request, f"Zpětné anotování naplánováno (úloha #{job.pk}).")
         return redirect("panel:narrative_history", code=code)
+
+    def merge(self, request, narrative):
+        keeper = Narrative.objects.filter(code=request.POST.get("keeper")).first()
+        if keeper is None or keeper.pk == narrative.pk:
+            messages.error(request, "Vyberte narativ, do kterého se má duplikát sloučit.")
+            return redirect("panel:narrative_history", code=narrative.code)
+        if narrative.status == NarrativeStatus.ARCHIVED:
+            messages.error(request, "Archivovaný narativ už nelze sloučit.")
+            return redirect("panel:narrative_history", code=narrative.code)
+        before = audit.stored_snapshot(narrative)
+        note = request.POST.get("note", "").strip() or f"Duplikát, sloučen do {keeper.code}"
+        with transaction.atomic():
+            moved = tree_merge(narrative, keeper, user=request.user, note=note)
+            narrative.refresh_from_db()
+            audit.log_change(request, narrative, before, note=note)
+        from apps.analytics.tasks import rebuild_aggregates
+
+        transaction.on_commit(rebuild_aggregates.delay)
+        messages.success(
+            request,
+            f"Sloučeno do „{keeper.name}“: převedeno štítků {moved}, duplikát je v archivu. "
+            "Agregáty se přepočítají na pozadí.",
+        )
+        return redirect("panel:narrative_history", code=keeper.code)
 
 
 class TopicEditView(ResearcherRequiredMixin, View):

@@ -29,6 +29,7 @@ class TopicAdmin(AuditedModelAdmin):
 
 class NarrativeVersionInline(admin.TabularInline):
     model = NarrativeVersion
+    fk_name = "narrative"
     extra = 0
     fields = ["version", "name", "status", "changed_by", "changed_at", "change_note"]
     readonly_fields = fields
@@ -43,11 +44,12 @@ class DebunkInline(admin.TabularInline):
 @admin.register(Narrative)
 class NarrativeAdmin(AuditedModelAdmin):
     list_display = [
-        "code", "name", "kind", "topic", "status", "discovered", "current_version", "added_at",
+        "code", "name", "level", "parent", "topic", "status", "discovered", "current_version",
     ]  # fmt: skip
-    list_filter = ["status", "discovered", "kind", "topic"]
+    list_filter = ["status", "level", "discovered", "kind", "topic"]
     search_fields = ["code", "name", "definition"]
-    readonly_fields = ["current_version", "discovered", "added_at"]
+    autocomplete_fields = ["parent"]
+    readonly_fields = ["current_version", "discovered", "added_at", "merged_into"]
     inlines = [NarrativeVersionInline, DebunkInline]
     actions = ["relabel_archive"]
     versioned = True

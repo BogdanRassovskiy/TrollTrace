@@ -9,7 +9,7 @@ from django.utils.html import format_html
 
 from apps.actors.models import Actor, ActorAccount, Layer, Platform, Source
 from apps.ingestion import parsers
-from apps.narratives.models import Narrative, Topic
+from apps.narratives.models import Narrative, NarrativeLevel, NarrativeStatus, Topic
 
 from . import actors as service
 
@@ -312,6 +312,8 @@ class NarrativeForm(forms.ModelForm):
         fields = [
             "code",
             "topic",
+            "level",
+            "parent",
             "kind",
             "name",
             "definition",
@@ -338,6 +340,29 @@ class NarrativeForm(forms.ModelForm):
             )
         if self.instance.pk:
             self.fields["code"].disabled = True  # на код ссылаются метки и агрегаты
+        parents = Narrative.objects.exclude(status=NarrativeStatus.ARCHIVED).filter(level__lt=3)
+        if self.instance.pk:
+            parents = parents.exclude(pk=self.instance.pk)
+        self.fields["parent"].queryset = parents.select_related("topic").order_by(
+            "topic__name", "level", "name"
+        )
+        self.fields["parent"].label_from_instance = lambda n: (
+            f"{n.topic.name} · {n.get_level_display()}: {n.name}"
+        )
+        level = self.fields["level"]
+        level.required = False  # bez rodiče a bez volby zůstává dosavadní úroveň
+        level.help_text = (
+            "S nadřazeným uzlem se úroveň určí sama (o jednu níž); bez něj je uzel kořenem."
+        )
+
+    def clean(self):
+        data = super().clean()
+        parent = data.get("parent")
+        if parent is not None:
+            data["level"] = parent.level + 1
+        elif not data.get("level"):
+            data["level"] = self.instance.level or NarrativeLevel.NARRATIVE
+        return data
 
     def clean_code(self):
         code = self.cleaned_data["code"]

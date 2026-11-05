@@ -1,0 +1,10 @@
+{% for n, depth in rows %}
+  <tr class="tree-row tree-depth-{{ depth }}">
+    <td><span class="tree-indent" style="--depth: {{ depth }}">{% if depth %}└ {% endif %}<a href="{% url 'panel:narrative_history' n.code %}">{{ n.name }}</a></span>
+      <div class="muted small tree-indent" style="--depth: {{ depth }}">{{ n.code }}{% if n.discovered %} · navržen automaticky{% endif %}</div></td>
+    <td class="nowrap"><span class="badge tree-level-{{ n.level }}">{{ n.get_level_display }}</span></td>
+    <td>{% if n.status == "active" %}{{ n.get_status_display }}{% else %}<span class="badge badge-warn">{{ n.get_status_display }}</span>{% endif %}</td>
+    {% if show_labels %}<td>v{{ n.current_version }}</td><td>{{ n.n_labels }}</td>
+    <td class="nowrap"><a href="{% url 'panel:narrative_edit' n.code %}">upravit</a></td>{% endif %}
+  </tr>
+{% endfor %}
