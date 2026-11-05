@@ -42,7 +42,7 @@ def test_observer_has_no_admin(observer_client):
 
 def test_researcher_sees_everything(researcher_client):
     for url in [DASHBOARD, PANEL, AUDIT, ADMIN]:
-        assert researcher_client.get(url).status_code == 200, url
+        assert researcher_client.get(url, follow=True).status_code == 200, url
     assert "Panel výzkumníka" in researcher_client.get(DASHBOARD).content.decode()
 
 
@@ -121,7 +121,7 @@ class TestOpenAccess:
 
     def test_everything_open_without_login(self, client):
         for url in [DASHBOARD, PANEL, AUDIT, ADMIN]:
-            assert client.get(url).status_code == 200, url
+            assert client.get(url, follow=True).status_code == 200, url
         assert "Otevřený přístup" in client.get(DASHBOARD).content.decode()
 
     def test_changes_audited_as_guest(self, client):

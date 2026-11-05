@@ -4,7 +4,8 @@
 {% block title %}{{ source.name }} — stav sběru{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> / <a href="{% url 'panel:sources' %}">Zdroje a stav sběru</a> /</p>
+  {% include "panel/_nav.html" %}
+  <p class="crumbs"><a href="{% url 'panel:sources' %}">Zdroje a stav sběru</a> /</p>
   <h1><span class="health health-{{ health }}" title="{{ health }}"></span> {{ source.name }}</h1>
   <p class="muted">
     Vrstva {{ source.get_layer_display }} · {{ source.get_platform_display }} · <a href="{{ source.url }}" rel="noopener noreferrer">{{ source.url }}</a>

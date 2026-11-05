@@ -4,42 +4,20 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg, Count, Max, Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import ListView, TemplateView
+from django.views.generic import ListView, RedirectView, TemplateView
 
 from apps.core.roles import ResearcherRequiredMixin
 
 from .models import AuditLog, Notification
 
-# Разделы панели исследователя (README §7.2): название, этап, ссылка (если раздел уже есть).
-SECTIONS = [
-    ("Aktéři", "Hotovo (9)", reverse_lazy("panel:actors")),
-    ("Zdroje a stav sběru", "Hotovo (3.1)", reverse_lazy("panel:sources")),
-    ("Kódová kniha", "Hotovo (9)", reverse_lazy("panel:codebook")),
-    (
-        "Kandidáti na narativ",
-        "Hotovo (6)",
-        reverse_lazy("panel:candidates"),
-    ),
-    ("Nastavení", "Hotovo (9)", reverse_lazy("panel:settings")),
-    ("Validace", "Hotovo (10)", reverse_lazy("panel:validation")),
-    ("Úlohy", "Hotovo (9)", reverse_lazy("panel:jobs")),
-    ("Upozornění", "Hotovo (3.1)", reverse_lazy("panel:notifications")),
-    ("Auditní protokol", "Hotovo", reverse_lazy("panel:audit")),
-]
 
+class PanelIndexView(ResearcherRequiredMixin, RedirectView):
+    """Вход в панель исследователя — сразу первая вкладка «Aktéři» (вкладки есть на всех
+    страницах панели, отдельная страница-плитка не нужна)."""
 
-class PanelIndexView(ResearcherRequiredMixin, TemplateView):
-    """Панель исследователя. Только для роли «исследователь»."""
-
-    template_name = "panel/index.html"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context["sections"] = SECTIONS
-        return context
+    pattern_name = "panel:actors"
 
 
 class AuditLogView(ResearcherRequiredMixin, ListView):

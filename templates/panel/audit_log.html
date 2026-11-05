@@ -3,7 +3,7 @@
 {% block title %}Auditní protokol{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  {% include "panel/_nav.html" %}
   <h1>Auditní protokol</h1>
   <p class="muted">
     Všechny změny v panelu a administraci: kdo, kdy, co změnil, stará a nová hodnota.

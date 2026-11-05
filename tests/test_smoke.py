@@ -44,10 +44,12 @@ def test_dashboard_renders_with_echarts(observer_client):
 
 
 @pytest.mark.django_db
-def test_panel_renders_sections(researcher_client):
+def test_panel_opens_actors_tab_with_nav(researcher_client):
     response = researcher_client.get(reverse("panel:index"))
-    assert response.status_code == 200
-    assert "Auditní protokol" in response.content.decode()
+    assert response.status_code == 302 and response.url == reverse("panel:actors")
+    for name in ("panel:actors", "panel:sources", "panel:notifications", "panel:audit"):
+        page = researcher_client.get(reverse(name)).content.decode()
+        assert 'class="subnav"' in page and "Auditní protokol" in page, name
 
 
 @pytest.mark.django_db

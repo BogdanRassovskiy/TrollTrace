@@ -1,5 +1,4 @@
 {% with name=request.resolver_match.url_name %}
-<p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
 <nav class="subnav" aria-label="Panel výzkumníka">
   <a href="{% url 'panel:actors' %}" class="{% if name|slice:':5' == 'actor' %}active{% endif %}">Aktéři</a>
   <a href="{% url 'panel:sources' %}" class="{% if name|slice:':6' == 'source' %}active{% endif %}">Zdroje</a>

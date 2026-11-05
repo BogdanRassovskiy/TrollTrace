@@ -3,7 +3,7 @@
 {% block title %}Zdroje a stav sběru{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  {% include "panel/_nav.html" %}
   <h1>Zdroje a stav sběru</h1>
   <p class="muted">
     Stav podle otevřených incidentů monitoringu (README §4.2): zelená — v normě, žlutá — varování,

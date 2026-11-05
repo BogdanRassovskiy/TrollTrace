@@ -3,7 +3,7 @@
 {% block title %}Upozornění{% endblock %}
 
 {% block content %}
-  <p class="crumbs"><a href="{% url 'panel:index' %}">Panel výzkumníka</a> /</p>
+  {% include "panel/_nav.html" %}
   <h1>Upozornění</h1>
   <p class="muted">Signály monitoringu sběru a další události. Signály o poruchách se zároveň posílají do Telegram bota, pokud je nastaven.</p>
 
