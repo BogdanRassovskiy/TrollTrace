@@ -1,0 +1,8 @@
+# Прямой доступ к веб-части по адресу Tailscale (только устройства твоего tailnet).
+# Подключается через COMPOSE_FILE в .env; адрес — TAILSCALE_IP. Предпочтительный путь —
+# `tailscale serve` (HTTPS, без этого файла), см. README «Доступ через Tailscale».
+# Внимание: Tailscale должен быть запущен раньше Docker, иначе адрес не существует и web не стартует.
+services:
+  web:
+    ports:
+      - "${TAILSCALE_IP:?укажите TAILSCALE_IP в .env}:8000:8000"

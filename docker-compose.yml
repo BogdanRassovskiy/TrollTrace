@@ -38,8 +38,9 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/00-pgvector.sql:ro
+    # только с этого компьютера: БД и Redis не должны быть видны из домашней сети и из Tailscale
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -50,7 +51,7 @@ services:
     image: redis:7-alpine
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -65,8 +66,9 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER:-trolltrace}:${POSTGRES_PASSWORD:-trolltrace}@db:5432/${POSTGRES_DB:-trolltrace}
       REDIS_URL: redis://redis:6379/0
       RUN_MIGRATIONS: "1"
+    # снаружи — только через `tailscale serve` (HTTPS в tailnet → localhost:8000), см. README
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     healthcheck:
       test:
         - CMD

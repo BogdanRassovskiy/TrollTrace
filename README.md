@@ -460,6 +460,41 @@ docker compose exec web python manage.py createsuperuser   # суперполь�
 docker compose exec web pytest
 ```
 
+Порты `web`, `db` и `redis` открыты только на `127.0.0.1`: из домашней сети они не видны.
+
+### Доступ через Tailscale (проверка вне дома)
+
+Проект доступен только устройствам твоего tailnet. Это не Funnel: из интернета адрес не открывается.
+
+**Вариант 1 — `tailscale serve` (рекомендуется: HTTPS, ничего не привязано к адресу).** Один раз выполнить в Терминале на компьютере с проектом. Если Tailscale попросит включить HTTPS-сертификаты в админке, перейти по ссылке и согласиться.
+```bash
+/Applications/Tailscale.app/Contents/MacOS/Tailscale serve --bg 8000
+```
+Затем в `.env`:
+```
+SITE_URL=https://<pocitac>.<tailnet>.ts.net
+DJANGO_CSRF_TRUSTED_ORIGINS=https://<pocitac>.<tailnet>.ts.net
+OPEN_ACCESS=false
+```
+Настройка сохраняется после перезагрузки. Выключить: `… serve --https=443 off`.
+
+**Вариант 2 — прямой порт на адресе Tailscale (HTTP).** Без `serve`. В `.env`:
+```
+COMPOSE_FILE=docker-compose.yml:docker-compose.tailscale.yml
+TAILSCALE_IP=100.x.y.z
+DJANGO_CSRF_TRUSTED_ORIGINS=http://100.x.y.z:8000,http://<pocitac>.<tailnet>.ts.net:8000
+SITE_URL=http://<pocitac>.<tailnet>.ts.net:8000
+OPEN_ACCESS=false
+```
+Ограничения варианта 2:
+- Tailscale должен быть запущен раньше Docker, иначе адреса нет и `web` не стартует;
+- кнопка «скопировать ссылку» без HTTPS работает через запасной способ браузера.
+
+**В обоих случаях:**
+- `OPEN_ACCESS=false`, вход по паролю (`assign_role <jméno> researcher --create --password …`);
+- `SITE_URL` нужен, чтобы ссылки в уведомлениях Telegram открывались с телефона;
+- после правки `.env`: `docker compose up -d`.
+
 ### Запуск без Docker
 
 Нужны Python 3.12+, PostgreSQL 16 с расширением pgvector и Redis.

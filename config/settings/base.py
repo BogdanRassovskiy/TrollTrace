@@ -222,6 +222,9 @@ EMBEDDING_BACKEND = env("EMBEDDING_BACKEND", default="sentence-transformers")
 OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
 # Адрес сайта для ссылок в Telegram-сообщениях.
 SITE_URL = env("SITE_URL", default="http://localhost:8000")
+# Доступ через прокси с HTTPS (tailscale serve, nginx): адрес должен быть в списке, иначе
+# Django отклонит формы (проверка CSRF сравнивает Origin со схемой запроса).
+CSRF_TRUSTED_ORIGINS = env.list("DJANGO_CSRF_TRUSTED_ORIGINS", default=[])
 
 # --- Логирование --------------------------------------------------------------
 
