@@ -9,4 +9,5 @@ urlpatterns = [
     path("actor/", views.ActorSeriesView.as_view(), name="actor"),
     path("documents/", views.DocumentsView.as_view(), name="documents"),
     path("narratives/", views.NarrativesView.as_view(), name="narratives"),
+    path("narrative-shares/", views.NarrativeSharesView.as_view(), name="narrative_shares"),
 ]

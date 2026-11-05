@@ -11,7 +11,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.views.generic import DetailView, ListView, TemplateView
 
-from apps.actors.models import Actor, Layer
+from apps.actors.models import ANALYSIS_LAYERS, Actor, Layer
 from apps.analytics import aggregation
 from apps.analytics.models import WeeklyAggregate
 from apps.core.roles import ViewerRequiredMixin
@@ -153,6 +153,24 @@ class NarrativeListView(ViewerRequiredMixin, ListView):
             .annotate(n_labels=Count("labels"))
             .order_by("status", "code")
         )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        actors = Actor.objects.filter(status=Actor.Status.ACTIVE, layer__in=ANALYSIS_LAYERS)
+        context["chart_config"] = {
+            "thresholds": aggregation.thresholds(),
+            "min_quality": int(get_setting("analysis-min-quality")),
+            "layers": {code: label for code, label in Layer.choices if code in ANALYSIS_LAYERS},
+            "narratives": [
+                {"code": n.code, "name": n.name, "kind": n.kind}
+                for n in self.object_list if n.status == NarrativeStatus.ACTIVE
+            ],
+            "actors": [
+                {"id": a.pk, "name": a.name, "layer": a.layer, "party": a.party}
+                for a in actors.order_by("name")
+            ],
+        }  # fmt: skip
+        return context
 
 
 def lifecycle(narrative: Narrative) -> dict:

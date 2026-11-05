@@ -3,16 +3,18 @@
 /api/series/     — ряды акторов и групп по одному нарративу: недели + массивы по неделям
                    (n, n_total, доля, сглаженная доля, z). Компактно: 350 рядов × 26 недель.
 /api/actor/      — ряды одного актора по всем активным нарративам (страница актора).
-/api/documents/  — документы за точкой графика (актор или группа × неделя).
+/api/documents/  — документы за точкой графика (актор, группа или выбор акторов × неделя).
+/api/narrative-shares/ — нарративы друг против друга: доля каждого по выбранным акторам.
 /api/narratives/ — активные нарративы для выбора.
 """
 
 import datetime
 
+from django.db.models import Max, Sum
 from django.http import JsonResponse
 from django.views import View
 
-from apps.actors.models import Actor
+from apps.actors.models import ANALYSIS_LAYERS, Actor
 from apps.core.roles import ViewerRequiredMixin
 from apps.narratives.models import Label, Narrative, NarrativeStatus, Stance
 from apps.panel.defaults import get_setting
@@ -46,12 +48,7 @@ def _common(request) -> tuple[Narrative, int, str]:
     narrative = Narrative.objects.filter(code=code).first() if code else None
     if narrative is None:
         raise BadRequest("Neznámý nebo chybějící parametr „narrative“ (kód narativu).")
-    try:
-        quality = int(request.GET.get("min_quality") or get_setting("analysis-min-quality"))
-    except ValueError as exc:
-        raise BadRequest("Parametr „min_quality“ musí být číslo.") from exc
-    if quality not in aggregation.thresholds():
-        raise BadRequest(f"Agregáty existují jen pro práh kvality {aggregation.thresholds()}.")
+    quality = _quality(request)
     stance = request.GET.get("stance") or "all"
     if stance not in STANCES:
         raise BadRequest(f"Parametr „stance“: jedno z {', '.join(STANCES)}.")
@@ -63,6 +60,33 @@ STANCE_KEYS = ("pro", "contra", "neutral")
 
 def _numerator(stance: str) -> str:
     return "n_documents" if stance == "all" else f"n_{stance}"
+
+
+def _quality(request) -> int:
+    try:
+        quality = int(request.GET.get("min_quality") or get_setting("analysis-min-quality"))
+    except ValueError as exc:
+        raise BadRequest("Parametr „min_quality“ musí být číslo.") from exc
+    if quality not in aggregation.thresholds():
+        raise BadRequest(f"Agregáty existují jen pro práh kvality {aggregation.thresholds()}.")
+    return quality
+
+
+def _ids(request, name: str) -> list[int]:
+    return [int(x) for x in request.GET.getlist(name) if x.isdigit()]
+
+
+def selected_actors(request):
+    """Выбор акторов для графика нарративов: активные акторы слоёв анализа, сужение по слоям
+    (layer), «только эти» (actor) и «кроме этих» (exclude). Клиент шлёт более короткий список."""
+    actors = Actor.objects.filter(status=Actor.Status.ACTIVE, layer__in=ANALYSIS_LAYERS)
+    if layers := request.GET.getlist("layer"):
+        actors = actors.filter(layer__in=layers)
+    if ids := _ids(request, "actor"):
+        actors = actors.filter(pk__in=ids)
+    if excluded := _ids(request, "exclude"):
+        actors = actors.exclude(pk__in=excluded)
+    return actors
 
 
 class SeriesView(ViewerRequiredMixin, View):
@@ -213,7 +237,8 @@ class ActorSeriesView(ViewerRequiredMixin, View):
 
 class DocumentsView(ViewerRequiredMixin, View):
     """Dokumenty za bodem grafu. Parametry: narrative, week (pondělí nebo libovolný den
-    týdne), actor (ID) nebo group (klíč skupiny), min_quality, stance."""
+    týdne), actor (ID) nebo group (klíč skupiny; „selection“ = výběr jako u grafu narativů:
+    layer, actor, exclude), min_quality, stance."""
 
     def get(self, request):
         try:
@@ -266,6 +291,8 @@ class DocumentsView(ViewerRequiredMixin, View):
         if (actor := request.GET.get("actor")) and actor.isdigit():
             return [int(actor)]
         group = request.GET.get("group") or ""
+        if group == "selection":
+            return list(selected_actors(request).values_list("pk", flat=True))
         actors = Actor.objects.all()
         if group == aggregation.ALL_GROUP:
             return list(actors.filter(layer__in=aggregation.ANALYSIS_LAYERS).values_list(
@@ -296,5 +323,80 @@ class NarrativesView(ViewerRequiredMixin, View):
                 ],
                 "min_quality": int(get_setting("analysis-min-quality")),
                 "thresholds": aggregation.thresholds(),
+            }
+        )
+
+
+class NarrativeSharesView(ViewerRequiredMixin, View):
+    """Narativy proti sobě: týdenní podíl každého narativu na dokumentech vybraných aktérů.
+
+    Parametry: min_quality, stance, narrative (kód, víckrát; jinak všechny aktivní), layer,
+    actor, exclude (viz selected_actors). Jmenovatel je společný — všechny dokumenty vybraných
+    aktérů v týdnu, takže podíly narativů jsou mezi sebou srovnatelné. Jeden dokument může nést
+    víc narativů, proto součet podílů může přesáhnout 100 %.
+    """
+
+    def get(self, request):
+        try:
+            quality = _quality(request)
+        except BadRequest as exc:
+            return _bad(str(exc))
+        stance = request.GET.get("stance") or "all"
+        if stance not in STANCES:
+            return _bad(f"Parametr „stance“: jedno z {', '.join(STANCES)}.")
+        narratives = Narrative.objects.filter(status=NarrativeStatus.ACTIVE)
+        if codes := request.GET.getlist("narrative"):
+            narratives = narratives.filter(code__in=codes)
+        narratives = list(narratives.order_by("code"))
+        actor_ids = list(selected_actors(request).values_list("pk", flat=True))
+        rows = WeeklyAggregate.objects.filter(min_quality=quality, actor_id__in=actor_ids)
+
+        # Jmenovatel: dokumenty aktéra za týden jsou ve všech jeho řádcích stejné — po jednom.
+        per_actor = rows.values("actor_id", "week").annotate(total=Max("n_total"))
+        totals: dict = {}
+        for row in per_actor:
+            totals[row["week"]] = totals.get(row["week"], 0) + row["total"]
+        weeks = sorted(totals)
+        index = {week: i for i, week in enumerate(weeks)}
+
+        sums = (
+            rows.filter(narrative__in=narratives)
+            .values("narrative_id", "week")
+            .annotate(
+                n=Sum("n_documents"),
+                pro=Sum("n_pro"),
+                contra=Sum("n_contra"),
+                neutral=Sum("n_neutral"),
+            )  # fmt: skip
+        )
+        empty = {n.pk: {key: [0] * len(weeks) for key in ("n", *STANCE_KEYS)} for n in narratives}
+        for row in sums:
+            item, i = empty[row["narrative_id"]], index[row["week"]]
+            item["n"][i] = row["n"]
+            for key in STANCE_KEYS:
+                item[key][i] = row[key]
+        numerator = "n" if stance == "all" else stance
+        series = []
+        for narrative in narratives:
+            item = empty[narrative.pk]
+            share = [
+                round(n / totals[week], 4) if totals[week] else None
+                for n, week in zip(item[numerator], weeks, strict=True)
+            ]
+            series.append(
+                {
+                    "code": narrative.code,
+                    "name": narrative.name,
+                    "kind": narrative.kind,
+                    "share": share,
+                    **item,
+                }  # fmt: skip
+            )
+        return JsonResponse(
+            {
+                "weeks": [w.isoformat() for w in weeks],
+                "total": [totals[w] for w in weeks],
+                "actors": len(actor_ids),
+                "series": series,
             }
         )

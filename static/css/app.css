@@ -186,6 +186,9 @@ tr.unread > td { background: rgba(224, 164, 0, 0.06); }
 .toggle-btn { font: inherit; font-size: 13px; padding: 6px 10px; border: 0; background: var(--surface); color: var(--text); cursor: pointer; }
 .toggle-btn.active { background: var(--accent); color: #fff; }
 .stance-row { margin-top: -4px; align-items: center; }
+.legend-panel .tabs { margin-bottom: 8px; }
+.legend-panel .tabs .toggle-btn { flex: 1; }
+.legend-list li.off { opacity: 0.55; }
 .posts-head { display: flex; justify-content: space-between; align-items: baseline; }
 .posts-list { padding-left: 20px; margin: 0; }
 .posts-list li { margin: 8px 0; }

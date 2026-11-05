@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Narativy{% endblock %}
 
@@ -6,6 +7,66 @@
   {% include "dashboard/_nav.html" %}
   <h1>Narativy</h1>
   <p class="muted">Aktivní narativy jsou v analýze. Kandidáti se už sledují v nových dokumentech, ale do agregátů vstoupí až po přijetí výzkumníkem.</p>
+
+  <h2>Narativy proti sobě</h2>
+  <p class="muted">
+    Týdenní podíl každého narativu na všech dokumentech vybraných aktérů. Jmenovatel je pro všechny
+    narativy stejný, takže je vidět, který narativ v daném týdnu převládá. Jeden dokument může nést
+    víc narativů, proto součet může přesáhnout 100 %; režim „poměr mezi narativy“ ukazuje jen
+    vzájemný poměr (součet 100 %). Kliknutím na čáru otevřete dokumenty za bodem.
+  </p>
+
+  <form class="filters" id="controls" onsubmit="return false">
+    <label class="small">Kvalita ≥
+      <select id="min-quality">
+        {% for t in chart_config.thresholds %}<option value="{{ t }}" {% if t == chart_config.min_quality %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <fieldset class="layers" id="layers">
+      <legend class="small">Vrstvy</legend>
+      {% for code, label in chart_config.layers.items %}
+        <label class="small" title="{{ label }}"><input type="checkbox" value="{{ code }}" checked> {{ code }}</label>
+      {% endfor %}
+    </fieldset>
+    <div class="toggle" role="group" aria-label="Zobrazení">
+      <button type="button" class="toggle-btn mode-btn active" data-mode="share">Podíl z dokumentů</button>
+      <button type="button" class="toggle-btn mode-btn" data-mode="mix">Poměr mezi narativy</button>
+    </div>
+    <span class="share"><button type="button" class="link-button small" id="share-link">Kopírovat odkaz s nastavením</button>
+    <span class="muted small" id="share-note" role="status" aria-live="polite"></span></span>
+  </form>
+  <div class="filters stance-row">
+    <span class="small muted" id="stance-label">Postoj</span>
+    <div class="toggle" role="radiogroup" aria-labelledby="stance-label" id="stance">
+      <button type="button" class="toggle-btn active" role="radio" aria-checked="true" data-stance="all">Vše</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="pro">Pro</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="contra">Proti</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="neutral">Neutrálně</button>
+    </div>
+  </div>
+
+  <div class="compare">
+    <section class="card compare-chart">
+      <p id="status" class="muted small" aria-live="polite">Načítám…</p>
+      <div id="race-chart" class="chart chart-tall" role="img" aria-label="Podíl narativů po týdnech"></div>
+    </section>
+    <aside class="card legend-panel">
+      <div class="toggle tabs" role="tablist">
+        <button type="button" class="toggle-btn tab-btn active" role="tab" data-tab="narratives">Narativy <span id="count-narratives"></span></button>
+        <button type="button" class="toggle-btn tab-btn" role="tab" data-tab="actors">Aktéři <span id="count-actors"></span></button>
+      </div>
+      <input type="search" id="list-search" placeholder="Hledat" aria-label="Hledat v seznamu">
+      <p class="muted small"><button type="button" class="link-button" id="check-all">vybrat všechny</button>
+        · <button type="button" class="link-button" id="check-none">zrušit výběr</button>
+        <span id="kind-filter"> · <button type="button" class="link-button" data-kind="narrative">jen narativy</button>
+        · <button type="button" class="link-button" data-kind="theme">jen témata</button></span></p>
+      <ul id="pick-list" class="legend-list"></ul>
+    </aside>
+  </div>
+
+  {% include "dashboard/_posts.html" %}
+
+  <h2>Kódová kniha</h2>
   <div class="table-wrap card">
     <table class="table">
       <thead><tr><th>Narativ</th><th>Téma</th><th>Stav</th><th>Verze</th><th>Štítků</th><th></th></tr></thead>
@@ -27,4 +88,11 @@
       </tbody>
     </table>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  {{ chart_config|json_script:"chart-config" }}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/dashboard/common.js' %}"></script>
+  <script src="{% static 'js/dashboard/narratives.js' %}"></script>
 {% endblock %}

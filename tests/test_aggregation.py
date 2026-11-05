@@ -222,6 +222,52 @@ def test_documents_behind_point(observer_client):
     assert missing.status_code == 400
 
 
+def test_narrative_shares_common_denominator_and_selection(observer_client):
+    a, b = NarrativeFactory(code="a"), NarrativeFactory(code="b")
+    mp = actor(layer=Layer.PARLIAMENT, party="ANO")
+    media = actor(layer=Layer.MAINSTREAM)
+    label(document(mp), a, "pro")
+    label(document(mp), a, "contra")
+    both = document(media)
+    label(both, a, "pro")
+    label(both, b, "neutral")
+    document(media)
+    aggregation.update(full=True)
+
+    data = observer_client.get("/api/narrative-shares/").json()
+    by_code = {s["code"]: s for s in data["series"]}
+    # společný jmenovatel: 4 dokumenty obou aktérů; jeden dokument nese dva narativy
+    assert data["weeks"] == [WEEK.isoformat()] and data["total"] == [4] and data["actors"] == 2
+    assert by_code["a"]["n"] == [3] and by_code["a"]["share"] == [0.75]
+    assert by_code["a"]["pro"] == [2] and by_code["a"]["contra"] == [1]
+    assert by_code["b"]["share"] == [0.25] and by_code["b"]["neutral"] == [1]
+
+    contra = observer_client.get("/api/narrative-shares/", {"stance": "contra"}).json()
+    assert {s["code"]: s["share"] for s in contra["series"]} == {"a": [0.25], "b": [0.0]}
+    without_mp = observer_client.get("/api/narrative-shares/", {"exclude": mp.pk}).json()
+    assert without_mp["total"] == [2] and without_mp["actors"] == 1
+    only_mp = observer_client.get(
+        "/api/narrative-shares/", {"actor": mp.pk, "narrative": "a"}
+    ).json()
+    assert only_mp["total"] == [2] and [s["code"] for s in only_mp["series"]] == ["a"]
+    by_layer = observer_client.get("/api/narrative-shares/", {"layer": "E"}).json()
+    assert by_layer["actors"] == 1 and by_layer["total"] == [2]
+    assert observer_client.get("/api/narrative-shares/", {"min_quality": 2}).status_code == 400
+
+    docs = observer_client.get(
+        "/api/documents/",
+        {"narrative": "a", "group": "selection", "week": WEEK.isoformat(), "exclude": mp.pk},
+    )
+    assert docs.json()["count"] == 1 and docs.json()["documents"][0]["id"] == both.pk
+
+
+def test_narratives_page_has_chart_config(observer_client):
+    NarrativeFactory(code="pomoc")
+    actor(layer=Layer.PARLIAMENT)
+    page = observer_client.get("/dashboard/narativy/").content.decode()
+    assert 'id="race-chart"' in page and '"code": "pomoc"' in page and "narratives.js" in page
+
+
 def test_api_requires_login(client):
     assert client.get("/api/narratives/").status_code == 302
 
