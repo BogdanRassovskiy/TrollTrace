@@ -1,10 +1,10 @@
 // Режим сравнения (README §7.1): все акторы по одному нарративу, до ~350 линий на canvas.
 //
 // Линии тонкие и полупрозрачные, цвет по слою или партии. Наведение подсвечивает ближайшую
-// линию и приглушает остальные; закреплённые (список справа или клик по линии) рисуются
-// поверх. Поверх фона — медиана и межквартильный размах групп. Клик по точке открывает посты,
-// если линий не больше N; иначе — только у закреплённой линии. Тепловая карта «актор × неделя»:
-// клик по ячейке однозначен и работает всегда.
+// линию, приглушает остальные и показывает разбивку недели по позициям; закреплённые (список
+// справа) рисуются поверх. Поверх фона — медиана и межквартильный размах групп. Клик открывает
+// документы той линии, что подсвечена (её же показывает подсказка), при любом числе линий.
+// Тепловая карта «актор × неделя»: клик по ячейке.
 (function () {
   const TT = window.TT;
   const { config, getJSON, percent, weekLabel, escapeHtml } = TT;
@@ -15,11 +15,11 @@
 
   const $ = (id) => document.getElementById(id);
   const controls = {
-    narrative: $("narrative"), stance: $("stance"), quality: $("min-quality"), party: $("party"),
+    narrative: $("narrative"), quality: $("min-quality"), party: $("party"),
     colorBy: $("color-by"), groupLines: $("group-lines"), sort: $("sort"), search: $("legend-search"),
   };
   const HOVER_PX = 12;
-  const state = { data: null, actors: [], pinned: new Set(), view: "lines", hovered: null };
+  const state = { data: null, actors: [], pinned: new Set(), view: "lines", hovered: null, stance: "all" };
 
   const status = (text) => { $("status").textContent = text; };
   const colorOf = (s) => (controls.colorBy.value === "party" ? TT.partyColor(s.party) : TT.layerColor(s.layer));
@@ -31,7 +31,7 @@
     chart.showLoading({ text: "" });
     try {
       state.data = await getJSON("/api/series/", {
-        narrative: controls.narrative.value, stance: controls.stance.value,
+        narrative: controls.narrative.value, stance: state.stance,
         min_quality: controls.quality.value, party: controls.party.value, layer: layers(), groups: "0",
       });
     } catch (error) {
@@ -128,11 +128,25 @@
   el.style.position = "relative";
   el.appendChild(tip);
 
+  // Разбивка недели по позициям: «pro 3 · proti 1 · neutrálně 0», преобладающая — жирным.
+  function stanceBreakdown(s, index) {
+    const counts = ["pro", "contra", "neutral"].map((k) => [k, s[k] ? s[k][index] || 0 : 0]);
+    const top = Math.max(...counts.map(([, n]) => n));
+    if (!top) return "";
+    return counts.map(([k, n]) => {
+      const text = `${TT.STANCES[k]} ${n}`;
+      return `<span class="stance-${k}">${n === top ? `<b>${text}</b>` : text}</span>`;
+    }).join(" · ");
+  }
+
   function showTip(hit, x, y) {
     const { s, index } = hit;
+    const breakdown = stanceBreakdown(s, index);
     tip.innerHTML = `<b>${escapeHtml(s.name)}</b> <span class="muted">${escapeHtml(s.layer)}${s.party ? ` · ${escapeHtml(s.party)}` : ""}</span><br>
       Týden od ${weekLabel(state.data.weeks[index])}: <b>${percent(s.share[index])}</b>
-      (${s.n[index]} z ${s.total[index]})${s.z[index] !== null ? ` · z ${s.z[index].toFixed(1)}` : ""}`;
+      (${s.n[index]} z ${s.total[index]})${s.z[index] !== null ? ` · z ${s.z[index].toFixed(1)}` : ""}
+      ${breakdown ? `<br>Postoj: ${breakdown}` : ""}
+      ${s.n[index] ? `<br><span class="muted">Kliknutím otevřete dokumenty</span>` : ""}`;
     tip.hidden = false;
     tip.style.left = `${Math.min(x + 14, el.clientWidth - 240)}px`;
     tip.style.top = `${Math.max(y - 56, 0)}px`;
@@ -157,25 +171,14 @@
   });
   chart.getZr().on("globalout", () => { setHovered(null); tip.hidden = true; });
 
+  // Клик = документы подсвеченной линии. Сначала ищем среди закреплённых (они сверху),
+  // затем среди всех — ровно та линия, которую показывает подсказка.
   chart.getZr().on("click", (event) => {
     if (state.view !== "lines" || !state.data) return;
-    const limit = config.click_max_lines;
-    const direct = state.actors.length <= limit;
-    if (direct) {
-      const hit = nearest(event.offsetX, event.offsetY, state.actors);
-      if (hit) openPosts(hit.s, hit.index);
-      return;
-    }
     const pinned = state.actors.filter((s) => state.pinned.has(s.key));
-    const onPinned = nearest(event.offsetX, event.offsetY, pinned);
-    if (onPinned) { openPosts(onPinned.s, onPinned.index); return; }
-    const hit = nearest(event.offsetX, event.offsetY, state.actors);
-    if (hit) {
-      togglePin(hit.s.key);
-      status(`Čára „${hit.s.name}“ připnuta. Další kliknutí na její bod otevře příspěvky.`);
-    } else {
-      status(`V grafu je ${state.actors.length} čar (víc než ${limit}): pro příspěvky nejdřív připněte čáru — kliknutím na ni nebo v seznamu.`);
-    }
+    const hit = nearest(event.offsetX, event.offsetY, pinned) || nearest(event.offsetX, event.offsetY, state.actors);
+    if (hit) openPosts(hit.s, hit.index);
+    else status("Klikněte přímo na čáru — zvýrazněná čára a popisek ukazují, čí dokumenty se otevřou.");
   });
 
   // --- Тепловая карта -------------------------------------------------------------------
@@ -212,8 +215,10 @@
         formatter(p) {
           const s = rows[p.value[1]];
           const i = p.value[0];
+          const breakdown = stanceBreakdown(s, i);
           return `<b>${escapeHtml(s.name)}</b> (${escapeHtml(s.layer)}${s.party ? `, ${escapeHtml(s.party)}` : ""})<br>
-            Týden od ${weekLabel(state.data.weeks[i])}: <b>${percent(s.share[i])}</b> (${s.n[i]} z ${s.total[i]})`;
+            Týden od ${weekLabel(state.data.weeks[i])}: <b>${percent(s.share[i])}</b> (${s.n[i]} z ${s.total[i]})
+            ${breakdown ? `<br>Postoj: ${breakdown}` : ""}`;
         },
       },
       xAxis: { type: "category", data: state.data.weeks.map(weekLabel), splitArea: { show: false } },
@@ -236,7 +241,7 @@
   function openPosts(s, index) {
     TT.showPosts(
       { narrative: controls.narrative.value, actor: s.id, week: state.data.weeks[index],
-        min_quality: controls.quality.value, stance: controls.stance.value },
+        min_quality: controls.quality.value, stance: state.stance },
       `${s.name} · týden od ${weekLabel(state.data.weeks[index])}`,
     );
   }
@@ -248,7 +253,7 @@
 
   function applyURL() {
     const p = new URLSearchParams(window.location.search);
-    TT.setSelect(controls.stance, p.get("stance"));
+    setStance(["pro", "contra", "neutral"].includes(p.get("stance")) ? p.get("stance") : "all");
     TT.setSelect(controls.quality, p.get("q"));
     TT.setSelect(controls.party, p.get("party"));
     TT.setSelect(controls.colorBy, p.get("color"));
@@ -267,7 +272,7 @@
     const chosen = layers().join(",");
     TT.syncURL({
       narrative: controls.narrative.value,
-      stance: controls.stance.value === "all" ? "" : controls.stance.value,
+      stance: state.stance === "all" ? "" : state.stance,
       q: controls.quality.value === String(config.min_quality) ? "" : controls.quality.value,
       party: controls.party.value,
       layers: chosen === DEFAULT_LAYERS ? "" : chosen || "-",
@@ -282,7 +287,7 @@
 
   function setView(view) {
     state.view = view;
-    document.querySelectorAll(".toggle-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
+    document.querySelectorAll(".view-btn").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
     $("sort-wrap").hidden = view !== "heatmap";
     controls.groupLines.parentElement.hidden = view === "heatmap";
   }
@@ -304,11 +309,9 @@
       chart.resize();
       chart.setOption(lineOptions(), true);
     }
-    const direct = state.actors.length <= config.click_max_lines;
     status(`${state.actors.length} aktérů · ${state.data.weeks.length} týdnů · připnuto ${state.pinned.size}. ` +
-      (state.view === "heatmap" ? "Kliknutím na buňku otevřete příspěvky."
-        : direct ? "Kliknutím na bod otevřete příspěvky."
-          : "Kliknutím čáru připnete; kliknutím na bod připnuté čáry otevřete příspěvky."));
+      (state.view === "heatmap" ? "Kliknutím na buňku otevřete dokumenty."
+        : "Kliknutím na čáru otevřete dokumenty, o které se bod opírá."));
   }
 
   function togglePin(key) {
@@ -317,10 +320,14 @@
     draw();
   }
 
-  function renderLegend() {
+  // Акторы, видимые в списке справа (с учётом поиска).
+  function listed() {
     const query = controls.search.value.trim().toLocaleLowerCase("cs");
-    const items = [...state.actors]
-      .filter((s) => !query || s.name.toLocaleLowerCase("cs").includes(query))
+    return state.actors.filter((s) => !query || s.name.toLocaleLowerCase("cs").includes(query));
+  }
+
+  function renderLegend() {
+    const items = listed()
       .sort((a, b) => (state.pinned.has(b.key) - state.pinned.has(a.key)) || a.name.localeCompare(b.name, "cs"));
     $("legend-count").textContent = `${state.actors.length} aktérů`;
     $("legend").innerHTML = items.map((s) => `
@@ -341,15 +348,34 @@
     if (key && state.view === "lines") setHovered(key);
   });
   $("legend").addEventListener("mouseleave", () => setHovered(null));
+  // «Выбрать всех» закрепляет всех, кто сейчас в списке (при поиске — только найденных).
+  $("pin-all").addEventListener("click", () => {
+    listed().forEach((s) => state.pinned.add(s.key));
+    renderLegend(); draw();
+  });
   $("unpin-all").addEventListener("click", () => { state.pinned.clear(); renderLegend(); draw(); });
   controls.search.addEventListener("input", () => { renderLegend(); syncURL(); });
 
-  document.querySelectorAll(".toggle-btn").forEach((button) => button.addEventListener("click", () => {
+  document.querySelectorAll(".view-btn").forEach((button) => button.addEventListener("click", () => {
     setView(button.dataset.view);
     draw();
   }));
 
-  [controls.narrative, controls.stance, controls.quality, controls.party].forEach((c) => c.addEventListener("change", load));
+  function setStance(stance) {
+    state.stance = stance;
+    document.querySelectorAll("#stance .toggle-btn").forEach((b) => {
+      const active = b.dataset.stance === stance;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-checked", String(active));
+    });
+  }
+  document.querySelectorAll("#stance .toggle-btn").forEach((button) => button.addEventListener("click", () => {
+    if (button.dataset.stance === state.stance) return;
+    setStance(button.dataset.stance);
+    load();
+  }));
+
+  [controls.narrative, controls.quality, controls.party].forEach((c) => c.addEventListener("change", load));
   $("layers").addEventListener("change", load);
   [controls.colorBy, controls.groupLines, controls.sort].forEach((c) => c.addEventListener("change", () => { renderLegend(); draw(); }));
 

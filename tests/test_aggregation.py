@@ -176,6 +176,9 @@ def test_series_api_shape_and_filters(observer_client):
     by_key = {s["key"]: s for s in data["series"]}
     assert by_key[f"actor:{mp.pk}"]["n"] == [1, None] and by_key[f"actor:{mp.pk}"]["share"][0] == 1
     assert by_key[f"actor:{mp.pk}"]["layer"] == "E" and by_key["all"]["kind"] == "group"
+    # разбивка по позициям приходит всегда — для подсказки графика
+    assert by_key[f"actor:{mp.pk}"]["contra"] == [1, None]
+    assert by_key[f"actor:{mp.pk}"]["pro"] == [0, None] and by_key["all"]["neutral"][1] == 0
     pro = observer_client.get("/api/series/", {"narrative": "pomoc", "stance": "pro",
                                                "layer": "E", "groups": "0"}).json()  # fmt: skip
     assert [s["key"] for s in pro["series"]] == [f"actor:{mp.pk}"]

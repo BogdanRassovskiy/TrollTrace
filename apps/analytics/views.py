@@ -58,6 +58,9 @@ def _common(request) -> tuple[Narrative, int, str]:
     return narrative, quality, stance
 
 
+STANCE_KEYS = ("pro", "contra", "neutral")
+
+
 def _numerator(stance: str) -> str:
     return "n_documents" if stance == "all" else f"n_{stance}"
 
@@ -97,20 +100,23 @@ class SeriesView(ViewerRequiredMixin, View):
 
         numerator = _numerator(stance)
         fields = ("actor_id", "group_key", "week", numerator, "n_total", "share_smoothed",
-                  "z_score")  # fmt: skip
+                  "z_score", "n_pro", "n_contra", "n_neutral")  # fmt: skip
         data = list(rows.filter(actor_id__in=meta).values_list(*fields)) + list(
             group_rows.values_list(*fields)
         )
         weeks = sorted({row[2] for row in data})
         index = {week: i for i, week in enumerate(weeks)}
         series: dict = {}
-        for actor_id, group_key, week, n, total, smoothed, z in data:
+        for actor_id, group_key, week, n, total, smoothed, z, *by_stance in data:
             key = f"actor:{actor_id}" if actor_id else group_key
             item = series.get(key)
             if item is None:
                 item = series[key] = self._series(key, meta.get(actor_id), len(weeks))
             i = index[week]
             item["n"][i], item["total"][i] = n, total
+            # разбивка по позициям — для подсказки графика (всегда, при любом фильтре)
+            for name, count in zip(STANCE_KEYS, by_stance, strict=True):
+                item[name][i] = count
             item["share"][i] = round(n / total, 4) if total else None
             item["smoothed"][i] = (
                 round(smoothed, 4) if stance == "all" and smoothed is not None else None
@@ -144,7 +150,8 @@ class SeriesView(ViewerRequiredMixin, View):
                     "layer": actor.layer, "party": actor.party, "status": actor.status}  # fmt: skip
         else:
             head = {"key": key, "kind": "group", "name": key}
-        return head | {name: [None] * size for name in ("n", "total", "share", "smoothed", "z")}
+        names = ("n", "total", "share", "smoothed", "z", *STANCE_KEYS)
+        return head | {name: [None] * size for name in names}
 
 
 class ActorSeriesView(ViewerRequiredMixin, View):

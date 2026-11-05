@@ -7,22 +7,15 @@
   {% include "dashboard/_nav.html" %}
   <h1>Srovnání aktérů</h1>
   <p class="muted">
-    Všichni aktéři po jednom narativu na společné časové ose. Najetím zvýrazníte čáru, zaškrtnutím
-    v seznamu ji připnete. Příspěvky za bodem se otevřou kliknutím, pokud je v grafu nejvýše
-    {{ chart_config.click_max_lines }} čar; jinak nejdřív připněte konkrétní čáru. V teplotní mapě
-    funguje kliknutí na buňku vždy.
+    Všichni aktéři po jednom narativu na společné časové ose. Najetím zvýrazníte nejbližší čáru
+    a uvidíte, v jakém postoji aktér narativ nesl; kliknutím na ni otevřete dokumenty, o které se
+    bod opírá. Zaškrtnutím v seznamu čáru připnete.
   </p>
 
   <form class="filters" id="controls" onsubmit="return false">
     <label class="small">Narativ
       <select id="narrative">
         {% for n in narratives %}<option value="{{ n.code }}" {% if n.code == chart_config.narrative %}selected{% endif %}>{{ n.name }}</option>{% endfor %}
-      </select>
-    </label>
-    <label class="small">Postoj
-      <select id="stance">
-        <option value="all">jakýkoli</option><option value="pro">pro</option>
-        <option value="contra">proti</option><option value="neutral">neutrálně</option>
       </select>
     </label>
     <label class="small">Kvalita ≥
@@ -46,8 +39,8 @@
     </label>
     <label class="small"><input type="checkbox" id="group-lines" checked> čáry skupin (medián + IQR)</label>
     <div class="toggle" role="group" aria-label="Zobrazení">
-      <button type="button" class="toggle-btn active" data-view="lines">Čáry</button>
-      <button type="button" class="toggle-btn" data-view="heatmap">Teplotní mapa</button>
+      <button type="button" class="toggle-btn view-btn active" data-view="lines">Čáry</button>
+      <button type="button" class="toggle-btn view-btn" data-view="heatmap">Teplotní mapa</button>
     </div>
     <label class="small" id="sort-wrap" hidden>Řadit
       <select id="sort">
@@ -58,6 +51,15 @@
     <span class="share"><button type="button" class="link-button small" id="share-link">Kopírovat odkaz s nastavením</button>
     <span class="muted small" id="share-note" role="status" aria-live="polite"></span></span>
   </form>
+  <div class="filters stance-row">
+    <span class="small muted" id="stance-label">Postoj</span>
+    <div class="toggle" role="radiogroup" aria-labelledby="stance-label" id="stance">
+      <button type="button" class="toggle-btn active" role="radio" aria-checked="true" data-stance="all">Vše</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="pro">Pro</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="contra">Proti</button>
+      <button type="button" class="toggle-btn" role="radio" aria-checked="false" data-stance="neutral">Neutrálně</button>
+    </div>
+  </div>
 
   <div class="compare">
     <section class="card compare-chart">
@@ -66,7 +68,8 @@
     </section>
     <aside class="card legend-panel">
       <input type="search" id="legend-search" placeholder="Hledat aktéra" aria-label="Hledat aktéra">
-      <p class="muted small"><span id="legend-count"></span> · <button type="button" class="link-button" id="unpin-all">zrušit připnutí</button></p>
+      <p class="muted small"><span id="legend-count"></span> · <button type="button" class="link-button" id="pin-all">vybrat všechny</button>
+        · <button type="button" class="link-button" id="unpin-all">zrušit připnutí</button></p>
       <ul id="legend" class="legend-list"></ul>
     </aside>
   </div>
