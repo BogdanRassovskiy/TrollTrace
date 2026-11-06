@@ -26,7 +26,7 @@ RECHECK_AFTER = [datetime.timedelta(days=1), datetime.timedelta(days=7)]  # READ
 def run_collector(source: Source, client: PoliteClient | None = None) -> CollectionRun:
     """Один запуск сбора по источнику с записью CollectionRun. Используется и командой collect."""
     run = CollectionRun.objects.create(source=source)
-    client = client or PoliteClient(delay=source.request_delay_seconds)
+    client = (client or PoliteClient()).use_source(source)
     collector = collector_for(source)(source, client)
     status = CollectionRun.Status.OK
     try:
@@ -136,6 +136,9 @@ def recheck_document(doc: Document, client: PoliteClient) -> str:
         return "deleted"
     if not result.ok:
         return f"http_{result.status}"
+    parser = parsers.parser_for(doc.source)
+    if parser is not None and parser.gated(result.final_url):
+        return "gate"  # stránka souhlasu místo článku — nová verze by byla nesmysl
     extracted = parsers.extract(doc.source, result.text, result.final_url, doc.published_at)
     version = doc.record_version(text=extracted.text, title=extracted.title, raw_html=result.text)
     doc.last_checked_at = now
@@ -155,7 +158,7 @@ def recheck_documents(limit: int = 200) -> dict:
     client = PoliteClient()
     try:
         for doc in documents_to_recheck()[:limit]:
-            client.delay = doc.source.request_delay_seconds
+            client.use_source(doc.source)
             try:
                 outcome = recheck_document(doc, client)
             except Exception as exc:  # noqa: BLE001
@@ -334,7 +337,7 @@ def recheck_incident_documents(incident, client: PoliteClient | None = None) -> 
 
     counts = {"documents": 0, "reextracted": 0, "recovered": 0, "refetched": 0, "changed_score": 0}
     own = client is None
-    client = client or PoliteClient(delay=incident.source.request_delay_seconds)
+    client = (client or PoliteClient()).use_source(incident.source)
     try:
         for doc in incident_documents(incident).select_related("source").iterator(chunk_size=200):
             counts["documents"] += 1
@@ -435,7 +438,7 @@ def check_golden_pages() -> dict:
 
     now, statuses = timezone.now(), {}
     for source in monitoring.golden_sources():
-        with PoliteClient(delay=source.request_delay_seconds) as client:
+        with PoliteClient().use_source(source) as client:
             result = monitoring.check_golden(source, now, client)
         if result is not None:
             monitoring.apply(source, result, now)

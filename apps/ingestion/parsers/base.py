@@ -15,6 +15,7 @@
 import datetime
 import html as html_lib
 import re
+from urllib.parse import urlsplit
 
 import lxml.etree
 import lxml.html
@@ -80,6 +81,10 @@ class SiteParser:
     origin = ""  # XPath к адресам первоисточника (агрегаторы сети Pravda)
     required: tuple[str, ...] = ("title", "text", "published_at")
 
+    # Адрес, куда сайт перенаправляет вместо статьи (страница согласия, пейволл): такую
+    # страницу не сохраняем — это ошибка сбора (обычно истекли cookies источника).
+    gate = ""  # regex пути
+
     # Ссылки на статьи со страницы-списка (лента типа «listing»).
     listing_pattern = ""  # regex пути статьи
     listing_xpath = ""  # XPath к href ссылок на статьи
@@ -87,6 +92,9 @@ class SiteParser:
     @property
     def label(self) -> str:
         return f"{self.key}/{self.version}"
+
+    def gated(self, url: str) -> bool:
+        return bool(self.gate) and re.search(self.gate, urlsplit(url).path) is not None
 
     def matches(self, url: str) -> bool:
         host = re.sub(r"^https?://", "", url).split("/")[0].split(":")[0].lower()

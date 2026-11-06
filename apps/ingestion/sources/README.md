@@ -15,7 +15,7 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
 | `mainstream.json` | D | ČT24, iROZHLAS, Seznam Zprávy, iDNES, Novinky, Blesk, ČTK (ленты проверены 2026-11-02, ČTK — 2026-11-03) |
 | `attributed.json` | A | Pravda Česko (VIGINUM, DFRLab), 42TCen (BIS VZ 2024) — проверено 2026-11-03 |
 | `security.json` | I | BIS (výpis aktualit), NÚKIB (RSS), MV (výpis zpravodajství) — проверено 2026-11-03; органы — `import_institutions` |
-| `alternative.json` | B | AC24, Protiproud, Nová republika, Svobodný svět, InfoKurýr, Tadesco, První zprávy (список исследователя, проверено 2026-11-06) |
+| `alternative.json` | B | ParlamentníListy.cz (согласие с cookies в `collector_config.cookies`), AC24, Protiproud, Nová republika, Svobodný svět, InfoKurýr, Tadesco, První zprávy (список исследователя, проверено 2026-11-06) |
 | — | C | список Telegram-каналов составляет исследователь |
 
 ## Формат
@@ -66,7 +66,9 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
   - `rubrics_in_scope` / `rubrics_out_of_scope` — начала рубрик (без регистра и диакритики)
     для `Document.in_scope`; без списков в рамках всё;
   - `max_articles` — новых статей за запуск (100);
-  - `max_date_lag_days` — допустимое отставание даты от сбора (30; у органов 730).
+  - `max_date_lag_days` — допустимое отставание даты от сбора (30; у органов 730);
+  - `cookies` — `{имя: значение}`, отправляются только на домен источника (например, записанное
+    согласие с cookies сайта, у которого без него вместо статьи «стена» согласия).
 - `expected_language: ""` — язык не проверяется (сайт на нескольких языках).
 - Сайты: `actor` — сайт целиком как один актор. Telegram: один источник, по актору на канал.
 - Telegram собирается из публичного веб-превью `t.me/s/<канал>`: без логина и API-ключей, только

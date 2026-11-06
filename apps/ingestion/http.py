@@ -68,6 +68,15 @@ class PoliteClient:
         self._last_request: dict[str, float] = {}
         self.stats: Counter = Counter()
 
+    def use_source(self, source) -> "PoliteClient":
+        """Пауза и cookies источника (`collector_config.cookies`, например записанное согласие
+        с cookies сайта). Cookies привязаны к домену источника — общий клиент их не путает."""
+        self.delay = source.request_delay_seconds
+        host = urlsplit(source.url).hostname or ""
+        for name, value in ((source.collector_config or {}).get("cookies") or {}).items():
+            self._client.cookies.set(name, str(value), domain=host)
+        return self
+
     # --- robots.txt --------------------------------------------------------------------
 
     def _robots(self, url: str) -> Robots:

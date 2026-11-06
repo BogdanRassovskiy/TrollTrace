@@ -11,6 +11,7 @@ import io
 import json
 from pathlib import Path
 
+import httpx
 import pytest
 from django.core.exceptions import ValidationError
 from django.core.management import CommandError, call_command
@@ -22,7 +23,7 @@ from apps.ingestion.extract import PRAGUE
 from apps.ingestion.models import SourceIncident
 from apps.ingestion.parsers.base import SiteParser, inside
 from apps.ingestion.store import Item, save_item
-from apps.ingestion.tasks import reparse_document, run_collector
+from apps.ingestion.tasks import recheck_document, reparse_document, run_collector
 from apps.panel.forms import ActorCreateForm
 
 from .test_ingestion import FakeWeb, article_html, rss, web_source
@@ -306,3 +307,55 @@ def test_panel_new_web_source_without_parser_is_created_disabled():
     create_actor(None, form.draft(), queue=False)
     source = Source.objects.get(url="https://neznamy-web.cz/")
     assert (source.parser, source.is_active) == ("", False)
+
+
+# --- Cookies zdroje a stránka souhlasu (ParlamentníListy) ---------------------------------
+
+
+class ConsentWeb(FakeWeb):
+    """Článek jen s cookie souhlasu, jinak přesměrování na stránku souhlasu."""
+
+    def handler(self, request):
+        url = str(request.url)
+        if url == "https://zpravy.example/a/1" and "souhlas=ano" not in request.headers.get(
+            "cookie", ""
+        ):
+            self.requests.append(url)
+            return httpx.Response(302, headers={"location": "https://zpravy.example/souhlas?r=a"})
+        return super().handler(request)
+
+
+@pytest.fixture
+def consent_web(monkeypatch):
+    monkeypatch.setattr(parsers.PARSERS["example"], "gate", r"^/souhlas")
+    web = ConsentWeb()
+    web.add("https://zpravy.example/rss", rss(("https://zpravy.example/a/1", "A", "")))
+    web.add("https://zpravy.example/a/1", article_html())
+    web.add("https://zpravy.example/souhlas?r=a", "<html><body>Souhlasím a vstupuji</body></html>")
+    return web
+
+
+def test_consent_page_is_not_saved_and_reported(consent_web):
+    run = run_collector(web_source(), consent_web.client())
+    assert not Document.objects.exists()
+    assert "obnovte cookies zdroje" in run.details["errors"][0]
+
+
+def test_source_cookies_are_sent_only_to_its_host(consent_web):
+    source = web_source(collector_config={"cookies": {"souhlas": "ano"}})
+    client = consent_web.client()
+    run_collector(source, client)
+    assert Document.objects.get().title == "Vláda schválila rozpočet"
+    assert client._client.cookies.get("souhlas", domain="zpravy.example") == "ano"
+    assert client._client.cookies.get("souhlas", domain="jiny.example") is None
+
+
+def test_recheck_skips_consent_page(consent_web):
+    source = web_source(collector_config={"cookies": {"souhlas": "ano"}})
+    run_collector(source, consent_web.client())
+    doc = Document.objects.get()
+    source.collector_config = {}  # cookie vypršela
+    source.save()
+    doc.refresh_from_db()
+    assert recheck_document(doc, consent_web.client().use_source(source)) == "gate"
+    assert doc.versions.count() == 1

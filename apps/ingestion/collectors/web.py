@@ -243,6 +243,12 @@ class WebCollector(Collector):
         if not result.ok:
             self.error(f"{entry.url}: HTTP {result.status}")
             return
+        if self.parser.gated(result.final_url):
+            self.error(
+                f"{entry.url}: web přesměroval na {result.final_url} místo článku "
+                "(souhlas s cookies / paywall) — obnovte cookies zdroje"
+            )
+            return
         html = result.text
         extracted = self.parser.parse(html, result.final_url, entry.published_at)
         if extracted.missing:

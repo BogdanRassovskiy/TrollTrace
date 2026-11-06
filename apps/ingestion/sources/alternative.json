@@ -1,6 +1,33 @@
 {
   "sources": [
     {
+      "name": "ParlamentníListy.cz",
+      "url": "https://www.parlamentnilisty.cz/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "parlamentnilisty",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "Bez souhlasu s cookies přesměruje každý článek na stránku souhlasu. Souhlas (TCF, účely 1, 2, 3, 4, 7) je v collector_config.cookies — platí do 6. 11. 2027, pak ho obnovit (otevřít článek v prohlížeči, „Souhlasím a vstupuji“, zkopírovat cookie pl-cmp-consent-content). Rubriky Politika, Aréna (rozhovory, monitor, názory), Zprávy; „Politici voličům“ jsou vlastní texty politiků. Seznam zdrojů na konci článku se ukládá jako origin_urls (jen domény).",
+      "feeds": [
+        {
+          "url": "https://www.parlamentnilisty.cz/export/rss.aspx"
+        }
+      ],
+      "actor": {
+        "name": "ParlamentníListy.cz",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 100,
+        "cookies": {
+          "pl-cmp-consent-content": "{\"Data\":\"Q1F0UW1oZ1F0UW1oZ0FmWDNCQ1NDNEZzQVBfZ0FFUGdBQVRJS0VCQjVDNVVTU0ZCSUNKSFlKb0FZQUFWeHhoaFJFQWdBZ0FBQWdBQUNCS0FJSVFFRUNBQUlBQUFBQ0FBQUJBQUFBQUFJQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBaUFBQ0FBQUFBQUFBQUFBQUFCQVFnQUFnQUFBQUJJQUFBQUFBQUFBQUFBQUFBQUFBQUFBQVFBQUFRQUFBQUFBQUFBQUFBQUFnQUFBQUFBQUFBQUFBQUFJQUFBQUFBQUFBQUFBQUFBQWdBQUFBQUFBQkJRaUJHQUFzQUNvQUZ3QU9BQWVBQkFBQ1FBR1FBTkFBaWdCTUFDcUFINEFRa0FpQUNKQUVjQUpvQVRnQXJRQm9nRG5BSGNBUDBBaEFCRmdDT2dKcEFUYUF0UUJiZ0M4d0dMQVFUQWplQlFnQUFBLklLRUJCNUM1VVNTRkJJQ0pIWUpvQVlBQVZ4eGhoUkVBZ0FnQUFBZ0FBQ0JLQUlJUUVFQ0FBSUFBQUFDQUFBQkFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFpQUFDQUFBQUFBQUFBQUFBQUJBUWdBQWdBQUFBQklBQUFBQUFBQUFBQUFBQUFBQUFBQUFBUUFBQVFBQUFBQUFBQUFBQUFBQWdBQUFBQUFBQUFBQUFBQUlBQUFBQUFBQUFBQUFBQUFBZ0FBQUFBQUFCQSNfNTJfNTRfNTFfNTVfI19zODMwX3MxMjI3X3MxMjM3X3M0NDZfczE1NF9zNDBfczY0X3M1NDhfczQxOF9zNjVfczIzX3M1NzFfczExMDBfczdfczFfczI2X3MyNjEyX3MxMzVfczI3MzlfczE0MDlfczkwNV9zMTQ0Ml9zMl9zMTUzX3MxMV9zODg1X3MzNDcwX3MyMzY5X3MxOTNfczU1Nl9zMTA2OF9zMjk4MF9zMjc0X3M1Ml9zMjAzX3MzMl9zMzRfczMwX3MxMTg5X1VfIzEtLS0j\",\"TcString\":\"CQtQmhgQtQmhgAfX3BCSC4FsAP_gAEPgAATIKEBB5C5USSFBICJHYJoAYAAVxxhhREAgAgAAAgAACBKAIIQEECAAIAAAACAAABAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiAACAAAAAAAAAAAAABAQgAAgAAAABIAAAAAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAAAAAAAgAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAgAAAAAAABBQiBGAAsACoAFwAOAAeABAACQAGQANAAigBMACqAH4AQkAiACJAEcAJoATgArQBogDnAHcAP0AhABFgCOgJpATaAtQBbgC8wGLAQTAjeBQgAAA.IKEBB5C5USSFBICJHYJoAYAAVxxhhREAgAgAAAgAACBKAIIQEECAAIAAAACAAABAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAiAACAAAAAAAAAAAAABAQgAAgAAAABIAAAAAAAAAAAAAAAAAAAAAAQAAAQAAAAAAAAAAAAAAgAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAgAAAAAAABA\",\"Purposes\":[\"1\",\"2\",\"3\",\"4\",\"7\"],\"ValidTo\":\"2027-11-06T16:12:27.4257993Z\",\"IsValid\":true}"
+        }
+      }
+    },
+    {
       "name": "AC24",
       "url": "https://www.ac24.cz/",
       "layer": "B",

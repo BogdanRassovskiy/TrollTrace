@@ -23,7 +23,7 @@ class Command(BaseCommand):
         for item in sources:
             results = monitoring.monitor_source(item, now)
             if golden:
-                with PoliteClient(delay=item.request_delay_seconds) as client:
+                with PoliteClient().use_source(item) as client:
                     result = monitoring.check_golden(item, now, client)
                 if result is not None:
                     monitoring.apply(item, result, now)
