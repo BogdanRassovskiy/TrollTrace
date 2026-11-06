@@ -1,0 +1,190 @@
+{
+  "sources": [
+    {
+      "name": "AC24",
+      "url": "https://www.ac24.cz/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "ac24",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "WordPress, RSS s posledními články.",
+      "feeds": [
+        {
+          "url": "https://www.ac24.cz/feed/"
+        }
+      ],
+      "actor": {
+        "name": "AC24",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "Protiproud",
+      "url": "https://protiproud.info/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "protiproud",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "Platforma Ghost; dříve protiproud.cz. Část příspěvků jsou videa (text = obsah pořadu).",
+      "feeds": [
+        {
+          "url": "https://protiproud.info/nejnovejsi/rss/"
+        }
+      ],
+      "actor": {
+        "name": "Protiproud",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "Nová republika",
+      "url": "https://www.novarepublika.cz/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "novarepublika",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "WordPress. Na stránce je jen den publikace, čas doplňuje RSS. Převážně převzaté a přeložené texty; autorem bývá „přeloženo“ / „převzato“, skutečný zdroj je na konci textu.",
+      "feeds": [
+        {
+          "url": "https://www.novarepublika.cz/feed"
+        }
+      ],
+      "actor": {
+        "name": "Nová republika",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "Svobodný svět",
+      "url": "https://svobodny-svet.cz/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "svobodnysvet",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "WordPress. Autor je v textu prvním řádkem (jméno nebo zkratka), meta uvádí „redakce“.",
+      "feeds": [
+        {
+          "url": "https://svobodny-svet.cz/feed/"
+        }
+      ],
+      "actor": {
+        "name": "Svobodný svět",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "InfoKurýr",
+      "url": "https://www.infokuryr.cz/n/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "infokuryr",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "WordPress pod /n/. Autor bývá v titulku („Jméno: …“), meta uvádí „kuryr“.",
+      "feeds": [
+        {
+          "url": "https://www.infokuryr.cz/n/feed/"
+        }
+      ],
+      "actor": {
+        "name": "InfoKurýr",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "Tadesco",
+      "url": "https://tadesco.org/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "tadesco",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "",
+      "notes": "RSS zakazuje robots.txt (Disallow: /feed/), index sitemap je bez dat — sbírá se z titulní stránky a hlavních rubrik. Publikuje česky i slovensky, jazyk se proto nekontroluje.",
+      "feeds": [
+        {
+          "url": "https://tadesco.org/",
+          "kind": "listing"
+        },
+        {
+          "url": "https://tadesco.org/category/zpravy/",
+          "kind": "listing"
+        },
+        {
+          "url": "https://tadesco.org/category/top-secret/",
+          "kind": "listing"
+        },
+        {
+          "url": "https://tadesco.org/category/nazory/",
+          "kind": "listing"
+        }
+      ],
+      "actor": {
+        "name": "Tadesco",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    },
+    {
+      "name": "První zprávy",
+      "url": "https://www.prvnizpravy.cz/",
+      "layer": "B",
+      "platform": "web",
+      "parser": "prvnizpravy",
+      "collect_interval_minutes": 60,
+      "request_delay_seconds": 3,
+      "expected_language": "cs",
+      "notes": "Bez RSS a sitemap — sbírá se z titulní stránky a výpisu zpráv. Autor jen zkratkou v závorce na konci textu.",
+      "feeds": [
+        {
+          "url": "https://www.prvnizpravy.cz/",
+          "kind": "listing"
+        },
+        {
+          "url": "https://www.prvnizpravy.cz/zpravy.php?archive=true",
+          "kind": "listing"
+        }
+      ],
+      "actor": {
+        "name": "První zprávy",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy B (alternativní média), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 50
+      }
+    }
+  ]
+}

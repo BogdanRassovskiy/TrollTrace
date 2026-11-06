@@ -5,6 +5,7 @@
 ```bash
 docker compose exec web python manage.py import_sources apps/ingestion/sources/mainstream.json
 docker compose exec web python manage.py import_sources apps/ingestion/sources/attributed.json
+docker compose exec web python manage.py import_sources apps/ingestion/sources/alternative.json
 docker compose exec web python manage.py import_sources apps/ingestion/sources/security.json && docker compose exec web python manage.py import_institutions
 docker compose exec web python manage.py import_psp_deputies   # слой E: депутаты + источник стенограмм
 ```
@@ -14,7 +15,8 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
 | `mainstream.json` | D | ČT24, iROZHLAS, Seznam Zprávy, iDNES, Novinky, Blesk, ČTK (ленты проверены 2026-11-02, ČTK — 2026-11-03) |
 | `attributed.json` | A | Pravda Česko (VIGINUM, DFRLab), 42TCen (BIS VZ 2024) — проверено 2026-11-03 |
 | `security.json` | I | BIS (výpis aktualit), NÚKIB (RSS), MV (výpis zpravodajství) — проверено 2026-11-03; органы — `import_institutions` |
-| — | B, C | списки альтернативных сайтов и Telegram-каналов составляет исследователь |
+| `alternative.json` | B | AC24, Protiproud, Nová republika, Svobodný svět, InfoKurýr, Tadesco, První zprávy (список исследователя, проверено 2026-11-06) |
+| — | C | список Telegram-каналов составляет исследователь |
 
 ## Формат
 
