@@ -17,7 +17,7 @@ docker compose exec web python manage.py import_psp_deputies   # слой E: д�
 | `attributed.json` | A | Pravda Česko (VIGINUM, DFRLab), 42TCen (BIS VZ 2024) — проверено 2026-11-03 |
 | `security.json` | I | BIS (výpis aktualit), NÚKIB (RSS), MV (výpis zpravodajství) — проверено 2026-11-03; органы — `import_institutions` |
 | `alternative.json` | B | ParlamentníListy.cz (согласие с cookies в `collector_config.cookies`), AC24, Protiproud, Nová republika, Svobodný svět, InfoKurýr, Tadesco, První zprávy (список исследователя, проверено 2026-11-06) |
-| `russian.json` | Z | RIA Novosti (рубрики «В мире», «Политика»), RT на русском (russiatoday.ru: «В мире», «Бывший СССР», «Россия», «Мнения»); ссылки без `utm_` — robots.txt RT запрещает адреса с «?» — проверено 2026-11-06 |
+| `russian.json` | Z | RIA Novosti (рубрики «В мире», «Политика»), RT на русском (russiatoday.ru: «В мире», «Бывший СССР», «Мнения»), Радио Sputnik (radiosputnik.ru: «В мире», «Политика»); внутрироссийские рубрики не собираются; ссылки без `utm_` — robots.txt RT запрещает адреса с «?» — проверено 2026-11-06 |
 | — | C | список Telegram-каналов составляет исследователь |
 
 ## Формат

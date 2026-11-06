@@ -13,7 +13,8 @@ class Ria(SiteParser):
     hosts = ("ria.ru",)
     # Hlavní titulek je div.article__title (rámování redakce, např. „Каллас дерзко ответила…“);
     # h1.article__second-title je věcný podtitulek — jde do textu jako perex.
-    title = '//*[contains(@class, "article__title")]'
+    # Přesná třída: na Rádiu Sputnik je před titulkem nadtitulek article__title-supertag.
+    title = '//*[contains(concat(" ", normalize-space(@class), " "), " article__title ")]'
     perex = '//h1[contains(@class, "article__second-title")]'
     blocks = (
         f'{BODY}/div[@class="article__block"]/div[@class="article__text"]'
@@ -37,3 +38,8 @@ class Ria(SiteParser):
         ' and not(contains(@href, "/person/")) and not(contains(@href, "/organization/"))])[1]'
     )
     listing_pattern = r"^/\d{8}/[a-z0-9-]+-\d+\.html$"
+    # Jen seznam rubriky: postranní „лента“ je celý web, blok SEO odkazuje na staré články.
+    listing_xpath = (
+        '//div[contains(@class, "rubric-list")]//div[contains(@class, "list-item")]'
+        '//a[contains(@class, "list-item__title")]/@href'
+    )
