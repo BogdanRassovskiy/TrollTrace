@@ -15,13 +15,23 @@
    указания к позициям, сигнальные слова), создаётся Narrative со статусом «Kandidát»,
    а документы кластера получают метки — это его история (первая фиксация, слои).
 4. В анализ нарратив попадает, только когда исследователь его примет (decide).
+5. Дозревание (mature, раз в сутки): кластер без нового документа `discovery-maturation-days`
+   дней, не выполнивший правило, оценивает модель — к какому из ближайших узлов дерева
+   относится утверждение (эмбеддингам здесь не доверяем: соседство по теме ≠ то же утверждение).
+   - малый кластер (ниже порога видимости) — документы уходят на решение по найденному узлу
+     («Přiřazen k narativu»), иначе кластер «Vypršel»; новое близкое утверждение его оживит;
+   - видимый кластер — только предложение «patří k X», решает исследователь.
+   Слои не фильтруются: утверждение может родиться и в парламенте или мейнстриме — интересно,
+   подхватят ли его сети слоя A (решение 6.11.2026).
 """
 
+import datetime
+import json
 import logging
 
 import numpy as np
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Count, F, Q
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.text import slugify
@@ -122,9 +132,10 @@ def assign(claim: NovelClaim, vector: np.ndarray, center) -> None:
                 defaults={"narrative": narrative, "similarity": round(sims[best], 4)},
             )
             return
+    Status = NarrativeCandidate.Status
     open_candidates = list(
         NarrativeCandidate.objects.filter(
-            status__in=[NarrativeCandidate.Status.NEW, NarrativeCandidate.Status.DEFERRED],
+            status__in=[Status.NEW, Status.DEFERRED, Status.EXPIRED],
             tracked_since__isnull=True,
             centroid__isnull=False,
         )
@@ -145,6 +156,9 @@ def assign(claim: NovelClaim, vector: np.ndarray, center) -> None:
         similarity = 1.0
     claim.candidate, claim.similarity = candidate, similarity
     claim.save(update_fields=["candidate", "similarity"])
+    if candidate.status == Status.EXPIRED:  # утверждение повторилось — кластер снова в игре
+        candidate.status, candidate.decided_at = Status.NEW, None
+        candidate.decision_reason = "Znovu otevřen: přibylo podobné tvrzení."
     refresh(candidate, center)
 
 
@@ -375,7 +389,7 @@ def decide(candidate: NarrativeCandidate, status: str, user=None, target=None) -
                 tracked.status = NarrativeStatus.ACTIVE
                 tracked.save(changed_by=user, change_note="Kandidát přijat výzkumníkem")
             candidate.resulting_narrative = tracked
-        elif status == Status.MERGED:
+        elif status in (Status.MERGED, Status.DISTRIBUTED):
             if target is None:
                 raise ValueError("Sloučení potřebuje cílový narativ.")
             if tracked and tracked != target:
@@ -402,6 +416,189 @@ def _queue_members(candidate: NarrativeCandidate, target: Narrative) -> int:
         )
         created += new
     return created
+
+
+# --- Дозревание ------------------------------------------------------------------
+
+MATCH_NODES = 6  # сколько ближайших узлов показать модели
+MATURE_MAX_FAILURES = 3  # битых ответов подряд до остановки дозревания
+
+MATCH_SYSTEM = """You maintain the codebook of an academic project tracking narratives in Czech \
+media, Telegram and parliament. A cluster of documents contains a claim that did not match any \
+codebook node strongly enough. Decide whether the claim IS one of the given codebook nodes.
+
+A claim belongs to a node only if a text asserting the claim would be coded as asserting the \
+node's claim (the same claim, or a narrower case / concrete instance of it). Same topic, same \
+actors or shared vocabulary is NOT enough. Prefer the most specific fitting node \
+(podnarativ > narativ > nadnarativ). If none fits, return code "".
+Write the reason in Czech, one short sentence."""
+
+
+def _match_schema() -> dict:
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["code", "reason"],
+        "properties": {"code": {"type": "string"}, "reason": {"type": "string"}},
+    }
+
+
+def nearest_nodes(candidate: NarrativeCandidate, center=None, k: int = MATCH_NODES) -> list:
+    """Ближайшие отслеживаемые узлы по эмбеддингу (название и примеры) — кандидаты для модели."""
+    center = get_center() if center is None else center
+    if center is None or candidate.centroid is None:
+        return []
+    target = centered(np.asarray(candidate.centroid), center)[0]
+    best: dict = {}
+    for narrative, _, vector in _tracked_vectors():
+        sim = float(centered(vector, center)[0] @ target)
+        if sim > best.get(narrative.pk, (-1.0, None))[0]:
+            best[narrative.pk] = (sim, narrative)
+    ranked = sorted(best.values(), key=lambda x: -x[0])
+    return [n for _, n in ranked[:k]]
+
+
+def _match_prompt(candidate: NarrativeCandidate, nodes: list) -> str:
+    claims = list(candidate.claims.order_by("pk").values_list("claim", flat=True)[:6])
+    items = [
+        {
+            "code": n.code,
+            "level": n.get_level_display(),
+            "parent": n.parent.name if n.parent_id else "",
+            "name": n.name,
+            "definition": n.definition[:500],
+        }
+        for n in nodes
+    ]
+    return (
+        "Cluster claims:\n- "
+        + "\n- ".join(claims or [candidate.description])
+        + "\n\nCodebook nodes:\n"
+        + json.dumps(items, ensure_ascii=False, indent=1)
+    )
+
+
+def match_existing(
+    candidate: NarrativeCandidate, center=None
+) -> tuple[Narrative | None, str, float]:
+    """Модель решает, относится ли утверждение кластера к одному из ближайших узлов.
+    Возвращает (узел или None, обоснование, цена)."""
+    nodes = nearest_nodes(candidate, center)
+    if not nodes:
+        return None, "Žádný sledovaný narativ.", 0.0
+    completion = llm.complete_json(
+        str(get_setting("labeling-model")),
+        MATCH_SYSTEM,
+        _match_prompt(candidate, nodes),
+        _match_schema(),
+        max_tokens=600,
+    )
+    code = str(completion.data.get("code") or "")
+    reason = str(completion.data.get("reason") or "")[:500]
+    target = next((n for n in nodes if n.code == code), None)
+    return target, reason, completion.cost_usd or 0.0
+
+
+def is_visible(candidate: NarrativeCandidate) -> bool:
+    return candidate.tracked_since is not None or (
+        candidate.n_documents >= int(get_setting("discovery-visible-min-posts"))
+        and candidate.n_authors >= int(get_setting("discovery-visible-min-authors"))
+    )
+
+
+def stalled(today=None, days: int | None = None):
+    """Кластеры без нового документа `discovery-maturation-days` дней, ещё не решённые.
+    Видимые, по которым предложение уже есть и с тех пор ничего не прибыло, — пропускаются."""
+    today = today or timezone.localdate()
+    days = int(get_setting("discovery-maturation-days")) if days is None else days
+    border = today - datetime.timedelta(days=days)
+    return (
+        NarrativeCandidate.objects.filter(
+            status=NarrativeCandidate.Status.NEW,
+            tracked_since__isnull=True,
+            window_end__lte=border,
+        )
+        .exclude(suggested_at__date__gt=F("window_end"))
+        .order_by("window_end", "pk")
+    )
+
+
+def mature(*, today=None, days: int | None = None, limit: int | None = None,
+           dry_run: bool = False) -> dict:  # fmt: skip
+    """Дозревание: см. п. 5 в начале модуля. Возвращает счётчики и цену."""
+    Status = NarrativeCandidate.Status
+    limit = limit or int(get_setting("discovery-maturation-batch"))
+    days = int(get_setting("discovery-maturation-days")) if days is None else days
+    stats = {"distributed": 0, "expired": 0, "suggested": 0, "skipped": 0, "cost_usd": 0.0,
+             "targets": {}}  # fmt: skip
+    center, failures = get_center(), 0
+    for candidate in stalled(today, days)[:limit]:
+        try:
+            target, reason, cost = match_existing(candidate, center)
+        except llm.LLMError as exc:
+            # битый ответ — кластер остаётся до следующего прогона; отказ API или серия
+            # ошибок подряд — стоп (кредиты, недоступность)
+            failures += 1
+            stats["skipped"] += 1
+            if failures >= MATURE_MAX_FAILURES or not str(exc).startswith("Neplatná odpověď"):
+                logger.warning("Dozrávání: model neodpověděl (%s), zastaveno.", exc)
+                stats["error"] = str(exc)
+                break
+            continue
+        failures = 0
+        stats["cost_usd"] += cost
+        if is_visible(candidate):
+            stats["suggested"] += 1
+            if not dry_run:
+                candidate.suggested_narrative, candidate.suggestion_reason = target, reason
+                candidate.suggested_at = timezone.now()
+                candidate.save(
+                    update_fields=["suggested_narrative", "suggestion_reason", "suggested_at"]
+                )
+            continue
+        prefix = (
+            f"Automaticky po {days} dnech bez nového dokumentu: " if days
+            else "Automaticky (ruční dozrání fronty): "
+        )  # fmt: skip
+        if target is not None:
+            stats["distributed"] += 1
+            stats["targets"][target.code] = stats["targets"].get(target.code, 0) + 1
+            if not dry_run:
+                candidate.decision_reason = prefix + reason
+                decide(candidate, Status.DISTRIBUTED, target=target)
+        else:
+            stats["expired"] += 1
+            if not dry_run:
+                candidate.status, candidate.decided_at = Status.EXPIRED, timezone.now()
+                candidate.decision_reason = prefix + (reason or "nepatří k žádnému narativu.")
+                candidate.save(update_fields=["status", "decided_at", "decision_reason"])
+    stats["cost_usd"] = round(stats["cost_usd"], 4)
+    return stats
+
+
+def notify_maturation(stats: dict) -> None:
+    """Сводка дозревания в панель (только когда что-то произошло)."""
+    from apps.panel.models import Notification
+
+    done = stats["distributed"] + stats["expired"] + stats["suggested"]
+    if not done and not stats.get("error"):
+        return
+    targets = ", ".join(f"{code} ({n})" for code, n in sorted(
+        stats["targets"].items(), key=lambda kv: -kv[1])[:8])  # fmt: skip
+    text = (
+        f"Přiřazeno k narativům: {stats['distributed']}"
+        + (f" — {targets}" if targets else "")
+        + f". Vypršelo: {stats['expired']}. Návrhů u viditelných kandidátů: {stats['suggested']}."
+        + (f" Přeskočeno (neplatná odpověď): {stats['skipped']}." if stats["skipped"] else "")
+        + f" Cena {stats['cost_usd']} USD."
+        + (f" Přerušeno: {stats['error']}" if stats.get("error") else "")
+    )
+    Notification.objects.create(
+        notification_type=Notification.Type.NARRATIVE_CANDIDATE,
+        title="Dozrávání kandidátů na narativ",
+        text=text[:2000],
+        url=reverse("panel:candidates") + "?stav=dozrani",
+    )
 
 
 def overview() -> dict:

@@ -76,3 +76,24 @@ def relabel_narrative(narrative_id: int, job_id: int | None = None) -> dict:
         text="Kandidáty postupně posoudí model (úloha label_pending_decisions).",
     )
     return result
+
+
+@shared_task
+def mature_candidates() -> dict:
+    """Дозревание кандидатов (novelty.mature) раз в сутки; под тем же замком, что и воронка:
+    новое утверждение могло бы оживить кластер, который сейчас решается."""
+    from apps.panel.defaults import get_setting
+
+    from . import novelty
+
+    budget = float(get_setting("labeling-monthly-budget-usd"))
+    if labeling.month_spend() >= budget:
+        return {"skipped": f"vyčerpán měsíční rozpočet {budget} USD"}
+    if not cache.add(LOCK_KEY, "1", LOCK_TTL):
+        return {"skipped": "běží jiné zpracování"}
+    try:
+        stats = novelty.mature()
+    finally:
+        cache.delete(LOCK_KEY)
+    novelty.notify_maturation(stats)
+    return stats

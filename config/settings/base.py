@@ -176,6 +176,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.processing.tasks.label_pending_decisions",
         "schedule": 10 * 60,
     },
+    # Дозревание кандидатов: малые кластеры без новых документов → к узлу или «vypršel».
+    "mature-candidates": {
+        "task": "apps.processing.tasks.mature_candidates",
+        "schedule": 24 * 60 * 60,
+    },
     # Агрегация (README §4, шаг 8): инкрементально, полный пересчёт раз в сутки.
     "update-aggregates": {
         "task": "apps.analytics.tasks.update_aggregates",

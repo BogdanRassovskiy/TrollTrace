@@ -10,28 +10,38 @@
     narativu. Nahoře jsou kandidáti, kteří už splnili pravidlo přidání (dost dokumentů od
     nezávislých autorů) a sledují se. Do analýzy patří narativ až po přijetí.
   </p>
+  <p class="muted small">
+    Malé shluky se tiše sbírají v <strong>inkubátoru</strong>. Když shluk delší dobu nedostane nový
+    dokument, model posoudí, ke kterému narativu tvrzení patří: malý shluk se k němu přiřadí
+    (dokumenty se posoudí podle tohoto narativu) nebo vyprší, u shluku ve frontě jen navrhne.
+    Vypršelý shluk znovu otevře podobné tvrzení. Přehled je na kartě <strong>Dozrání</strong>.
+  </p>
   <nav class="subnav" aria-label="Filtr">
-    <a href="{% url 'panel:candidates' %}" class="{% if not decided %}active{% endif %}">Čekají na rozhodnutí ({{ n_open }})</a>
-    <a href="?stav=rozhodnuto" class="{% if decided %}active{% endif %}">Rozhodnuto</a>
+    {% for key, label, count in tabs %}
+      <a href="{% if key %}?stav={{ key }}{% else %}{% url 'panel:candidates' %}{% endif %}" class="{% if key == tab %}active{% endif %}">{{ label }}{% if count is not None %} ({{ count }}){% endif %}</a>
+    {% endfor %}
   </nav>
   {% if candidates and not decided %}
     <div class="actions"><a class="button" href="{% url 'panel:candidate' candidates.0.pk %}">Procházet od začátku</a></div>
   {% endif %}
   <div class="table-wrap card">
     <table class="table">
-      <thead><tr><th>Tvrzení</th><th>Dok.</th><th>Autorů</th><th>Vrstvy</th><th>Okno</th><th>Stav</th></tr></thead>
+      <thead><tr><th>Tvrzení</th><th>Dok.</th><th>Autorů</th><th>Vrstvy</th><th>Okno</th><th>{% if decided %}Výsledek{% else %}Stav / návrh{% endif %}</th></tr></thead>
       <tbody>
         {% for c in candidates %}
           <tr>
-            <td><a href="{% url 'panel:candidate' c.pk %}">{{ c.resulting_narrative.name|default:c.description|truncatechars:160 }}</a>
+            <td><a href="{% url 'panel:candidate' c.pk %}">{% if c.status == "distributed" or c.status == "merged" %}{{ c.description|truncatechars:160 }}{% else %}{{ c.resulting_narrative.name|default:c.description|truncatechars:160 }}{% endif %}</a>
               {% if c.tracked_since %}<span class="badge badge-warn">sleduje se</span>{% endif %}</td>
             <td>{{ c.n_documents }}</td>
             <td>{{ c.n_authors }}</td>
             <td>{{ c.layers|join:", "|default:"—" }}</td>
             <td class="nowrap small">{{ c.window_start|date:"j. n." }}–{{ c.window_end|date:"j. n. Y" }}</td>
-            <td class="small">{{ c.get_status_display }}{% if c.decided_by %}<div class="muted">{{ c.decided_by }}</div>{% endif %}</td>
+            <td class="small">{{ c.get_status_display }}{% if c.decided_by %}<div class="muted">{{ c.decided_by }}</div>{% endif %}
+              {% if c.status == "distributed" or c.status == "merged" %}<div>→ <a href="{% url 'panel:narrative_history' c.resulting_narrative.code %}">{{ c.resulting_narrative.name|truncatechars:60 }}</a></div>{% endif %}
+              {% if tab == "dozrani" and c.decision_reason %}<div class="muted">{{ c.decision_reason|truncatechars:160 }}</div>{% endif %}
+              {% if not decided and c.suggested_at %}<div class="muted">návrh: {% if c.suggested_narrative %}patří k „{{ c.suggested_narrative.name|truncatechars:50 }}“{% else %}nový, k žádnému nepatří{% endif %}</div>{% endif %}</td>
           </tr>
-        {% empty %}<tr><td colspan="6" class="muted">{% if decided %}Zatím nic nerozhodnuto.{% else %}Žádní kandidáti nečekají na rozhodnutí.{% endif %}</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="6" class="muted">{% if tab == "dozrani" %}Zatím žádný shluk nedozrál.{% elif tab == "inkubator" %}Inkubátor je prázdný.{% elif decided %}Zatím nic nerozhodnuto.{% else %}Žádní kandidáti nečekají na rozhodnutí.{% endif %}</td></tr>{% endfor %}
       </tbody>
     </table>
   </div>

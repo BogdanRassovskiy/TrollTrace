@@ -61,6 +61,24 @@
     </article>
   {% empty %}<p class="muted">Ke shluku nejsou uložená tvrzení s doklady.</p>{% endfor %}
 
+  {% if candidate.suggested_at and is_open %}
+    <section class="card">
+      <h2>Návrh modelu při dozrání</h2>
+      {% if candidate.suggested_narrative %}
+        <p>Tvrzení patří k narativu <a href="{% url 'panel:narrative_history' candidate.suggested_narrative.code %}">„{{ candidate.suggested_narrative.name }}“</a>.</p>
+      {% else %}<p>K žádnému sledovanému narativu nepatří — kandidát na nový narativ.</p>{% endif %}
+      <p class="muted small">{{ candidate.suggestion_reason }} ({{ candidate.suggested_at|date:"j. n. Y" }})</p>
+    </section>
+  {% endif %}
+
+  {% if candidate.status == "expired" %}
+    <form method="post" action="{% url 'panel:candidate_decide' candidate.pk %}" class="card decide">
+      {% csrf_token %}
+      <p>Shluk vypršel: {{ candidate.decision_reason }}</p>
+      <div class="actions"><button class="button" name="decision" value="reopen">Znovu otevřít</button></div>
+    </form>
+  {% endif %}
+
   {% if is_open %}
     <form method="post" action="{% url 'panel:candidate_decide' candidate.pk %}" class="card decide">
       {% csrf_token %}
@@ -69,12 +87,19 @@
       <div class="actions">
         <button class="button" name="decision" value="accept">Přijmout do narativů</button>
         <button class="button button-danger" name="decision" value="reject">Zamítnout</button>
-        <a class="small" href="{% url 'admin:narratives_narrativecandidate_change' candidate.pk %}">sloučit s existujícím narativem…</a>
+      </div>
+      <div class="actions merge-row">
+        <label class="small" for="target">Patří k existujícímu narativu:</label>
+        <select id="target" name="target">
+          <option value="">— vyberte uzel stromu —</option>
+          {% for code, label in targets %}<option value="{{ code }}" {% if code == candidate.suggested_narrative.code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="button" name="decision" value="merge">Přidat k narativu</button>
       </div>
     </form>
   {% else %}
-    <p class="card">Rozhodnuto: <strong>{{ candidate.get_status_display }}</strong>{% if candidate.decided_by %} ({{ candidate.decided_by }}, {{ candidate.decided_at|date:"j. n. Y H:i" }}){% endif %}{% if candidate.decision_reason %} — {{ candidate.decision_reason }}{% endif %}.
-      {% if candidate.resulting_narrative %}<a href="{% url 'panel:narrative_history' candidate.resulting_narrative.code %}">Narativ {{ candidate.resulting_narrative.code }}</a>{% endif %}</p>
+    <p class="card">Rozhodnuto: <strong>{{ candidate.get_status_display }}</strong>{% if candidate.decided_by %} ({{ candidate.decided_by }}, {{ candidate.decided_at|date:"j. n. Y H:i" }}){% endif %}{% if candidate.decision_reason %} — {{ candidate.decision_reason }}{% endif %}
+      {% if candidate.resulting_narrative %}<br>→ <a href="{% url 'panel:narrative_history' candidate.resulting_narrative.code %}">{{ candidate.resulting_narrative.name }}</a> <span class="muted">{{ candidate.resulting_narrative.code }}</span>{% endif %}</p>
   {% endif %}
 
   <details class="card">

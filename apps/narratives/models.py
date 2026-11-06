@@ -385,6 +385,9 @@ class NarrativeCandidate(TimeStampedModel):
         MERGED = "merged", "Sloučen"
         REJECTED = "rejected", "Zamítnut"
         DEFERRED = "deferred", "Odložen"
+        # дозревание (novelty.mature): малый кластер без новых документов
+        DISTRIBUTED = "distributed", "Přiřazen k narativu"
+        EXPIRED = "expired", "Vypršel"
 
     description = models.TextField(
         "popis shluku", help_text="Tvrzení, kterým shluk začal (formulace modelu)."
@@ -411,7 +414,7 @@ class NarrativeCandidate(TimeStampedModel):
         "vrstvy", default=list, blank=True, help_text=f"Kódy vrstev: {', '.join(Layer.values)}."
     )
 
-    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.NEW)
+    status = models.CharField("stav", max_length=12, choices=Status.choices, default=Status.NEW)
     decision_reason = models.TextField("důvod rozhodnutí", blank=True)
     decided_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -422,6 +425,17 @@ class NarrativeCandidate(TimeStampedModel):
         related_name="+",
     )
     decided_at = models.DateTimeField("kdy rozhodnuto", null=True, blank=True)
+    suggested_narrative = models.ForeignKey(
+        Narrative,
+        verbose_name="návrh: patří k narativu",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Při dozrání model posoudil, ke kterému narativu shluk patří (jen návrh).",
+    )
+    suggestion_reason = models.TextField("zdůvodnění návrhu", blank=True)
+    suggested_at = models.DateTimeField("kdy navrženo", null=True, blank=True)
     resulting_narrative = models.ForeignKey(
         Narrative,
         verbose_name="vytvořený / cílový narativ",
@@ -442,7 +456,7 @@ class NarrativeCandidate(TimeStampedModel):
             ),
             # Принятый или объединённый кандидат обязан указывать на нарратив.
             models.CheckConstraint(
-                condition=~Q(status__in=["accepted", "merged"])
+                condition=~Q(status__in=["accepted", "merged", "distributed"])
                 | Q(resulting_narrative__isnull=False),
                 name="candidate_decision_has_narrative",
             ),
@@ -610,7 +624,7 @@ class TreeDraft(models.Model):
     proposal = models.JSONField("návrh", default=dict)
     model_name = models.CharField("model", max_length=100, blank=True)
     cost_usd = models.FloatField("cena (USD)", null=True, blank=True)
-    status = models.CharField("stav", max_length=10, choices=Status.choices, default=Status.NEW)
+    status = models.CharField("stav", max_length=12, choices=Status.choices, default=Status.NEW)
     created_at = models.DateTimeField("vytvořen", auto_now_add=True)
     decided_at = models.DateTimeField("rozhodnuto", null=True, blank=True)
     decided_by = models.ForeignKey(

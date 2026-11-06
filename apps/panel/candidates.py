@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass
 from difflib import SequenceMatcher
 
-from django.db.models import F
+from django.db.models import F, Q
 
 from apps.narratives.models import NarrativeCandidate, NovelClaim
 
@@ -125,9 +125,22 @@ def fragments(candidate: NarrativeCandidate, limit: int = FRAGMENTS) -> list[Fra
     return [fragment(claim) for claim in chosen]
 
 
-def open_candidates():
-    """Ждут решения: сначала уже отслеживаемые (выполнили правило), затем по числу авторов."""
+def visible_q() -> Q:
+    """Видимый кандидат: уже отслеживается или набрал порог видимости (README «Дозревание»)."""
+    from apps.panel.defaults import get_setting
+
+    return Q(tracked_since__isnull=False) | Q(
+        n_documents__gte=int(get_setting("discovery-visible-min-posts")),
+        n_authors__gte=int(get_setting("discovery-visible-min-authors")),
+    )
+
+
+def open_candidates(incubator: bool = False):
+    """Ждут решения: сначала уже отслеживаемые (выполнили правило), затем по числу авторов.
+    incubator=True — малые кластеры ниже порога видимости (копятся молча, дозревают сами)."""
     Status = NarrativeCandidate.Status
-    return NarrativeCandidate.objects.filter(status__in=[Status.NEW, Status.DEFERRED]).order_by(
+    candidates = NarrativeCandidate.objects.filter(status__in=[Status.NEW, Status.DEFERRED])
+    candidates = candidates.exclude(visible_q()) if incubator else candidates.filter(visible_q())
+    return candidates.select_related("suggested_narrative").order_by(
         F("tracked_since").asc(nulls_last=True), "-n_authors", "-n_documents", "-pk"
     )

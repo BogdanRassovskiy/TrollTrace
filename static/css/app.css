@@ -368,3 +368,5 @@ label.block input[type="text"], label.block textarea { display: block; width: 10
 @media (max-width: 900px) { .compare.compare-wide { grid-template-columns: 1fr; } }
 .tt-topic-check { font-weight: 600; font-size: 13px; }
 .tt-topic-check .muted { font-weight: normal; }
+.merge-row { align-items: center; margin-top: 8px; }
+.merge-row select { max-width: 36rem; font: inherit; font-size: .9rem; }

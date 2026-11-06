@@ -57,10 +57,30 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "kalibrace: shody 0,65–0,72, ostatní ≤ 0,57).",
     ),
     "discovery-cluster-similarity": (
-        0.75,
+        0.65,
         "Nová tvrzení: aspoň takto podobné tvrzení se přidá do existujícího shluku, jinak "
-        "založí nový. Kalibrace: totéž tvrzení 0,75–0,99, příbuzná různá 0,67–0,79 — raději "
-        "jemnější shluky, sloučí je výzkumník.",
+        "založí nový. Kalibrace 6.11.2026 na 172 shlucích: páry 0,65–0,75 jsou většinou totéž "
+        "tvrzení jinými slovy (DSA, Agrofert, věznice Azov), páry 0,60–0,65 jen totéž téma; "
+        "dříve 0,75 — totéž tvrzení se drobilo do mnoha jednodokumentových shluků.",
+    ),
+    "discovery-maturation-days": (
+        14,
+        "Dozrávání kandidátů: shluk bez nového dokumentu tolik dní se posoudí. Malý shluk model "
+        "přiřadí k existujícímu narativu (dokumenty se posoudí podle něj), jinak vyprší; "
+        "viditelný shluk dostane jen návrh, rozhoduje výzkumník.",
+    ),
+    "discovery-visible-min-posts": (
+        3,
+        "Fronta kandidátů: výzkumníkovi se ukazují shluky s aspoň N dokumenty (menší se tiše "
+        "sbírají v inkubátoru a po dozrání se přiřadí nebo vyprší).",
+    ),
+    "discovery-visible-min-authors": (
+        2,
+        "Fronta kandidátů: … a od aspoň K nezávislých autorů.",
+    ),
+    "discovery-maturation-batch": (
+        300,
+        "Dozrávání: nejvýše tolik shluků za jeden běh (jeden levný dotaz na model za shluk).",
     ),
     "event-window-before-days": (
         14,
