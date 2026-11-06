@@ -167,3 +167,32 @@ def test_robots_disallowed_feed_is_switched_off(source):
     feed.refresh_from_db()
     assert not feed.is_active and "robots.txt" in feed.last_error
     assert Notification.objects.get().title.endswith("kanál vypnut kvůli robots.txt")
+
+
+def test_incident_recheck_leaves_stenogram_speeches_alone():
+    """Сохранённый HTML стенограммы — вся страница, документ — одно выступление: повторное
+    извлечение записало бы в каждое выступление текст всей страницы (случай 4. 11. 2026)."""
+    psp = Source.objects.create(
+        name="PSP", layer=Layer.PARLIAMENT, platform=Platform.PARLIAMENT,
+        url="https://psp.example/", expected_language="cs",
+    )  # fmt: skip
+    actor = Actor.objects.create(name="Poslanec", actor_type="politician", layer=Layer.PARLIAMENT)
+    speech = "Děkuji, pane předsedo. Navrhuji zamítnutí zákona v prvním čtení. " * 3
+    whole = (
+        f"<html><body><div id='main-content'><p>{speech}</p><p>{SIDEBAR}</p></div></body></html>"
+    )
+    _, doc = save_item(
+        psp, actor,
+        Item(url="https://psp.example/s1.htm#r1", external_id="s1#r1", title="Schůze",
+             text=speech, raw_html=whole, language="cs"),
+    )  # fmt: skip
+    incident = SourceIncident.objects.create(
+        source=psp, incident_type="boilerplate", level="critical",
+        started_at=timezone.now(), ended_at=timezone.now(),
+    )  # fmt: skip
+    client = PoliteClient(delay=0, transport=httpx.MockTransport(lambda r: httpx.Response(500)))
+    counts = tasks.recheck_incident_documents(incident, client)
+    doc.refresh_from_db()
+    assert counts["documents"] == 1 and counts["reextracted"] == 0 and counts["refetched"] == 0
+    assert doc.text == speech and doc.versions.count() == 1
+    assert tasks.reparse_document(doc) is None

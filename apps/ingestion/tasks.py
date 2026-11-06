@@ -242,6 +242,10 @@ def reparse_document(doc: Document, *, apply: bool = True) -> tuple[list[str], l
     обновлённую заметку с новым «Vydáno», а документ датируется первой публикацией.
     Дата меняется, только если парсер нашёл её на странице (дату из ленты он не знает).
     """
+    if doc.source.platform != Platform.WEB:
+        # Стенограмма и Telegram: сохранённый HTML — вся страница (канал), а документ — одно
+        # выступление (пост). Общий экстрактор записал бы в каждый документ текст всей страницы.
+        return None
     version = doc.versions.order_by("-version").first()
     if version is None or not version.raw_html_compressed:
         return None
@@ -357,6 +361,7 @@ def recheck_incident_documents(incident, client: PoliteClient | None = None) -> 
                 and not reextracted
                 and counts["refetched"] < MAX_REFETCH
                 and doc.status == Document.Status.ACTIVE
+                and doc.source.platform == Platform.WEB  # recheck_document разбирает статьи
             ):
                 try:
                     outcome = recheck_document(doc, client)
