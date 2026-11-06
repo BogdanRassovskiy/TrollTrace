@@ -137,6 +137,37 @@ def queue_candidates(document: Document, prototypes=None, center=None) -> int:
     return created
 
 
+def drop_stale_labels(document: Document) -> int:
+    """Текст документа изменился: метки модели, вынесенные по старому тексту, снимаются, даже
+    если документ теперь нерелевантен и к модели больше не попадёт (иначе метка осталась бы
+    навсегда). Если по текущему тексту уже есть решение, метка выставляется по нему.
+    Решения остаются историей; ожидающие решения по старому тексту удаляются."""
+    stale = LabelDecision.objects.filter(document=document).exclude(text_hash=document.text_hash)
+    stale_ids = set(stale.values_list("pk", flat=True))
+    if not stale_ids:
+        return 0
+    stale.filter(present__isnull=True).delete()
+    dropped = 0
+    for label in Label.objects.filter(document=document, origin=Label.Origin.MODEL):
+        if (label.details or {}).get("decision") not in stale_ids:
+            continue
+        label.delete()
+        dropped += 1
+        current = (
+            LabelDecision.objects.filter(
+                document=document,
+                text_hash=document.text_hash,
+                narrative_version=label.narrative_version,
+                present__isnull=False,
+            )
+            .order_by("-pk")
+            .first()
+        )
+        if current is not None:
+            _apply(current)
+    return dropped
+
+
 def queue_screening(document: Document) -> bool:
     """Новый релевантный документ → проверка моделью на новые утверждения."""
     _, created = Screening.objects.get_or_create(document=document, text_hash=document.text_hash)

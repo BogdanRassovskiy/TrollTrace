@@ -812,3 +812,32 @@ def test_import_sources_attributed():
     assert all(s.attribution_by and s.attribution_url for s in sources)
     assert Actor.objects.filter(layer="A", actor_type="attributed_network").count() == 2
     assert Source.objects.get(name="42TCen").feeds.filter(kind="listing").count() == 2
+
+
+def test_repair_psp_speeches_restores_speech_from_saved_page():
+    """Случай 4. 11. 2026: в выступление записан текст всей страницы — ремонт по якорю."""
+    source = Source.objects.create(
+        name="PSP", layer=Layer.PARLIAMENT, platform=Platform.PARLIAMENT, url=psp.SOURCE_URL,
+    )  # fmt: skip
+    actor = Actor.objects.create(name="Karel Havlíček", actor_type="politician",
+                                 layer=Layer.PARLIAMENT)  # fmt: skip
+    speech = "Slibuji věrnost České republice.\nSlibuji na svou čest."
+    _, doc = save_item(source, actor, Item(
+        url=f"{psp.SOURCE_URL}s001.htm#r1", external_id="2025ps/001schuz/s001.htm#r1",
+        title="1. schůze", text=speech, raw_html=STENO_PAGE, language="cs",
+    ))  # fmt: skip
+    whole = "Nyní přistoupíme k druhému bodu. " + speech + " Děkuji za slovo. Už nejsem poslankyní."
+    doc.record_version(text=whole, title=doc.title, raw_html=STENO_PAGE)
+
+    out = io.StringIO()
+    call_command("repair_psp_speeches", stdout=out)
+    assert "k opravě 1 projevů" in out.getvalue()
+    doc.refresh_from_db()
+    assert doc.text == whole  # без --apply ничего не меняется
+
+    call_command("repair_psp_speeches", "--apply", stdout=io.StringIO())
+    doc.refresh_from_db()
+    assert doc.text == speech and doc.versions.count() == 3 and doc.processed_at is None
+    out = io.StringIO()
+    call_command("repair_psp_speeches", stdout=out)
+    assert "k opravě 0 projevů; v pořádku 1" in out.getvalue()

@@ -74,6 +74,7 @@ def process_documents(documents: list[Document]) -> Stats:
                 document, reasons[document.pk], codebook, center, shingle_size
             )
             stats.actors += discovery.record_document(document)
+            labeling.drop_stale_labels(document)
             if document.is_relevant:
                 stats.candidates += labeling.queue_candidates(document, prototypes, center)
                 stats.screenings += labeling.queue_screening(document)

@@ -103,6 +103,51 @@ def test_queue_is_idempotent_and_text_change_resets():
     assert LabelDecision.objects.count() == 2  # staré rozhodnutí zůstává jako historie
 
 
+def test_label_from_old_text_is_dropped_when_document_becomes_irrelevant():
+    """Случай стенограмм 4. 11. 2026: метка стояла по ошибочному тексту всей страницы; после
+    ремонта выступление нерелевантно и к модели не попадёт — метка снимается конвейером."""
+    n = narrative()
+    document = doc()
+    labeling.queue_candidates(document, [prototype(n, unit(1.0))], CENTER)
+    decision = LabelDecision.objects.get()
+    decision.present, decision.stance, decision.confidence = True, "pro", 0.9
+    decision.save()
+    labeling._apply(decision)
+    document.text, document.is_relevant = "Děkuji, pane předsedo.", False
+    document.save()
+    assert labeling.drop_stale_labels(document) == 1
+    assert not Label.objects.exists() and LabelDecision.objects.count() == 1  # история остаётся
+    assert labeling.drop_stale_labels(document) == 0
+
+
+def test_label_returns_to_decision_on_current_text():
+    """Текст вернулся к прежнему (ремонт стенограммы): действует решение по этому тексту."""
+    n = narrative()
+    document = doc()
+    protos = [prototype(n, unit(1.0))]
+    labeling.queue_candidates(document, protos, CENTER)
+    original = LabelDecision.objects.get()
+    original.present, original.stance, original.confidence = True, "contra", 0.9
+    original.save()
+    labeling._apply(original)
+    good_text = document.text
+
+    document.text = "Chybný text celé stránky: pomoc Ukrajině se nevyplácí."
+    document.save()
+    labeling.queue_candidates(document, protos, CENTER)
+    wrong = LabelDecision.objects.exclude(pk=original.pk).get()
+    wrong.present, wrong.stance, wrong.confidence = True, "pro", 0.9
+    wrong.save()
+    labeling._apply(wrong)
+    assert Label.objects.get().stance == "pro"
+
+    document.text = good_text
+    document.save()
+    assert labeling.drop_stale_labels(document) == 1
+    label = Label.objects.get()
+    assert label.stance == "contra" and label.details["decision"] == original.pk
+
+
 def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypatch):
     a, b, c = narrative("a"), narrative("b"), narrative("c")
     document = doc()
