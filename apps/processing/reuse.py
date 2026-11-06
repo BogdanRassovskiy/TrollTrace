@@ -1,7 +1,8 @@
-"""Поиск заимствований (README §4, шаги 5–6): из слоя-источника (A, Pravda) в другие слои.
+"""Поиск заимствований (README §4, шаги 5–6) между всеми слоями reuse-layers.
 
-Связь всегда идёт от более раннего документа слоя-источника к более позднему
-документу другого слоя. Порядок поступления не важен: новый документ ищет пары
+Направление гипотезой не задаётся: кто у кого взял, решает время. Связь идёт от более
+раннего документа к более позднему — в любую сторону между слоями и внутри слоя, но не
+между документами одного актора. Порядок поступления не важен: новый документ ищет пары
 в обе стороны по времени, в пределах окна reuse-window-days.
 """
 
@@ -24,43 +25,37 @@ KNN_CANDIDATES = 20  # ближайших по «сырому» косинусу
 AUTO_METHODS = [ReuseLink.Method.MINHASH, ReuseLink.Method.KNN]
 
 
-def source_layers() -> list[str]:
-    return list(get_setting("reuse-source-layers"))
+def reuse_layers() -> list[str]:
+    # Слой I говорит о нарративах, а не транслирует их — в заимствованиях не участвует.
+    return [layer for layer in get_setting("reuse-layers") if layer in ANALYSIS_LAYERS]
 
 
 def moment(document: Document) -> datetime.datetime:
     return document.published_at or document.collected_at
 
 
-def counterparts(document: Document, layers: list[str] | None = None) -> tuple[QuerySet, bool]:
-    """Документы, с которыми возможна связь, и роль документа (True — он оригинал)."""
-    layers = source_layers() if layers is None else layers
+def counterparts(document: Document, layers: list[str] | None = None) -> QuerySet:
+    """Документы других акторов участвующих слоёв в окне ± reuse-window-days."""
+    layers = reuse_layers() if layers is None else layers
+    if document.source.layer not in layers:
+        return Document.objects.none()
     window = datetime.timedelta(days=int(get_setting("reuse-window-days")))
     when = moment(document)
-    queryset = (
+    return (
         Document.objects.annotate(moment=Coalesce("published_at", "collected_at"))
         .exclude(pk=document.pk)
         .exclude(actor_id=document.actor_id)
-        # Слой I говорит о нарративах, а не транслирует их — в заимствованиях не участвует.
-        .filter(source__layer__in=ANALYSIS_LAYERS)
-    )
-    if document.source.layer not in ANALYSIS_LAYERS:
-        return queryset.none(), False
-    if document.source.layer in layers:
-        return (
-            queryset.exclude(source__layer__in=layers).filter(
-                moment__gte=when, moment__lte=when + window
-            ),
-            True,
-        )
-    return (
-        queryset.filter(source__layer__in=layers, moment__lte=when, moment__gte=when - window),
-        False,
+        .filter(source__layer__in=layers, moment__gte=when - window, moment__lte=when + window)
     )
 
 
-def _pair(document: Document, other: Document, is_source: bool) -> tuple[Document, Document]:
-    return (document, other) if is_source else (other, document)
+def is_earlier(document: Document, other: Document) -> bool:
+    """Оригинал — более ранний документ; при равном времени — раньше попавший в базу."""
+    return (moment(document), document.pk) < (moment(other), other.pk)
+
+
+def _pair(document: Document, other: Document) -> tuple[Document, Document]:
+    return (document, other) if is_earlier(document, other) else (other, document)
 
 
 def find_verbatim(document: Document, layers=None, shingle_size=None) -> list[dict]:
@@ -69,7 +64,7 @@ def find_verbatim(document: Document, layers=None, shingle_size=None) -> list[di
         return []
     threshold = float(get_setting("reuse-verbatim-jaccard"))
     size = shingle_size or int(get_setting("minhash-shingle-size"))
-    queryset, is_source = counterparts(document, layers)
+    queryset = counterparts(document, layers)
     mine = minhash.from_bytes(document.minhash)
     my_size = len(minhash.shingles(document.text, size))
     found = []
@@ -79,8 +74,10 @@ def find_verbatim(document: Document, layers=None, shingle_size=None) -> list[di
     for other in candidates:
         estimate = minhash.jaccard(mine, minhash.from_bytes(other.minhash))
         other_size = len(minhash.shingles(other.text, size))
-        source, target = _pair(document, other, is_source)
-        source_size, target_size = (my_size, other_size) if is_source else (other_size, my_size)
+        source, target = _pair(document, other)
+        source_size, target_size = (
+            (my_size, other_size) if source is document else (other_size, my_size)
+        )
         similarity = max(estimate, minhash.containment(estimate, source_size, target_size))
         if similarity >= threshold:
             found.append(
@@ -100,7 +97,7 @@ def find_paraphrase(document: Document, center: np.ndarray | None, layers=None) 
     if document.embedding is None or center is None:
         return []
     threshold = float(get_setting("reuse-paraphrase-cosine"))
-    queryset, is_source = counterparts(document, layers)
+    queryset = counterparts(document, layers)
     with connection.cursor() as cursor:
         # pgvector ≥ 0.8: при фильтре по слою HNSW добирает кандидатов, а не теряет их.
         cursor.execute("SET LOCAL hnsw.iterative_scan = relaxed_order")
@@ -118,7 +115,7 @@ def find_paraphrase(document: Document, center: np.ndarray | None, layers=None) 
     found = []
     for other, similarity in zip(neighbours, others @ mine, strict=True):
         if similarity >= threshold:
-            source, target = _pair(document, other, is_source)
+            source, target = _pair(document, other)
             found.append(
                 {
                     "source": source,

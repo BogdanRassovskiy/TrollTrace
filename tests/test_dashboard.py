@@ -120,6 +120,13 @@ def test_reuse_pages(observer_client):
     assert "<mark>Jedna dva tři čtyři pět šest sedm</mark>" in page
     empty = observer_client.get("/dashboard/prevzeti/", {"type": "paraphrase"}).content.decode()
     assert "Zatím nebylo nalezeno" in empty
+    # Фильтр по слою оригинала: направление не задано гипотезой, его выбирает исследователь.
+    layer = a.source.layer
+    other = next(code for code in Layer.values if code != layer)
+    by_source = observer_client.get("/dashboard/prevzeti/", {"source_layer": layer})
+    assert "porovnat" in by_source.content.decode()
+    none = observer_client.get("/dashboard/prevzeti/", {"source_layer": other}).content.decode()
+    assert "Zatím nebylo nalezeno" in none
 
 
 @pytest.mark.parametrize("url", ["/dashboard/", "/dashboard/srovnani/", "/dashboard/narativy/",

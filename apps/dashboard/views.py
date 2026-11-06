@@ -316,6 +316,8 @@ class ReuseListView(ViewerRequiredMixin, ListView):
         ).order_by("-similarity")  # fmt: skip
         if g.get("type"):
             links = links.filter(link_type=g["type"])
+        if g.get("source_layer"):
+            links = links.filter(source_document__source__layer=g["source_layer"])
         if g.get("layer"):
             links = links.filter(target_document__source__layer=g["layer"])
         if g.get("confirmed") in ("0", "1", "none"):

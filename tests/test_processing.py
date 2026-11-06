@@ -12,6 +12,7 @@ from django.utils import timezone
 from apps.actors.models import Actor, Layer, Platform, Source
 from apps.documents.models import EMBEDDING_DIMENSIONS, Document, DocumentQuality, ReuseLink
 from apps.narratives.models import Topic
+from apps.panel.models import Setting
 from apps.processing import embeddings, minhash, relevance, tasks
 from apps.processing.models import EmbeddingCenter
 from apps.processing.pipeline import process_pending, reset
@@ -232,12 +233,39 @@ def test_short_post_quoting_a_paragraph_counts_by_containment():
     assert link.similarity >= 0.9  # почти весь пост взят из статьи, хотя Jaccard ≈ 0,4
 
 
-def test_no_link_outside_window_between_other_layers_or_backwards_in_time():
-    make_doc(Layer.ATTRIBUTED, "Pravda", PRAVDA, days=0)
+def test_direction_is_decided_by_time_not_by_layer():
+    """Гипотеза «из A в остальные» в метод не заложена: B раньше A → связь B → A."""
+    first = make_doc(Layer.ALTERNATIVE, "Web", PRAVDA, days=0)
+    later = make_doc(Layer.ATTRIBUTED, "Pravda", "Převzato: " + PRAVDA, days=1)
+    run()
+    link = ReuseLink.objects.get()
+    assert (link.source_document, link.target_document) == (first, later)
+
+
+def test_reuse_within_layer_and_from_mainstream():
+    ctk = make_doc(Layer.MAINSTREAM, "Ctk", PRAVDA, days=0)
+    novinky = make_doc(Layer.MAINSTREAM, "Novinky", "ČTK: " + PRAVDA, days=1)
+    web = make_doc(Layer.ALTERNATIVE, "Web", "Píše ČTK: " + PRAVDA, days=2)
+    run()
+    pairs = set(ReuseLink.objects.values_list("source_document", "target_document"))
+    assert pairs == {(ctk.pk, novinky.pk), (ctk.pk, web.pk), (novinky.pk, web.pk)}
+
+
+def test_no_link_outside_window_or_within_one_actor():
+    original = make_doc(Layer.ATTRIBUTED, "Pravda", PRAVDA, days=0)
     make_doc(Layer.TELEGRAM, "Pozde", PRAVDA, days=45)  # вне окна 30 дней
-    make_doc(Layer.TELEGRAM, "Driv", PRAVDA, days=-1)  # раньше оригинала
-    make_doc(Layer.ALTERNATIVE, "Web", OTHER, days=2)
-    make_doc(Layer.MAINSTREAM, "Media", OTHER, days=3)  # D ← B: не слой-источник
+    Document.objects.create(  # тот же актор публикует текст повторно — не заимствование
+        source=original.source, actor=original.actor, url="https://pravda.example/znovu",
+        text=PRAVDA, published_at=original.published_at, collected_at=original.collected_at,
+    )  # fmt: skip
+    run()
+    assert not ReuseLink.objects.exists()
+
+
+def test_layers_outside_reuse_layers_do_not_take_part():
+    Setting(key="reuse-layers", value=["A", "C"]).save(change_note="test")
+    make_doc(Layer.ATTRIBUTED, "Pravda", PRAVDA, days=0)
+    make_doc(Layer.MAINSTREAM, "Media", "Převzato: " + PRAVDA, days=1)
     run()
     assert not ReuseLink.objects.exists()
 

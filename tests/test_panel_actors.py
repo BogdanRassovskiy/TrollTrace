@@ -294,10 +294,8 @@ def test_setting_versioned_edit(researcher_client):
         and setting.versions.get(version=setting.current_version).change_note == "pilot"
     )
     assert AuditLog.objects.get(content_type__model="setting").changes["value"][1] == 0.4
-    researcher_client.post(
-        "/panel/nastaveni/reuse-source-layers/", {"value": "A, B", "change_note": "x"}
-    )
-    assert Setting.objects.get(key="reuse-source-layers").value == ["A", "B"]
+    researcher_client.post("/panel/nastaveni/reuse-layers/", {"value": "A, B", "change_note": "x"})
+    assert Setting.objects.get(key="reuse-layers").value == ["A", "B"]
     page = researcher_client.post(
         "/panel/nastaveni/minhash-shingle-size/", {"value": "pět", "change_note": "x"}
     ).content.decode()

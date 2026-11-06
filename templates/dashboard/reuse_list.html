@@ -5,11 +5,15 @@
 {% block content %}
   {% include "dashboard/_nav.html" %}
   <h1>Převzetí textů</h1>
-  <p class="muted">Páry textů s vysokou podobností: doslovné převzetí (MinHash) a parafráze (embeddingy). Kliknutím otevřete oba texty se zvýrazněnými shodnými úseky.</p>
+  <p class="muted">Páry textů s vysokou podobností: doslovné převzetí (MinHash) a parafráze (embeddingy). Hledá se mezi všemi vrstvami v obou směrech; originál je dřívější text. Kliknutím otevřete oba texty se zvýrazněnými shodnými úseky.</p>
   <form method="get" class="filters">
     <select name="type" aria-label="Typ">
       <option value="">Všechny typy</option>
       {% for code, label in types %}<option value="{{ code }}" {% if filters.type == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <select name="source_layer" aria-label="Vrstva originálu">
+      <option value="">Originál ze všech vrstev</option>
+      {% for code, label in layers %}<option value="{{ code }}" {% if filters.source_layer == code %}selected{% endif %}>{{ label }}</option>{% endfor %}
     </select>
     <select name="layer" aria-label="Vrstva převzetí">
       <option value="">Převzetí ve všech vrstvách</option>

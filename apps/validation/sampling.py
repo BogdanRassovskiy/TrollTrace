@@ -141,19 +141,19 @@ def create_narrative_sample(
 
 
 def _near_pairs(n: int, rng: random.Random, exclude: set) -> list[tuple]:
-    """«Почти пары»: для случайных документов вне слоёв-источников — ближайший документ
-    слоя-источника в окне, если связи нет. [(source_id, target_id, centered_similarity)]."""
+    """«Почти пары»: для случайных документов участвующих слоёв — ближайший документ другого
+    актора в окне, если связи нет. [(source_id, target_id, centered_similarity)]."""
     from apps.processing.embeddings import centered, get_center
-    from apps.processing.reuse import counterparts, source_layers
+    from apps.processing.reuse import counterparts, is_earlier, reuse_layers
 
     center = get_center()
     if center is None or n <= 0:
         return []
-    layers = source_layers()
+    layers = reuse_layers()
     targets = sorted(
-        Document.objects.filter(embedding__isnull=False, pk__in=_eligible_ids())
-        .exclude(source__layer__in=layers)
-        .values_list("pk", flat=True)
+        Document.objects.filter(
+            embedding__isnull=False, pk__in=_eligible_ids(), source__layer__in=layers
+        ).values_list("pk", flat=True)
     )
     linked = set(ReuseLink.objects.values_list("source_document_id", "target_document_id"))
     pairs = []
@@ -161,18 +161,19 @@ def _near_pairs(n: int, rng: random.Random, exclude: set) -> list[tuple]:
         if len(pairs) >= n:
             break
         document = Document.objects.select_related("source").get(pk=pk)
-        queryset, is_source = counterparts(document, layers)
+        queryset = counterparts(document, layers)
         with connection.cursor() as cursor:
             cursor.execute("SET LOCAL hnsw.iterative_scan = relaxed_order")
         nearest = (
             queryset.filter(embedding__isnull=False)
             .order_by(CosineDistance("embedding", document.embedding))
-            .only("id", "embedding")
+            .only("id", "embedding", "published_at", "collected_at")
             .first()
         )
         if nearest is None:
             continue
-        source, target = (document.pk, nearest.pk) if is_source else (nearest.pk, document.pk)
+        earlier = is_earlier(document, nearest)
+        source, target = (document.pk, nearest.pk) if earlier else (nearest.pk, document.pk)
         if (source, target) in linked or (source, target) in exclude:
             continue
         vectors = centered([document.embedding, nearest.embedding], center)

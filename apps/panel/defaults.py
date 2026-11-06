@@ -40,9 +40,10 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "Práh centrované kosinové podobnosti pro parafrázi (kNN). Kalibrace na médiích D: "
         "stejná událost psaná nezávisle 0,75–0,85, přepis jednoho textu 0,85–0,90.",
     ),
-    "reuse-source-layers": (
-        ["A"],
-        "Vrstvy, ze kterých se hledá převzetí do ostatních vrstev (README §4, kroky 5–6).",
+    "reuse-layers": (
+        ["A", "B", "C", "D", "E", "F", "G", "H", "Z"],
+        "Vrstvy, mezi kterými se hledá převzetí (README §4, kroky 5–6) — v obou směrech i uvnitř "
+        "vrstvy, kdo od koho převzal, určuje čas zveřejnění. Vrstva I se neúčastní nikdy.",
     ),
     "reuse-window-days": (30, "Převzetí: maximální odstup originálu a převzetí (dní)."),
     "minhash-shingle-size": (5, "Velikost šindele ve slovech (5–7)."),
