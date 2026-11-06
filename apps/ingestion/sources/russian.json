@@ -1,0 +1,52 @@
+{
+  "sources": [
+    {
+      "name": "RIA Novosti",
+      "url": "https://ria.ru/",
+      "layer": "Z",
+      "platform": "web",
+      "parser": "ria",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "expected_language": "ru",
+      "notes": "Ruská státní agentura (v EU pod sankcemi, z ČR dostupná). Celkový RSS pokrývá jen asi 1,5 hodiny (~100 zpráv), proto se sbírají výpisy rubrik В мире a Политика. Hlavní titulek je redakční (div.article__title), věcný podtitulek jde do textu jako perex. Strojové shrnutí „РИА ИИ“ se neukládá.",
+      "feeds": [
+        {"url": "https://ria.ru/world/", "kind": "listing", "rubric": "В мире"},
+        {"url": "https://ria.ru/politics/", "kind": "listing", "rubric": "Политика"}
+      ],
+      "actor": {
+        "name": "RIA Novosti",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy Z (ruské státní zdroje v ruštině), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 60
+      }
+    },
+    {
+      "name": "RT na ruském",
+      "url": "https://russiatoday.ru/",
+      "layer": "Z",
+      "platform": "web",
+      "parser": "rt",
+      "collect_interval_minutes": 30,
+      "request_delay_seconds": 3,
+      "expected_language": "ru",
+      "notes": "Ruská státní televize RT (v EU pod sankcemi, z ČR dostupná); russian.rt.com přesměruje na russiatoday.ru. robots.txt zakazuje adresy s „?“ — odkazy se sbírají bez parametrů utm_. Sbírají se výpisy rubrik В мире, Бывший СССР, Россия a Мнения (komentáře); celkový RSS je převážně zábava a sport.",
+      "feeds": [
+        {"url": "https://russiatoday.ru/world", "kind": "listing", "rubric": "В мире"},
+        {"url": "https://russiatoday.ru/ussr", "kind": "listing", "rubric": "Бывший СССР"},
+        {"url": "https://russiatoday.ru/russia", "kind": "listing", "rubric": "Россия"},
+        {"url": "https://russiatoday.ru/opinion", "kind": "listing", "rubric": "Мнения"}
+      ],
+      "actor": {
+        "name": "RT",
+        "type": "media",
+        "criterion": "Zařazeno výzkumníkem do vrstvy Z (ruské státní zdroje v ruštině), 6. 11. 2026"
+      },
+      "collector_config": {
+        "max_articles": 60
+      }
+    }
+  ]
+}

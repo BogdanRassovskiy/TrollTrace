@@ -34,6 +34,22 @@ def normalize_url(url: str, *, keep_fragment: bool = False) -> str:
     return urlunsplit((parts.scheme.lower(), host, path, urlencode(query), fragment))
 
 
+def strip_tracking(url: str) -> str:
+    """Убирает только трекинговые параметры (utm_…), остальное не трогает — по этому адресу качаем.
+
+    RSS RT добавляет ?utm_source=rss, а robots.txt RT запрещает адреса с «?».
+    """
+    parts = urlsplit(url.strip())
+    if not parts.query:
+        return url.strip()
+    query = [
+        (key, value)
+        for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if key.lower() not in TRACKING_PARAMS and not key.lower().startswith(TRACKING_PREFIXES)
+    ]
+    return urlunsplit(parts._replace(query=urlencode(query)))
+
+
 def text_hash(text: str) -> str:
     """SHA-256 текста с нормализованными пробелами: правки в вёрстке не создают новую версию."""
     normalized = _WHITESPACE.sub(" ", text).strip()

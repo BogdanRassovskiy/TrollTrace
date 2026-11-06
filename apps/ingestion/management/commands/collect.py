@@ -16,7 +16,7 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--source", type=int, action="append", help="ID zdroje.")
-        parser.add_argument("--layer", help="Všechny aktivní zdroje vrstvy (A–E).")
+        parser.add_argument("--layer", help="Všechny aktivní zdroje vrstvy (A–I, Z).")
         parser.add_argument("--all", action="store_true", help="Všechny aktivní zdroje.")
         parser.add_argument(
             "--max-articles",

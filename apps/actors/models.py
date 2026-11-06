@@ -24,6 +24,8 @@ class Layer(models.TextChoices):
     TIKTOK = "G", "TikTok (G)"
     X = "H", "X (H)"
     SECURITY = "I", "Instituce bezpečnosti (I)"
+    # Российские государственные источники на русском (RT, РИА): откуда идут нарративы.
+    RUSSIAN = "Z", "Ruské zdroje v ruštině (Z)"
 
 
 def layer_name(code: str | None) -> str:

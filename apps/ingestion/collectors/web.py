@@ -13,7 +13,7 @@ import lxml.html
 from django.utils import timezone
 
 from apps.documents.models import Document
-from apps.documents.utils import normalize_url
+from apps.documents.utils import normalize_url, strip_tracking
 from apps.ingestion import parsers
 from apps.ingestion.extract import parse_dt
 from apps.ingestion.http import RobotsDisallowed
@@ -32,7 +32,8 @@ SITEMAP_NS = {
 
 class FeedEntry:
     def __init__(self, url, title="", published_at=None, rubric=""):
-        self.url, self.title, self.published_at, self.rubric = url, title, published_at, rubric
+        self.url, self.title = strip_tracking(url), title
+        self.published_at, self.rubric = published_at, rubric
 
 
 def parse_rss(content: bytes, rubric: str = "") -> list[FeedEntry]:

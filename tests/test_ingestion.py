@@ -15,10 +15,10 @@ from PIL import Image
 
 from apps.actors.models import Actor, ActorAccount, Layer, Platform, Source
 from apps.documents.models import Document
-from apps.documents.utils import normalize_url
+from apps.documents.utils import normalize_url, strip_tracking
 from apps.ingestion import psp
 from apps.ingestion.collectors.telegram import parse_channel_page, parse_count
-from apps.ingestion.collectors.web import parse_sitemap
+from apps.ingestion.collectors.web import parse_rss, parse_sitemap
 from apps.ingestion.deputies import ICON_SIZE, sync_deputies
 from apps.ingestion.http import PoliteClient, RobotsDisallowed
 from apps.ingestion.models import CollectionRun, SourceFeed
@@ -170,6 +170,20 @@ def test_normalize_url_keeps_fragment_on_request():
     assert normalize_url(url, keep_fragment=True).endswith("s001002.htm#r1")
 
 
+def test_strip_tracking_keeps_host_and_other_params():
+    url = "https://www.example.cz/clanek/?page=2&utm_source=rss&utm_medium=rss"
+    assert strip_tracking(url) == "https://www.example.cz/clanek/?page=2"
+    assert strip_tracking("https://ria.ru/20261106/x-1.html") == "https://ria.ru/20261106/x-1.html"
+
+
+def test_rss_links_lose_utm_params():
+    """RT: robots.txt запрещает адреса с «?» — с utm_ ни одна статья не скачалась бы."""
+    rss = b"""<?xml version="1.0"?><rss version="2.0"><channel><item>
+    <title>T</title><link>https://russian.rt.com/world/news/1-x?utm_source=rss&amp;utm_medium=rss</link>
+    </item></channel></rss>"""
+    assert [e.url for e in parse_rss(rss)] == ["https://russian.rt.com/world/news/1-x"]
+
+
 # --- Сайты --------------------------------------------------------------------------------
 
 
@@ -187,7 +201,7 @@ class TestWebCollector:
             ),
             headers={"etag": etag} if etag else None,
         )
-        web.add("https://zpravy.example/a/1?utm_source=rss", article_html())
+        web.add("https://zpravy.example/a/1", article_html())
         web.add(
             "https://zpravy.example/a/2",
             article_html(
@@ -258,7 +272,7 @@ class TestWebCollector:
         assert documents_to_recheck().count() == 2
 
         web.add(
-            "https://zpravy.example/a/1?utm_source=rss",
+            "https://zpravy.example/a/1",
             article_html(text="Opravený text článku. " * 30),
         )
         web.routes.pop("https://zpravy.example/a/2")  # → 404

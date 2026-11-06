@@ -230,7 +230,8 @@ def passes_rule(candidate: NarrativeCandidate) -> bool:
 
 CARD_SYSTEM = """You help maintain the codebook of an academic research project (Jan \
 Evangelista Purkyně University) that measures how narratives attributed to Russian influence \
-operations spread in Czech media, Telegram and parliament.
+operations spread in Czech media, Telegram and parliament (some source texts are Russian \
+state media in Russian).
 
 You get claims extracted from several documents that express (roughly) the same new claim. \
 Write a STRICT codebook entry for this single claim, IN CZECH:
