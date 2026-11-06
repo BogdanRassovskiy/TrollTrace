@@ -61,6 +61,43 @@ def flatten(topic_narratives: list[Narrative]) -> list[tuple[Narrative, int]]:
     return result
 
 
+def nest(topic_narratives: list[Narrative], docs: dict[int, set[int]] | None = None) -> list[dict]:
+    """Вложенное дерево темы для раскрывающихся списков:
+    [{node, depth, children: [...], docs: документов в ветке (каждый один раз)}].
+
+    docs — {id нарратива: id документов с его текущими метками}; без него docs = None.
+    """
+    items: dict[int, dict] = {}
+    roots: list[dict] = []
+    for node, depth in flatten(topic_narratives):
+        item = {"node": node, "depth": depth, "children": []}
+        items[node.pk] = item
+        parent = items.get(node.parent_id) if depth else None
+        (parent["children"] if parent else roots).append(item)
+
+    def total(item: dict) -> set[int]:
+        ids = set((docs or {}).get(item["node"].pk, ()))
+        for child in item["children"]:
+            ids |= total(child)
+        item["docs"] = len(ids) if docs is not None else None
+        return ids
+
+    for root in roots:
+        total(root)
+    return roots
+
+
+def label_documents(narratives=None) -> dict[int, set[int]]:
+    """{id нарратива: id документов} по текущим меткам."""
+    labels = Label.objects.current()
+    if narratives is not None:
+        labels = labels.filter(narrative__in=narratives)
+    result: dict[int, set[int]] = {}
+    for narrative_id, document_id in labels.values_list("narrative_id", "document_id"):
+        result.setdefault(narrative_id, set()).add(document_id)
+    return result
+
+
 def path(narrative: Narrative) -> list[Narrative]:
     """Путь от корня ветки до узла."""
     nodes = [narrative]

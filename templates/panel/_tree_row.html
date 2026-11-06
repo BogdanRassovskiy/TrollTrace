@@ -1,0 +1,14 @@
+<span class="tree-row">
+  <span class="tree-name">
+    <span class="badge tree-level-{{ n.level }}">{{ n.get_level_display }}</span>
+    <a href="{% url 'panel:narrative_history' n.code %}">{{ n.name }}</a>
+    {% if n.status != "active" %}<span class="badge badge-warn">{{ n.get_status_display }}</span>{% endif %}
+    {% if item.children %}<span class="muted small" title="Přímo podřízené uzly">· podřízené: {{ item.children|length }}</span>{% endif %}
+  </span>
+  <span class="tree-meta muted small">
+    <span title="{{ n.code }}{% if n.discovered %} · navržen automaticky{% endif %}">{{ n.code|truncatechars:32 }}</span>
+    {% if item.docs is not None %}<span title="Dokumenty s platným štítkem{% if item.children %} v celé větvi (každý jednou){% endif %}">{{ item.docs }} dok.{% if item.children %} ve větvi{% endif %}</span>{% endif %}
+    {% if show_labels %}<span>v{{ n.current_version }}</span>
+      <a href="{% url 'panel:narrative_edit' n.code %}">upravit</a>{% endif %}
+  </span>
+</span>

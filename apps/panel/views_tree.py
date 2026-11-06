@@ -8,7 +8,7 @@ from django.utils import timezone
 from django.views import View
 
 from apps.narratives.models import Narrative, NarrativeLevel, Topic, TreeDraft
-from apps.narratives.tree import flatten
+from apps.narratives.tree import label_documents, nest
 from apps.narratives.tree_draft import apply, topic_nodes
 
 from . import audit
@@ -19,13 +19,13 @@ class TreeView(ResearcherRequiredMixin, View):
     """Přehled témat: aktuální strom a návrhy modelu."""
 
     def get(self, request):
-        topics = []
+        topics, docs = [], label_documents()
         for topic in Topic.objects.order_by("name"):
             nodes = topic_nodes(topic)
             topics.append(
                 {
                     "topic": topic,
-                    "rows": flatten(nodes),
+                    "rows": nest(nodes, docs),
                     "drafts": topic.tree_drafts.filter(status=TreeDraft.Status.NEW),
                     "can_propose": len(nodes) >= 2,
                 }
@@ -58,6 +58,38 @@ def _parent_choices(draft: TreeDraft, nodes) -> list[tuple[str, str]]:
     for node in nodes:
         choices.append((node.code, f"Pod narativ: {node.name}"))
     return choices
+
+
+def _nest_rows(groups: list[dict], rows: list[dict]) -> list[dict]:
+    """Раскладывает строки черновика по выбранным родителям для вложенного просмотра:
+    group["items"], row["children"]; возвращает строки без родителя (корни темы).
+    Строки, недостижимые из групп и корней (цикл в правке), тоже попадают в корни."""
+    by_parent: dict[str, list[dict]] = {}
+    for row in rows:
+        row["children"] = []
+        by_parent.setdefault(row["parent"], []).append(row)
+    placed: set[str] = set()
+
+    def take(key: str) -> list[dict]:
+        result = []
+        for row in by_parent.get(key, []):
+            code = row["node"].code
+            if code in placed:
+                continue
+            placed.add(code)
+            row["children"] = take(code)
+            result.append(row)
+        return result
+
+    for group in groups:
+        group["items"] = take(group["key"])
+    keys = {g["key"] for g in groups} | {r["node"].code for r in rows}
+    roots = [r for r in rows if r["parent"] not in keys]
+    for row in roots:
+        placed.add(row["node"].code)
+        row["children"] = take(row["node"].code)
+    roots += [r for r in rows if r["node"].code not in placed]
+    return roots
 
 
 class TreeDraftView(ResearcherRequiredMixin, View):
@@ -93,10 +125,12 @@ class TreeDraftView(ResearcherRequiredMixin, View):
                     "parent": data.get(f"parent-{node.code}", item["parent"]),
                 }
             )
+        roots = _nest_rows(groups, rows)
         return {
             "draft": draft,
             "groups": groups,
             "rows": rows,
+            "roots": roots,
             "choices": _parent_choices(draft, nodes),
             "errors": errors or [],
             "levels": NarrativeLevel,
@@ -117,6 +151,8 @@ class TreeDraftView(ResearcherRequiredMixin, View):
             return redirect("panel:tree")
 
         context = self.context(draft, data=request.POST)
+        if request.POST.get("action") != "apply":  # odeslání bez tlačítka nic neuloží
+            return render(request, "panel/tree_draft.html", context)
         accepted = [g for g in context["groups"] if g["accepted"]]
         keys = {g["key"] for g in accepted}
         errors = [f"Nadnarativ „{g['name'] or g['key']}“ nemá název." for g in accepted

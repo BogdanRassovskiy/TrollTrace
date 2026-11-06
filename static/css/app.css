@@ -252,7 +252,50 @@ tr.highlight > td { background: rgba(224, 164, 0, 0.1); }
 @media (prefers-color-scheme: dark) { .fragment-text mark { background: #5a4b00; } }
 
 /* Strom kódové knihy */
-.tree-indent { display: inline-block; padding-left: calc(var(--depth, 0) * 1.4rem); }
+.tree-toolbar { align-items: center; margin: 1rem 0; }
+.tree-toolbar input[type="search"] { flex: 1 1 18rem; max-width: 28rem; font: inherit; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg, transparent); color: inherit; }
+.tree-topic > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem 1rem; cursor: pointer; }
+.tree-topic > summary h2 { display: inline; margin: 0; }
+.tree-topic[open] > summary { margin-bottom: .6rem; }
+.tree-list { list-style: none; margin: 0; padding: 0; }
+.tree-list .tree-list { margin-left: .55rem; padding-left: 1rem; border-left: 1px solid var(--border); }
+.tree-node > details > summary, .tree-leaf { display: block; padding: 5px 6px; border-radius: var(--radius); }
+.tree-node > details > summary { cursor: pointer; list-style: none; }
+.tree-node > details > summary::-webkit-details-marker { display: none; }
+.tree-node > details > summary::before { content: "▸"; display: inline-block; width: 1rem; color: var(--muted);
+  transition: transform .15s; }
+.tree-node > details[open] > summary::before { transform: rotate(90deg); }
+.tree-leaf { padding-left: calc(6px + 1rem); }
+.tree-node > details > summary:hover, .tree-leaf:hover { background: var(--accent-soft); }
+.tree-row { display: inline-flex; flex-wrap: wrap; justify-content: space-between; gap: .2rem 1rem;
+  width: calc(100% - 1rem); vertical-align: top; }
+.tree-leaf .tree-row { width: 100%; }
+.tree-name { min-width: 0; overflow-wrap: anywhere; }
+.tree-meta { display: inline-flex; flex-wrap: wrap; gap: .8rem; white-space: nowrap; }
+.tree-hidden { display: none; }
+.tree-topic > summary { list-style: none; }
+.tree-topic > summary::-webkit-details-marker { display: none; }
+.tree-topic > summary::before { content: "▸"; color: var(--muted); transition: transform .15s; align-self: center; }
+.tree-topic[open] > summary::before { transform: rotate(90deg); }
+.draft-node > details:not(:has(li)) > summary::before { visibility: hidden; }
+.draft-node > details > summary { display: flex; flex-wrap: wrap; align-items: baseline; }
+.draft-node > details > summary::before { flex: 0 0 1rem; }
+.draft-row { flex: 1 1 0; width: auto; flex-wrap: nowrap; align-items: baseline; }
+.draft-row .tree-name { flex: 1 1 auto; }
+.draft-row select { flex: 0 0 22rem; max-width: 22rem; font: inherit; font-size: .85rem; }
+.draft-reason { flex-basis: 100%; margin: 2px 0 0 1rem; }
+@media (max-width: 720px) {
+  .draft-row { flex-wrap: wrap; }
+  .draft-row select { flex-basis: 100%; max-width: 100%; }
+}
+.draft-accept { font-weight: normal; }
+.draft-rejected { opacity: .55; }
+.draft-moved > details > summary { background: var(--accent-soft); }
+.draft-empty { display: none; }
+.draft-list:not(:has(li)) + .draft-empty { display: block; }
+.draft-edit { margin: .3rem 0; }
+.tree-match > details > summary .tree-name a, .tree-match > .tree-leaf .tree-name a { font-weight: 600; }
 .tree-level-1 { background: #e6eefb; color: #1d4f9c; }
 .tree-level-3 { background: #f1f1f1; color: #555; }
 @media (prefers-color-scheme: dark) {

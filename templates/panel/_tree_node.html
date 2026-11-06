@@ -1,0 +1,14 @@
+{% with n=item.node %}
+<li class="tree-node" data-search="{{ n.name|lower }} {{ n.code }}">
+  {% if item.children %}
+    <details data-key="{{ n.code }}">
+      <summary>{% include "panel/_tree_row.html" %}</summary>
+      <ul class="tree-list">
+        {% for child in item.children %}{% include "panel/_tree_node.html" with item=child %}{% endfor %}
+      </ul>
+    </details>
+  {% else %}
+    <div class="tree-leaf">{% include "panel/_tree_row.html" %}</div>
+  {% endif %}
+</li>
+{% endwith %}

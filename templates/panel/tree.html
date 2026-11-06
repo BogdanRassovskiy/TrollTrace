@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Strom kódové knihy — panel{% endblock %}
 
@@ -13,18 +14,17 @@
     knihy, štítky dokumentů se nemění.
   </p>
 
+  {% include "panel/_tree_toolbar.html" %}
+  <div class="tree-root" data-tree>
   {% for t in topics %}
-    <section class="card">
-      <h2>{{ t.topic.name }}</h2>
+    <details class="card tree-topic" data-key="topic-{{ t.topic.pk }}" open>
+      <summary><h2>{{ t.topic.name }}</h2></summary>
       {% if t.drafts %}
         <p>Čekající návrh{{ t.drafts|length|pluralize:"y" }}:
           {% for d in t.drafts %}<a href="{% url 'panel:tree_draft' d.pk %}">č. {{ d.pk }} ({{ d.created_at|date:"j. n. H:i" }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}</p>
       {% endif %}
       {% if t.rows %}
-        <table class="table">
-          <thead><tr><th>Uzel</th><th>Úroveň</th><th>Stav</th></tr></thead>
-          <tbody>{% include "panel/_tree_rows.html" with rows=t.rows %}</tbody>
-        </table>
+        <ul class="tree-list">{% for item in t.rows %}{% include "panel/_tree_node.html" %}{% endfor %}</ul>
       {% else %}<p class="muted">Téma zatím nemá narativy.</p>{% endif %}
       {% if t.can_propose %}
         <form method="post" class="actions">{% csrf_token %}
@@ -32,6 +32,9 @@
           <button type="submit" class="button">Navrhnout seskupení modelem</button>
         </form>
       {% endif %}
-    </section>
+    </details>
   {% endfor %}
+  </div>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/tree-list.js' %}"></script>{% endblock %}

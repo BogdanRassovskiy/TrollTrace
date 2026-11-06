@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Návrh stromu — {{ draft.topic.name }} — panel{% endblock %}
 
@@ -15,45 +16,49 @@
     <ul class="messages">{% for e in errors %}<li class="msg msg-error">{{ e }}</li>{% endfor %}</ul>
   {% endif %}
 
-  <form method="post">{% csrf_token %}
-    <h2>Nadnarativy</h2>
-    <p class="muted small">Nadnarativ je samo tvrzení (ne téma). Nepřijatý nadnarativ se nevytvoří; narativy pod ním přeřaďte.</p>
+  <form method="post" class="draft-form">{% csrf_token %}
+    <p class="muted small">
+      Nadnarativ je samo tvrzení (ne téma). Každý nadnarativ lze sbalit; pod ním jsou narativy,
+      pod narativem jeho podnarativy. Výběrem „Zařadit pod“ narativ přesunete (náhled se změní hned,
+      uloží se až tlačítkem „Použít strom“). Nepřijatý nadnarativ se nevytvoří; narativy pod ním přeřaďte.
+    </p>
+    {% include "panel/_tree_toolbar.html" %}
+    <div class="tree-root" data-tree>
     {% for g in groups %}
-      <section class="card">
-        <label><input type="checkbox" name="accept-{{ g.key }}" value="on" {% if g.accepted %}checked{% endif %}> přijmout</label>
+      <details class="card tree-topic draft-group{% if not g.accepted %} draft-rejected{% endif %}" data-key="group-{{ g.key }}" open>
+        <summary>
+          <label class="draft-accept"><input type="checkbox" name="accept-{{ g.key }}" value="on" {% if g.accepted %}checked{% endif %} data-accept> přijmout</label>
+          <h2><span class="badge tree-level-1">Nadnarativ</span> {% if g.existing %}{{ g.existing.name }}{% else %}{{ g.name|default:g.key }}{% endif %}</h2>
+          <span class="muted small">{% if g.existing %}stávající narativ se povýší{% else %}nový{% endif %} · narativů: <span data-count="{{ g.key }}">{{ g.items|length }}</span></span>
+        </summary>
         {% if g.existing %}
-          <p><strong>{{ g.existing.name }}</strong> <span class="muted small">stávající narativ {{ g.existing.code }} se povýší na nadnarativ</span></p>
+          <p class="muted small">{{ g.existing.code }} · {{ g.existing.definition|truncatechars:300 }}</p>
           <input type="hidden" name="name-{{ g.key }}" value="{{ g.name }}">
           <input type="hidden" name="definition-{{ g.key }}" value="{{ g.definition }}">
         {% else %}
-          <label class="block">Název<input type="text" name="name-{{ g.key }}" value="{{ g.name }}" maxlength="300"></label>
-          <label class="block">Definice<textarea name="definition-{{ g.key }}" rows="2">{{ g.definition }}</textarea></label>
-          {% if g.stance_guide %}
-            <details class="small"><summary>Vodítko k postojům</summary>
+          <details class="small draft-edit"><summary>Upravit název a definici</summary>
+            <label class="block">Název<input type="text" name="name-{{ g.key }}" value="{{ g.name }}" maxlength="300"></label>
+            <label class="block">Definice<textarea name="definition-{{ g.key }}" rows="3">{{ g.definition }}</textarea></label>
+            {% if g.stance_guide %}
               <dl class="guide">{% for key, text in g.stance_guide.items %}<dt>{% if key == "pro" %}Pro{% elif key == "contra" %}Proti{% elif key == "neutral" %}Neutrálně{% else %}Není přítomen{% endif %}</dt><dd>{{ text }}</dd>{% endfor %}</dl>
-            </details>
-          {% endif %}
+            {% endif %}
+          </details>
+          {% if g.definition %}<p class="muted small">{{ g.definition|truncatechars:300 }}</p>{% endif %}
         {% endif %}
-      </section>
+        <ul class="tree-list draft-list" data-children="{{ g.key }}">
+          {% for r in g.items %}{% include "panel/_draft_node.html" %}{% endfor %}
+        </ul>
+        <p class="muted small draft-empty">Žádný narativ.</p>
+      </details>
     {% endfor %}
-
-    <h2>Zařazení narativů</h2>
-    <div class="table-wrap card">
-      <table class="table">
-        <thead><tr><th>Narativ</th><th>Zařadit pod</th><th>Zdůvodnění modelu</th></tr></thead>
-        <tbody>
-          {% for r in rows %}
-            <tr>
-              <td><a href="{% url 'panel:narrative_history' r.node.code %}">{{ r.node.name }}</a>
-                <div class="muted small">{{ r.node.code }} · nyní {{ r.node.get_level_display|lower }}{% if r.node.parent %} pod „{{ r.node.parent.name }}“{% endif %}</div></td>
-              <td><select name="parent-{{ r.node.code }}" aria-label="Zařadit pod">
-                {% for value, label in choices %}{% if value != r.node.code %}<option value="{{ value }}" {% if value == r.parent %}selected{% endif %}>{{ label|truncatechars:90 }}</option>{% endif %}{% endfor %}
-              </select></td>
-              <td class="small muted">{{ r.reason }}</td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <details class="card tree-topic draft-group" data-key="group-roots" open>
+      <summary><h2>Bez nadnarativu</h2>
+        <span class="muted small">narativy zůstanou kořeny tématu · <span data-count="">{{ roots|length }}</span></span></summary>
+      <ul class="tree-list draft-list" data-children="">
+        {% for r in roots %}{% include "panel/_draft_node.html" %}{% endfor %}
+      </ul>
+      <p class="muted small draft-empty">Žádný narativ.</p>
+    </details>
     </div>
 
     {% if draft.status == "new" %}
@@ -64,3 +69,5 @@
     {% endif %}
   </form>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/tree-list.js' %}"></script>{% endblock %}

@@ -22,7 +22,7 @@ from apps.narratives.models import (
     Topic,
 )
 from apps.narratives.retro import start_relabel
-from apps.narratives.tree import flatten
+from apps.narratives.tree import label_documents, nest
 from apps.narratives.tree import merge as tree_merge
 from apps.narratives.tree import path as tree_path
 
@@ -44,12 +44,15 @@ class CodebookView(ResearcherRequiredMixin, TemplateView):
             Label.objects.current().values_list("narrative").annotate(n=Count("pk")).order_by()
         )
         narratives = Narrative.objects.select_related("topic", "parent")
+        docs = label_documents()
         by_topic: dict = {}
         for narrative in narratives.order_by("status", "code"):
             narrative.n_labels = counts.get(narrative.pk, 0)
             by_topic.setdefault(narrative.topic, []).append(narrative)
         context |= {
-            "topics": [(t, flatten(by_topic.get(t, []))) for t in Topic.objects.order_by("name")],
+            "topics": [
+                (t, nest(by_topic.get(t, []), docs)) for t in Topic.objects.order_by("name")
+            ],
             "candidates": NarrativeCandidate.objects.filter(
                 status=NarrativeCandidate.Status.NEW
             ).count(),

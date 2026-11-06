@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Kódová kniha — panel{% endblock %}
 
@@ -18,19 +19,19 @@
     <a class="button" href="{% url 'panel:tree' %}">Strom a návrhy seskupení</a>
   </div>
 
-  {% for topic, narratives in topics %}
-    <section class="card">
-      <h2>{{ topic.name }} <a class="small" href="{% url 'panel:topic_edit' topic.pk %}">upravit téma</a></h2>
+  {% include "panel/_tree_toolbar.html" %}
+  <div class="tree-root" data-tree>
+  {% for topic, items in topics %}
+    <details class="card tree-topic" data-key="topic-{{ topic.pk }}" open>
+      <summary><h2>{{ topic.name }}</h2>
+        <a class="small" href="{% url 'panel:topic_edit' topic.pk %}">upravit téma</a></summary>
       {% if topic.description %}<p class="muted small">{{ topic.description }}</p>{% endif %}
-      <table class="table">
-        <thead><tr><th>Uzel</th><th>Úroveň</th><th>Stav</th><th>Verze</th><th>Platné štítky</th><th></th></tr></thead>
-        <tbody>
-          {% include "panel/_tree_rows.html" with rows=narratives show_labels=True %}
-          {% if not narratives %}<tr><td colspan="6" class="muted">Téma zatím nemá narativy.</td></tr>{% endif %}
-        </tbody>
-      </table>
-    </section>
+      {% if items %}
+        <ul class="tree-list">{% for item in items %}{% include "panel/_tree_node.html" with show_labels=True %}{% endfor %}</ul>
+      {% else %}<p class="muted">Téma zatím nemá narativy.</p>{% endif %}
+    </details>
   {% empty %}<p class="muted">Kódová kniha je prázdná.</p>{% endfor %}
+  </div>
 
   <h2>Poslední změny</h2>
   <div class="table-wrap card">
@@ -46,3 +47,5 @@
     </table>
   </div>
 {% endblock %}
+
+{% block scripts %}<script src="{% static 'js/tree-list.js' %}"></script>{% endblock %}

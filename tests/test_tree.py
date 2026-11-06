@@ -196,3 +196,43 @@ def test_narrative_form_sets_level_from_parent_and_merge_in_panel(topic, researc
     )
     assert "převedeno štítků 1" in response.content.decode()
     assert Narrative.objects.get(code="dup").merged_into == child
+
+
+def test_nest_counts_documents_once_per_branch(topic):
+    meta = node(topic, "a-meta", META)
+    child = node(topic, "b-child", NARR, meta)
+    sub = node(topic, "c-sub", SUB, child)
+    shared = DocumentFactory()
+    LabelFactory(narrative=child, document=shared)
+    LabelFactory(narrative=sub, document=shared)
+    LabelFactory(narrative=sub)
+    nodes = [meta, child, sub]
+    (root,) = tree.nest(nodes, tree.label_documents(nodes))
+    assert (root["node"], root["docs"]) == (meta, 2)
+    (branch,) = root["children"]
+    assert branch["docs"] == 2 and branch["children"][0]["docs"] == 2
+    assert tree.nest(nodes)[0]["docs"] is None
+
+
+def test_codebook_and_draft_are_nested_lists(topic, researcher_client):
+    meta = node(topic, "meta", META)
+    node(topic, "child", NARR, meta)
+    page = researcher_client.get(reverse("panel:codebook")).content.decode()
+    assert 'data-key="meta"' in page and "tree-list.js" in page
+
+    for code in ("k49", "k76", "k106", "pomoc"):
+        node(topic, code)
+    nodes = tree_draft.topic_nodes(topic)
+    draft = TreeDraft.objects.create(
+        topic=topic, proposal=tree_draft.normalize(proposal_answer(), nodes)
+    )
+    url = reverse("panel:tree_draft", args=[draft.pk])
+    response = researcher_client.get(url)
+    (g1, g2) = response.context["groups"]
+    assert [r["node"].code for r in g1["items"]] == ["k49"]
+    assert [r["node"].code for r in g1["items"][0]["children"]] == ["k76"]
+    assert [r["node"].code for r in g2["items"]] == ["k106"]
+    # odeslání bez tlačítka (Enter ve formuláři) strom nepoužije
+    researcher_client.post(url, {"accept-g1": "on", "name-g1": "X", "parent-k49": "g1"})
+    draft.refresh_from_db()
+    assert draft.status == TreeDraft.Status.NEW

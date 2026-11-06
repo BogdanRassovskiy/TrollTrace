@@ -1,0 +1,21 @@
+{% with n=r.node %}
+<li class="tree-node draft-node" data-search="{{ n.name|lower }} {{ n.code }}">
+  <details data-key="{{ n.code }}" open>
+    <summary>
+      <span class="tree-row draft-row">
+        <span class="tree-name">
+          <a href="{% url 'panel:narrative_history' n.code %}" target="_blank">{{ n.name }}</a>
+          <span class="muted small">{{ n.code|truncatechars:28 }}{% if n.parent %} · nyní pod „{{ n.parent.name|truncatechars:40 }}“{% endif %}</span>
+        </span>
+        <select name="parent-{{ n.code }}" aria-label="Zařadit pod" data-move="{{ n.code }}">
+          {% for value, label in choices %}{% if value != n.code %}<option value="{{ value }}" {% if value == r.parent %}selected{% endif %}>{{ label|truncatechars:70 }}</option>{% endif %}{% endfor %}
+        </select>
+      </span>
+      {% if r.reason %}<span class="draft-reason muted small">{{ r.reason }}</span>{% endif %}
+    </summary>
+    <ul class="tree-list" data-children="{{ n.code }}">
+      {% for child in r.children %}{% include "panel/_draft_node.html" with r=child %}{% endfor %}
+    </ul>
+  </details>
+</li>
+{% endwith %}
