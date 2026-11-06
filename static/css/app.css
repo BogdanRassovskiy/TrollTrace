@@ -366,3 +366,5 @@ label.block input[type="text"], label.block textarea { display: block; width: 10
 .legend-list.tt-list li { display: block; padding: 0; }
 .compare.compare-wide { grid-template-columns: minmax(0, 1fr) 340px; }
 @media (max-width: 900px) { .compare.compare-wide { grid-template-columns: 1fr; } }
+.tt-topic-check { font-weight: 600; font-size: 13px; }
+.tt-topic-check .muted { font-weight: normal; }

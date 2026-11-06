@@ -163,7 +163,8 @@ window.TT = (function () {
 
   // Вложенный раскрывающийся список. row(item) → HTML строки узла; ветки — <details>.
   // open: Set кодов раскрытых веток (и "topic:…" для тем); undefined — всё раскрыто.
-  function treeHTML(tree, row, open) {
+  // topicRow(t) → HTML заголовка темы (например, с флажком); без него — только название.
+  function treeHTML(tree, row, open, topicRow) {
     const isOpen = (key) => !open || open.has(key);
     const node = (item) => {
       const search = escapeHtml(`${item.name} ${item.code}`.toLocaleLowerCase("cs"));
@@ -174,7 +175,7 @@ window.TT = (function () {
         <summary>${row(item)}</summary><ul class="tt-list">${item.children.map(node).join("")}</ul></details></li>`;
     };
     return tree.map((t) => `<li class="tt-topic"><details data-key="topic:${escapeHtml(t.topic)}" ${isOpen(`topic:${t.topic}`) ? "open" : ""}>
-      <summary class="tt-topic-name">${escapeHtml(t.name)}</summary>
+      <summary class="tt-topic-name">${topicRow ? topicRow(t) : escapeHtml(t.name)}</summary>
       <ul class="tt-list">${t.children.map(node).join("")}</ul></details></li>`).join("");
   }
 
