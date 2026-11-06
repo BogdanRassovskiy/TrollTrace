@@ -98,6 +98,31 @@ def label_documents(narratives=None) -> dict[int, set[int]]:
     return result
 
 
+def chains(narratives) -> dict[int, list[int]]:
+    """{id узла: [он сам, родитель, …]} в пределах переданного набора (например, только
+    активные): метка узла засчитывается каждому узлу цепочки."""
+    by_id = {n.pk: n for n in narratives}
+    result: dict[int, list[int]] = {}
+    for narrative in by_id.values():
+        ids, current = [], narrative
+        while current is not None and current.pk not in ids:
+            ids.append(current.pk)
+            current = by_id.get(current.parent_id)
+        result[narrative.pk] = ids
+    return result
+
+
+def branch_stance(found) -> str:
+    """Позиция документа в узле по позициям его меток в поддереве: pro и proti вместе —
+    neutrálně (текст цитирует обе стороны), иначе pro / proti важнее neutrálně."""
+    if "pro" in found and "contra" in found:
+        return "neutral"
+    for stance in ("pro", "contra"):
+        if stance in found:
+            return stance
+    return "neutral"
+
+
 def path(narrative: Narrative) -> list[Narrative]:
     """Путь от корня ветки до узла."""
     nodes = [narrative]

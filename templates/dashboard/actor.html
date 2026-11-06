@@ -16,6 +16,7 @@
     {% if actor.added_automatically %}· <span class="badge badge-warn">přidán automaticky</span>{% endif %}
   </p>
 
+  <div class="compare compare-wide">
   <section class="card">
     <div class="chart-head">
       <h2>Narativy v čase</h2>
@@ -41,6 +42,17 @@
     <div id="actor-chart" class="chart" role="img" aria-label="Podíl narativů aktéra po týdnech"></div>
     <p id="chart-empty" class="muted" hidden>Pro aktéra zatím nejsou agregáty (žádné dokumenty v období zařazení).</p>
   </section>
+  <aside class="card legend-panel">
+    <input type="search" id="tree-search" placeholder="Hledat narativ" aria-label="Hledat narativ">
+    <p class="muted small">
+      <button type="button" class="link-button" id="tree-top">jen nejvyšší úroveň</button>
+      · <button type="button" class="link-button" id="tree-all">vše</button>
+      · <button type="button" class="link-button" id="tree-none">nic</button>
+      <br>Nadnarativ obsahuje součet své větve; číslo = dokumenty za období.
+    </p>
+    <ul id="actor-tree" class="legend-list tt-list tt-root"></ul>
+  </aside>
+  </div>
 
   {% include "dashboard/_posts.html" %}
 

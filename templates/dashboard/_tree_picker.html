@@ -1,0 +1,12 @@
+<div class="tt-picker" id="{{ prefix }}-picker">
+  <span class="small">Narativ</span>
+  <button type="button" class="tt-picker-btn" id="{{ prefix }}-button" aria-haspopup="true" aria-expanded="false" aria-controls="{{ prefix }}-pop">
+    <span class="badge" id="{{ prefix }}-level"></span> <span id="{{ prefix }}-current">—</span> <span aria-hidden="true">▾</span>
+  </button>
+  <input type="hidden" id="{{ prefix }}" value="{{ value }}">
+  <div class="tt-pop" id="{{ prefix }}-pop" hidden>
+    <input type="search" id="{{ prefix }}-search" placeholder="Hledat narativ (název nebo kód)…" aria-label="Hledat narativ">
+    <p class="muted small">Nadnarativ a narativ s podřízenými uzly ukazují součet celé větve (dokument jednou).</p>
+    <ul class="tt-list tt-root" id="{{ prefix }}-tree"></ul>
+  </div>
+</div>

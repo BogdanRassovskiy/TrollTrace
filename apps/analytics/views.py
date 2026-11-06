@@ -19,6 +19,7 @@ from django.views import View
 from apps.actors.models import ANALYSIS_LAYERS, Actor
 from apps.core.roles import ViewerRequiredMixin
 from apps.narratives.models import Label, Narrative, NarrativeStatus, Stance
+from apps.narratives.tree import branch_stance, chains
 from apps.panel.defaults import get_setting
 
 from . import aggregation, tree_map
@@ -258,15 +259,30 @@ class DocumentsView(ViewerRequiredMixin, View):
             actor_id__in=actors, day__gte=week, day__lt=week + datetime.timedelta(days=7)
         )
         documents = documents.filter(quality__gte=quality)
-        labels = Label.objects.current().filter(narrative=narrative, document__in=documents)
-        if stance != "all":
-            labels = labels.filter(stance=stance)
+        # uzel stromu: dokumenty s jeho štítkem nebo štítkem kteréhokoli aktivního potomka;
+        # postoj dokumentu ve větvi jako v agregátech (pro + proti = neutrálně)
+        branch = [
+            pk for pk, chain in chains(aggregation.active_narratives()).items()
+            if narrative.pk in chain
+        ] or [narrative.pk]  # fmt: skip
+        labels = Label.objects.current().filter(narrative_id__in=branch, document__in=documents)
+        per_document: dict = {}
+        for label in labels.select_related(
+            "document__actor", "document__source", "narrative"
+        ).order_by("document__published_at"):
+            mine = per_document.setdefault(label.document_id, {})
+            key = label.narrative_id
+            if label.origin == Label.Origin.HUMAN or key not in mine:
+                mine[key] = label
         found: dict = {}
-        for label in labels.select_related("document__actor", "document__source").order_by(
-            "document__published_at"
-        ):
-            if label.origin == Label.Origin.HUMAN or label.document_id not in found:
-                found[label.document_id] = label
+        for document_id, mine in per_document.items():
+            branch_value = branch_stance({x.stance for x in mine.values()})
+            if stance != "all" and branch_value != stance:
+                continue
+            # k zobrazení: štítek samotného uzlu, jinak nejpřesnějšího potomka
+            label = mine.get(narrative.pk) or next(iter(mine.values()))
+            label.branch_stance = branch_value
+            found[document_id] = label
         items = [
             {
                 "id": label.document_id,
@@ -278,8 +294,9 @@ class DocumentsView(ViewerRequiredMixin, View):
                 "actor": label.document.actor.name,
                 "source": label.document.source.name,
                 "layer": label.document.actor.layer or label.document.source.layer,
-                "stance": label.stance,
+                "stance": label.branch_stance,
                 "origin": label.origin,
+                "narrative": label.narrative.code,
                 "confidence": label.confidence,
                 "carrier": (label.details or {}).get("carrier", ""),
                 "evidence": (label.details or {}).get("evidence", ""),

@@ -332,3 +332,37 @@ label.block input[type="text"], label.block textarea { display: block; width: 10
   .map-layout { grid-template-columns: 1fr; }
   .map-chart { height: 480px; }
 }
+
+/* Strom v pracovní části: výběr narativu a seznamy (common.js treeHTML) */
+.tt-list { list-style: none; margin: 0; padding: 0; }
+.tt-list .tt-list { margin-left: .5rem; padding-left: .8rem; border-left: 1px solid var(--border); }
+.tt-list summary { cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 4px; padding: 2px 0; }
+.tt-list summary::-webkit-details-marker { display: none; }
+.tt-list summary::before { content: "▸"; flex: 0 0 .9rem; color: var(--muted); transition: transform .15s; }
+.tt-list details[open] > summary::before { transform: rotate(90deg); }
+.tt-leaf { padding: 2px 0 2px .9rem; display: flex; align-items: baseline; gap: 4px; }
+.tt-topic-name { font-weight: 600; margin-top: 4px; }
+.tt-hidden { display: none; }
+.tt-match > details > summary, .tt-match > .tt-leaf { font-weight: 600; }
+.tt-picker { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.tt-picker-btn { font: inherit; display: inline-flex; align-items: center; gap: 6px; max-width: 34rem; padding: 6px 10px;
+  border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); cursor: pointer; text-align: left; }
+.tt-picker-btn #narrative-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-picker-btn .badge:empty { display: none; }
+.tt-pop { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: min(42rem, 92vw); max-height: 70vh;
+  overflow-y: auto; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .18); }
+.tt-pop input[type=search] { width: 100%; box-sizing: border-box; font: inherit; padding: 6px 8px; border: 1px solid var(--border);
+  border-radius: 6px; background: var(--surface); color: var(--text); }
+.tt-pop p { margin: 6px 0; }
+.tt-pick { font: inherit; font-size: 14px; background: none; border: 0; padding: 2px 4px; color: var(--text); cursor: pointer;
+  text-align: left; border-radius: 4px; flex: 1; }
+.tt-pick:hover, .tt-pick:focus-visible { background: var(--accent-soft); }
+.tt-pick.selected { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.tt-pick .badge { font-size: 10px; }
+.tt-check { display: flex; align-items: center; gap: 6px; cursor: pointer; min-width: 0; flex: 1; font-size: 13px; }
+.tt-check .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tt-check.off { opacity: .55; }
+.legend-list.tt-list li { display: block; padding: 0; }
+.compare.compare-wide { grid-template-columns: minmax(0, 1fr) 340px; }
+@media (max-width: 900px) { .compare.compare-wide { grid-template-columns: 1fr; } }

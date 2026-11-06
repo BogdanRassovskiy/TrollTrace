@@ -16,19 +16,11 @@ from collections import defaultdict
 
 from apps.actors.models import ANALYSIS_LAYERS
 from apps.narratives.models import Label, Narrative, NarrativeStatus
+from apps.narratives.tree import branch_stance, chains
 
 from .aggregation import _documents, monday
 
 STANCES = ("pro", "contra", "neutral")
-
-
-def _stance(found: set[str]) -> str:
-    if "pro" in found and "contra" in found:
-        return "neutral"
-    for stance in ("pro", "contra"):
-        if stance in found:
-            return stance
-    return "neutral"
 
 
 def compute(min_quality: int, layers: list[str] | None = None) -> dict:
@@ -39,15 +31,7 @@ def compute(min_quality: int, layers: list[str] | None = None) -> dict:
         .order_by("topic__name", "level", "name")
     )
     by_id = {n.pk: n for n in nodes}
-
-    def ancestors(narrative: Narrative) -> list[int]:
-        ids, current = [], narrative
-        while current is not None and current.pk in by_id and current.pk not in ids:
-            ids.append(current.pk)
-            current = by_id.get(current.parent_id)
-        return ids
-
-    chain = {n.pk: ancestors(n) for n in nodes}
+    chain = chains(nodes)
 
     documents = _documents().filter(actor__layer__in=layers)
     if min_quality > 1:
@@ -85,7 +69,7 @@ def compute(min_quality: int, layers: list[str] | None = None) -> dict:
         row = series[by_id[node_id].code]
         i = index[week_of[document_id]]
         row["n"][i] += 1
-        row[_stance(found)][i] += 1
+        row[branch_stance(found)][i] += 1
 
     return {
         "weeks": [w.isoformat() for w in weeks],

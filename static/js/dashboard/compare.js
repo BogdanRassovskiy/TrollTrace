@@ -18,6 +18,7 @@
     narrative: $("narrative"), quality: $("min-quality"), party: $("party"),
     colorBy: $("color-by"), groupLines: $("group-lines"), sort: $("sort"), search: $("legend-search"),
   };
+  TT.treePicker({ prefix: "narrative", input: controls.narrative, nodes: config.tree || [] });
   const HOVER_PX = 12;
   const state = { data: null, actors: [], pinned: new Set(), view: "lines", hovered: null, stance: "all" };
 

@@ -1,0 +1,14 @@
+<span class="tree-row">
+  <span class="tree-name">
+    <span class="badge tree-level-{{ n.level }}">{{ n.get_level_display }}</span>
+    <a href="{% url 'dashboard:narrative' n.code %}">{{ n.name }}</a>
+    {% if n.status == "candidate" %}<span class="badge badge-warn">{{ n.get_status_display }}</span>{% endif %}
+    {% if n.discovered %}<span class="badge" title="Vznikl ze shluku nových tvrzení">navržen automaticky</span>{% endif %}
+    {% if n.kind == "theme" %}<span class="muted small">· téma vlivu</span>{% endif %}
+  </span>
+  <span class="tree-meta muted small">
+    <span title="{{ n.code }}">v{{ n.current_version }}</span>
+    <span title="Dokumenty s platným štítkem{% if item.children %} v celé větvi (každý jednou){% endif %}">{{ item.docs }} dok.{% if item.children %} ve větvi{% endif %}</span>
+    {% if n.status == "active" %}<a href="{% url 'dashboard:compare' %}?narrative={{ n.code }}">srovnání</a>{% endif %}
+  </span>
+</span>

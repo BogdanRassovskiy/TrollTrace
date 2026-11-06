@@ -136,6 +136,143 @@ window.TT = (function () {
     window.addEventListener("resize", () => chart.resize());
   }
 
+  // --- Дерево кодбука: тема → nadnarativ → narativ → podnarativ (этап 6.2) ---------------
+  // nodes: [{code, name, parent, level, topic, topic_name}] → [{topic, name, children: [узлы]}],
+  // у узла children; родитель вне набора (не активен) — узел становится корнем темы.
+  function buildTree(nodes) {
+    const codes = new Set(nodes.map((n) => n.code));
+    const items = Object.fromEntries(nodes.map((n) => [n.code, { ...n, children: [] }]));
+    const topics = new Map();
+    for (const n of nodes) {
+      const item = items[n.code];
+      if (n.parent && codes.has(n.parent)) items[n.parent].children.push(item);
+      else {
+        if (!topics.has(n.topic)) topics.set(n.topic, { topic: n.topic, name: n.topic_name, children: [] });
+        topics.get(n.topic).children.push(item);
+      }
+    }
+    const order = (list) => {
+      list.sort((a, b) => (a.level || 0) - (b.level || 0) || a.name.localeCompare(b.name, "cs"));
+      list.forEach((x) => order(x.children));
+      return list;
+    };
+    return order([...topics.values()]);
+  }
+
+  const LEVELS = { 1: "Nadnarativ", 2: "Narativ", 3: "Podnarativ" };
+
+  // Вложенный раскрывающийся список. row(item) → HTML строки узла; ветки — <details>.
+  // open: Set кодов раскрытых веток (и "topic:…" для тем); undefined — всё раскрыто.
+  function treeHTML(tree, row, open) {
+    const isOpen = (key) => !open || open.has(key);
+    const node = (item) => {
+      const search = escapeHtml(`${item.name} ${item.code}`.toLocaleLowerCase("cs"));
+      if (!item.children.length) {
+        return `<li class="tt-node" data-search="${search}"><div class="tt-leaf">${row(item)}</div></li>`;
+      }
+      return `<li class="tt-node" data-search="${search}"><details data-key="${escapeHtml(item.code)}" ${isOpen(item.code) ? "open" : ""}>
+        <summary>${row(item)}</summary><ul class="tt-list">${item.children.map(node).join("")}</ul></details></li>`;
+    };
+    return tree.map((t) => `<li class="tt-topic"><details data-key="topic:${escapeHtml(t.topic)}" ${isOpen(`topic:${t.topic}`) ? "open" : ""}>
+      <summary class="tt-topic-name">${escapeHtml(t.name)}</summary>
+      <ul class="tt-list">${t.children.map(node).join("")}</ul></details></li>`).join("");
+  }
+
+  // Поиск в дереве: совпавшие узлы и путь к ним видимы, ветки с совпадениями раскрыты.
+  function filterTree(root, query) {
+    const q = query.trim().toLocaleLowerCase("cs");
+    const nodes = root.querySelectorAll(".tt-node");
+    const topics = root.querySelectorAll(".tt-topic");
+    if (!q) {
+      nodes.forEach((li) => li.classList.remove("tt-hidden", "tt-match"));
+      topics.forEach((li) => li.classList.remove("tt-hidden"));
+      return;
+    }
+    nodes.forEach((li) => li.classList.add("tt-hidden"));
+    nodes.forEach((li) => {
+      li.classList.toggle("tt-match", li.dataset.search.includes(q));
+      if (!li.classList.contains("tt-match")) return;
+      li.classList.remove("tt-hidden");
+      li.querySelectorAll(".tt-node").forEach((c) => c.classList.remove("tt-hidden"));
+      for (let p = li.parentElement; p && p !== root; p = p.parentElement) {
+        if (p.classList.contains("tt-node")) p.classList.remove("tt-hidden");
+        if (p.tagName === "DETAILS") p.open = true;
+      }
+    });
+    topics.forEach((t) => t.classList.toggle("tt-hidden", !t.querySelector(".tt-node:not(.tt-hidden)")));
+  }
+
+  function openKeys(root) {
+    return new Set([...root.querySelectorAll("details[data-key]")].filter((d) => d.open).map((d) => d.dataset.key));
+  }
+
+  // Выбор одного узла дерева вместо длинного <select>: кнопка → всплывающее дерево с поиском.
+  // Значение — в скрытом поле input (на нём событие change, как у select).
+  function treePicker({ prefix, input, nodes }) {
+    const $ = (id) => document.getElementById(`${prefix}-${id}`);
+    const button = $("button"), pop = $("pop"), search = $("search"), list = $("tree");
+    if (!button) return;
+    const byCode = Object.fromEntries(nodes.map((n) => [n.code, n]));
+    const tree = buildTree(nodes);
+    const label = () => {
+      const n = byCode[input.value];
+      $("current").textContent = n ? n.name : "— vyberte narativ —";
+      $("level").textContent = n ? LEVELS[n.level] || "" : "";
+    };
+    const path = (code) => {
+      const keys = new Set();
+      for (let n = byCode[code]; n; n = byCode[n.parent]) {
+        keys.add(`topic:${n.topic}`);
+        if (n.parent) keys.add(n.parent);
+      }
+      return keys;
+    };
+    const row = (n) => `<button type="button" class="tt-pick${n.code === input.value ? " selected" : ""}" data-code="${escapeHtml(n.code)}">
+        <span class="badge tree-level-${n.level}">${LEVELS[n.level] || ""}</span> ${escapeHtml(n.name)}
+        ${n.children.length ? `<span class="muted small">· větev: ${n.children.length}</span>` : ""}</button>`;
+    function open() {
+      list.innerHTML = treeHTML(tree, row, path(input.value));
+      search.value = "";
+      pop.hidden = false;
+      button.setAttribute("aria-expanded", "true");
+      search.focus();
+      list.querySelector(".selected")?.scrollIntoView({ block: "center" });
+    }
+    function close() {
+      pop.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+    }
+    button.addEventListener("click", () => (pop.hidden ? open() : close()));
+    search.addEventListener("input", () => filterTree(list, search.value));
+    search.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        list.querySelector(".tt-match .tt-pick, .tt-match > details > summary .tt-pick")?.click();
+      }
+    });
+    list.addEventListener("click", (e) => {
+      const pick = e.target.closest(".tt-pick");
+      if (!pick) return;
+      e.preventDefault(); // klik na název ve <summary> vybírá, nerozbaluje
+      input.value = pick.dataset.code;
+      label();
+      close();
+      input.dispatchEvent(new Event("change"));
+    });
+    document.addEventListener("click", (e) => {
+      if (!pop.hidden && !e.target.closest(`#${prefix}-picker`)) close();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && !pop.hidden) {
+        close();
+        button.focus();
+      }
+    });
+    label();
+    return { refresh: label };
+  }
+
   return { config, layerColor, partyColor, getJSON, percent, weekLabel, escapeHtml, showPosts,
-    onResize, syncURL, setSelect, STANCES };
+    onResize, syncURL, setSelect, STANCES, buildTree, treeHTML, filterTree, openKeys, LEVELS,
+    treePicker };
 })();

@@ -214,10 +214,10 @@
 
   function query() { return $("list-search").value.trim().toLocaleLowerCase("cs"); }
 
-  function listedNarratives() {
+  function listedNarratives(all) {
     const totals = Object.fromEntries((state.data ? state.data.series : []).map((s) =>
       [s.code, numerator(s).reduce((a, b) => a + b, 0)]));
-    const q = query();
+    const q = all ? "" : query();
     return config.narratives
       .filter((n) => !q || n.name.toLocaleLowerCase("cs").includes(q) || n.code.includes(q))
       .map((n) => ({ ...n, total: totals[n.code] || 0 }))
@@ -239,16 +239,27 @@
       b.setAttribute("aria-selected", String(b.dataset.tab === state.tab));
     });
     if (state.tab === "narratives") {
-      $("pick-list").innerHTML = listedNarratives().map((n) => {
+      // strom: téma → nadnarativ → narativ → podnarativ; sourozenci podle počtu dokumentů
+      const list = $("pick-list");
+      const open = list.classList.contains("tt-list") ? TT.openKeys(list) : undefined;
+      const totals = Object.fromEntries(listedNarratives(true).map((n) => [n.code, n.total]));
+      const tree = TT.buildTree(config.narratives);
+      const sort = (items) => {
+        items.sort((a, b) => (totals[b.code] || 0) - (totals[a.code] || 0) || a.name.localeCompare(b.name, "cs"));
+        items.forEach((x) => sort(x.children));
+      };
+      tree.forEach((t) => sort(t.children));
+      list.classList.add("tt-list", "tt-root");
+      list.innerHTML = TT.treeHTML(tree, (n) => {
         const on = !state.narrativesOff.has(n.code);
-        return `<li class="${on ? "" : "off"}" data-key="${escapeHtml(n.code)}">
-          <label><input type="checkbox" ${on ? "checked" : ""}>
+        return `<label class="tt-check${on ? "" : " off"}" data-pick="${escapeHtml(n.code)}"><input type="checkbox" ${on ? "checked" : ""}>
             <span class="swatch" style="background:${COLORS[n.code] || "#9e9e9e"}"></span>
-            <span class="name" title="${escapeHtml(n.name)}">${escapeHtml(n.name)}</span></label>
-          <span class="muted small" title="dokumentů s narativem za období">${n.kind === "theme" ? "téma · " : ""}${n.total}</span>
-        </li>`;
-      }).join("");
+            <span class="name" title="${escapeHtml(n.name)}${n.children.length ? " — součet celé větve" : ""}">${escapeHtml(n.name)}</span>
+            <span class="muted small" title="dokumentů za období${n.children.length ? " (celá větev, každý jednou)" : ""}">${n.kind === "theme" ? "téma · " : ""}${totals[n.code] || 0}</span></label>`;
+      }, open);
+      TT.filterTree(list, $("list-search").value);
     } else {
+      $("pick-list").classList.remove("tt-list", "tt-root");
       $("pick-list").innerHTML = listedActors().map((a) => {
         const on = !state.actorsOff.has(a.id);
         return `<li class="${on ? "" : "off"}" data-key="${a.id}">
@@ -268,7 +279,9 @@
   }
 
   $("pick-list").addEventListener("change", (event) => {
-    const key = event.target.closest("li")?.dataset.key;
+    const key = state.tab === "narratives"
+      ? event.target.closest("[data-pick]")?.dataset.pick
+      : event.target.closest("li")?.dataset.key;
     if (!key) return;
     if (state.tab === "narratives") {
       if (event.target.checked) state.narrativesOff.delete(key); else state.narrativesOff.add(key);
@@ -280,7 +293,7 @@
     }
   });
   $("pick-list").addEventListener("mouseover", (event) => {
-    const key = event.target.closest("li")?.dataset.key;
+    const key = event.target.closest("[data-pick]")?.dataset.pick;
     if (state.tab === "narratives" && key && !state.narrativesOff.has(key)) setHovered(key);
   });
   $("pick-list").addEventListener("mouseleave", () => setHovered(null));
@@ -302,6 +315,14 @@
       ? state.narrativesOff.delete(n.code) : state.narrativesOff.add(n.code)));
     changed(false);
   }));
+  // Nadnarativ už obsahuje své narativy: výchozí výběr — jen nejvyšší úroveň stromu,
+  // aby se větev nepočítala dvakrát.
+  const ACTIVE = new Set(config.narratives.map((n) => n.code));
+  const nested = () => config.narratives.filter((n) => n.parent && ACTIVE.has(n.parent)).map((n) => n.code);
+  $("top-level")?.addEventListener("click", () => {
+    state.narrativesOff = new Set(nested());
+    changed(false);
+  });
 
   document.querySelectorAll(".tab-btn").forEach((button) => button.addEventListener("click", () => {
     state.tab = button.dataset.tab;
@@ -345,7 +366,7 @@
       stance: state.stance === "all" ? "" : state.stance,
       mode: state.mode === "share" ? "" : state.mode,
       layers: chosen.length === ALL_LAYERS.length ? "" : chosen.join(",") || "-",
-      nx: [...state.narrativesOff].join(","),
+      nx: [...state.narrativesOff].join(",") || "-",
       ax: [...state.actorsOff].join(","),
     });
   }
@@ -360,7 +381,9 @@
       $("layers").querySelectorAll("input").forEach((i) => { i.checked = chosen.has(i.value); });
     }
     const codes = new Set(config.narratives.map((n) => n.code));
-    state.narrativesOff = new Set((p.get("nx") || "").split(",").filter((c) => codes.has(c)));
+    state.narrativesOff = p.has("nx")
+      ? new Set(p.get("nx").split(",").filter((c) => codes.has(c)))
+      : new Set(nested());
     state.actorsOff = new Set((p.get("ax") || "").split(",").filter(Boolean).map(Number).filter(Number.isInteger));
   }
 

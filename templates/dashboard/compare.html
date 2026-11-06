@@ -13,11 +13,7 @@
   </p>
 
   <form class="filters" id="controls" onsubmit="return false">
-    <label class="small">Narativ
-      <select id="narrative">
-        {% for n in narratives %}<option value="{{ n.code }}" {% if n.code == chart_config.narrative %}selected{% endif %}>{{ n.name }}</option>{% endfor %}
-      </select>
-    </label>
+    {% include "dashboard/_tree_picker.html" with prefix="narrative" value=chart_config.narrative %}
     <label class="small">Kvalita ≥
       <select id="min-quality">
         {% for t in chart_config.thresholds %}<option value="{{ t }}" {% if t == chart_config.min_quality %}selected{% endif %}>{{ t }}</option>{% endfor %}

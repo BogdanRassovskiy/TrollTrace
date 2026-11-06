@@ -17,6 +17,7 @@ from apps.analytics.models import WeeklyAggregate
 from apps.core.roles import ViewerRequiredMixin
 from apps.documents.models import ReuseLink
 from apps.narratives.models import Label, Narrative, NarrativeStatus, Stance
+from apps.narratives.tree import label_documents, nest
 from apps.panel.defaults import get_setting
 
 from .reuse import highlight
@@ -26,6 +27,22 @@ SPIKE_WEEKS = 2  # výkyv „teď“ = v posledních dvou týdnech s daty
 
 def _active_narratives():
     return Narrative.objects.filter(status=NarrativeStatus.ACTIVE).order_by("code")
+
+
+def tree_nodes(narratives) -> list[dict]:
+    """Узлы для деревьев рабочей части (common.js buildTree): родитель, уровень, тема."""
+    return [
+        {
+            "code": n.code,
+            "name": n.name,
+            "parent": n.parent.code if n.parent_id else None,
+            "level": n.level,
+            "topic": n.topic.code,
+            "topic_name": n.topic.name,
+            "kind": n.kind,
+        }
+        for n in narratives
+    ]
 
 
 class DashboardIndexView(ViewerRequiredMixin, ListView):
@@ -109,6 +126,7 @@ class ActorDetailView(ViewerRequiredMixin, DetailView):
                 "actor": actor.pk,
                 "thresholds": aggregation.thresholds(),
                 "min_quality": int(get_setting("analysis-min-quality")),
+                "tree": tree_nodes(_active_narratives().select_related("topic", "parent")),
             },
         }
         return context
@@ -121,12 +139,17 @@ class CompareView(ViewerRequiredMixin, TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        narratives = list(_active_narratives())
-        code = self.request.GET.get("narrative") or (narratives[0].code if narratives else "")
+        narratives = list(_active_narratives().select_related("topic", "parent"))
+        codes = {n.code for n in narratives}
+        code = self.request.GET.get("narrative")
+        if code not in codes:  # výchozí: nejsilnější kořen (nadnarativ / široký narativ)
+            roots = [n for n in narratives if n.parent_id is None]
+            code = (roots or narratives)[0].code if narratives else ""
         context |= {
             "narratives": narratives,
             "chart_config": {
                 "narrative": code,
+                "tree": tree_nodes(narratives),
                 "thresholds": aggregation.thresholds(),
                 "min_quality": int(get_setting("analysis-min-quality")),
                 "click_max_lines": int(get_setting("chart-click-max-lines")),
@@ -149,22 +172,29 @@ class NarrativeListView(ViewerRequiredMixin, ListView):
     def get_queryset(self):
         return (
             Narrative.objects.filter(status__in=[NarrativeStatus.ACTIVE, NarrativeStatus.CANDIDATE])
-            .select_related("topic")
+            .select_related("topic", "parent")
             .annotate(n_labels=Count("labels"))
             .order_by("status", "code")
         )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        by_topic: dict = {}
+        for narrative in self.object_list:
+            by_topic.setdefault(narrative.topic, []).append(narrative)
+        docs = label_documents(self.object_list)
+        context["codebook"] = [
+            (topic, nest(items, docs))
+            for topic, items in sorted(by_topic.items(), key=lambda kv: kv[0].name)
+        ]
         actors = Actor.objects.filter(status=Actor.Status.ACTIVE, layer__in=ANALYSIS_LAYERS)
         context["chart_config"] = {
             "thresholds": aggregation.thresholds(),
             "min_quality": int(get_setting("analysis-min-quality")),
             "layers": {code: label for code, label in Layer.choices if code in ANALYSIS_LAYERS},
-            "narratives": [
-                {"code": n.code, "name": n.name, "kind": n.kind}
-                for n in self.object_list if n.status == NarrativeStatus.ACTIVE
-            ],
+            "narratives": tree_nodes(
+                n for n in self.object_list if n.status == NarrativeStatus.ACTIVE
+            ),
             "actors": [
                 {"id": a.pk, "name": a.name, "layer": a.layer, "party": a.party}
                 for a in actors.order_by("name")

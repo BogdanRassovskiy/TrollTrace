@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
 from django.conf import settings
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Exists, OuterRef, Q, Subquery
 from django.db.models.functions import Coalesce, TruncDate
@@ -45,6 +46,7 @@ from django.utils import timezone
 from apps.actors.models import ANALYSIS_LAYERS, Actor, ActorInclusionPeriod
 from apps.documents.models import Document, DocumentQuality
 from apps.narratives.models import Label, LabelDecision, Narrative, NarrativeStatus, Stance
+from apps.narratives.tree import branch_stance, chains
 from apps.panel.defaults import get_setting
 
 from .models import WeeklyAggregate
@@ -109,7 +111,11 @@ def _collect(pairs: set | None) -> dict:
 
 
 def _labels(document_ids: list[int], narratives: list[Narrative]) -> dict:
-    """{(document_id, narrative_id): stance}; ruční štítek má přednost před modelem."""
+    """{(document_id, narrative_id): stance}; ruční štítek má přednost před modelem.
+
+    Strom kódové knihy: štítek uzlu se započítá i všem jeho aktivním předkům, dokument
+    v uzlu jednou; pro i proti v jedné větvi = neutrálně (tree.branch_stance).
+    """
     found: dict = {}
     ids = [n.pk for n in narratives]
     for start in range(0, len(document_ids), 5000):
@@ -121,7 +127,12 @@ def _labels(document_ids: list[int], narratives: list[Narrative]) -> dict:
             key = (document_id, narrative_id)
             if origin == Label.Origin.HUMAN or key not in found:
                 found[key] = stance
-    return found
+    chain = chains(narratives)
+    branch: dict = defaultdict(set)
+    for (document_id, narrative_id), stance in found.items():
+        for node_id in chain.get(narrative_id, [narrative_id]):
+            branch[(document_id, node_id)].add(stance)
+    return {key: branch_stance(stances) for key, stances in branch.items()}
 
 
 def _engagement(items) -> dict:
@@ -284,10 +295,20 @@ def active_narratives() -> list[Narrative]:
     return list(Narrative.objects.filter(status=NarrativeStatus.ACTIVE).order_by("pk"))
 
 
+TREE_KEY = "analytics:aggregates-tree"
+
+
+def tree_signature(narratives: list[Narrative]) -> str:
+    return ",".join(f"{n.pk}:{n.parent_id or ''}" for n in sorted(narratives, key=lambda n: n.pk))
+
+
 def needs_full(narratives: list[Narrative]) -> bool:
-    """Набор активных нарративов изменился (принят кандидат, архивирован нарратив)."""
+    """Набор активных нарративов или дерево изменились (принят кандидат, архив, перенос узла:
+    суммы ветвей считаются заново). Подпись дерева — в кэше; нет её — полный пересчёт."""
     stored = set(WeeklyAggregate.objects.values_list("narrative_id", flat=True).distinct())
-    return stored != {n.pk for n in narratives}
+    if stored != {n.pk for n in narratives}:
+        return True
+    return cache.get(TREE_KEY) != tree_signature(narratives)
 
 
 def affected_pairs(since: datetime.datetime) -> set:
@@ -347,6 +368,7 @@ def update(since: datetime.datetime | None = None, *, full: bool = False) -> Agg
         _fill_smoothed(weeks)
     if full:
         stats.pairs = len(buckets)
+        cache.set(TREE_KEY, tree_signature(narratives), None)
     return stats
 
 

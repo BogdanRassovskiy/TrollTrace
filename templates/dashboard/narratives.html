@@ -45,7 +45,7 @@
     </div>
   </div>
 
-  <div class="compare">
+  <div class="compare compare-wide">
     <section class="card compare-chart">
       <p id="status" class="muted small" aria-live="polite">Načítám…</p>
       <div id="race-chart" class="chart chart-tall" role="img" aria-label="Podíl narativů po týdnech"></div>
@@ -58,7 +58,8 @@
       <input type="search" id="list-search" placeholder="Hledat" aria-label="Hledat v seznamu">
       <p class="muted small"><button type="button" class="link-button" id="check-all">vybrat všechny</button>
         · <button type="button" class="link-button" id="check-none">zrušit výběr</button>
-        <span id="kind-filter"> · <button type="button" class="link-button" data-kind="narrative">jen narativy</button>
+        <span id="kind-filter"> · <button type="button" class="link-button" id="top-level" title="Nadnarativy a narativy bez nadřazeného uzlu — větve se nepočítají dvakrát">jen nejvyšší úroveň</button>
+        · <button type="button" class="link-button" data-kind="narrative">jen narativy</button>
         · <button type="button" class="link-button" data-kind="theme">jen témata</button></span></p>
       <ul id="pick-list" class="legend-list"></ul>
     </aside>
@@ -67,26 +68,15 @@
   {% include "dashboard/_posts.html" %}
 
   <h2>Kódová kniha</h2>
-  <div class="table-wrap card">
-    <table class="table">
-      <thead><tr><th>Narativ</th><th>Téma</th><th>Stav</th><th>Verze</th><th>Štítků</th><th></th></tr></thead>
-      <tbody>
-        {% for n in narratives %}
-          <tr>
-            <td><a href="{% url 'dashboard:narrative' n.code %}">{{ n.name }}</a>
-              {% if n.discovered %}<span class="badge" title="Vznikl ze shluku nových tvrzení">navržen automaticky</span>{% endif %}
-              <div class="muted small">{{ n.code }}{% if n.kind == "theme" %} · téma vlivu{% endif %}</div></td>
-            <td>{{ n.topic.name }}</td>
-            <td><span class="badge {% if n.status == 'candidate' %}badge-warn{% else %}badge-ready{% endif %}">{{ n.get_status_display }}</span></td>
-            <td>v{{ n.current_version }}</td>
-            <td>{{ n.n_labels }}</td>
-            <td>{% if n.status == "active" %}<a href="{% url 'dashboard:compare' %}?narrative={{ n.code }}">srovnání</a>{% endif %}</td>
-          </tr>
-        {% empty %}
-          <tr><td colspan="6" class="muted">Kódová kniha je prázdná.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <p class="muted small">Strom narativů po tématech. U větve je počet dokumentů celé větve (každý jednou).</p>
+  {% include "panel/_tree_toolbar.html" %}
+  <div class="tree-root" data-tree>
+    {% for topic, items in codebook %}
+      <details class="card tree-topic" data-key="topic-{{ topic.pk }}" open>
+        <summary><h2>{{ topic.name }}</h2></summary>
+        <ul class="tree-list">{% for item in items %}{% include "dashboard/_tree_node.html" %}{% endfor %}</ul>
+      </details>
+    {% empty %}<p class="muted">Kódová kniha je prázdná.</p>{% endfor %}
   </div>
 {% endblock %}
 
@@ -95,4 +85,5 @@
   <script src="{% static 'vendor/echarts.min.js' %}"></script>
   <script src="{% static 'js/dashboard/common.js' %}"></script>
   <script src="{% static 'js/dashboard/narratives.js' %}"></script>
+  <script src="{% static 'js/tree-list.js' %}"></script>
 {% endblock %}
