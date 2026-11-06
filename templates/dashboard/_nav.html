@@ -3,6 +3,7 @@
   <a href="{% url 'dashboard:index' %}" class="{% if name == 'index' or name == 'actor' %}active{% endif %}">Aktéři</a>
   <a href="{% url 'dashboard:compare' %}" class="{% if name == 'compare' %}active{% endif %}">Srovnání</a>
   <a href="{% url 'dashboard:narratives' %}" class="{% if name == 'narratives' or name == 'narrative' %}active{% endif %}">Narativy</a>
+  <a href="{% url 'dashboard:map' %}" class="{% if name == 'map' %}active{% endif %}">Mapa narativů</a>
   <a href="{% url 'dashboard:reuse' %}" class="{% if name == 'reuse' or name == 'reuse_detail' %}active{% endif %}">Převzetí</a>
 </nav>
 {% endwith %}

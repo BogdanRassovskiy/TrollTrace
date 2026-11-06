@@ -173,6 +173,22 @@ class NarrativeListView(ViewerRequiredMixin, ListView):
         return context
 
 
+class TreeMapView(ViewerRequiredMixin, TemplateView):
+    """Mapa narativů: strom Téma → nadnarativ → narativ → podnarativ s posuvníkem času.
+    Data z /api/tree-map/ jedním dotazem, posuvník pracuje v prohlížeči."""
+
+    template_name = "dashboard/map.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["chart_config"] = {
+            "thresholds": aggregation.thresholds(),
+            "min_quality": int(get_setting("analysis-min-quality")),
+            "layers": {code: label for code, label in Layer.choices if code in ANALYSIS_LAYERS},
+        }
+        return context
+
+
 def lifecycle(narrative: Narrative) -> dict:
     """Первая фиксация, слои по порядку появления, пик (README §3, метрики жизненного цикла).
 

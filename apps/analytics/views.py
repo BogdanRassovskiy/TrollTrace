@@ -6,6 +6,8 @@
 /api/documents/  — документы за точкой графика (актор, группа или выбор акторов × неделя).
 /api/narrative-shares/ — нарративы друг против друга: доля каждого по выбранным акторам.
 /api/narratives/ — активные нарративы для выбора.
+/api/tree-map/   — карта дерева: узел × неделя по документам и меткам (не из агрегатов —
+                   документ в ветке считается один раз), см. tree_map.py.
 """
 
 import datetime
@@ -19,7 +21,7 @@ from apps.core.roles import ViewerRequiredMixin
 from apps.narratives.models import Label, Narrative, NarrativeStatus, Stance
 from apps.panel.defaults import get_setting
 
-from . import aggregation
+from . import aggregation, tree_map
 from .models import WeeklyAggregate
 
 STANCES = ("all", *Stance.values)
@@ -400,3 +402,14 @@ class NarrativeSharesView(ViewerRequiredMixin, View):
                 "series": series,
             }
         )
+
+
+class TreeMapView(ViewerRequiredMixin, View):
+    """Все недели всех узлов одним ответом: ползунок времени работает на клиенте."""
+
+    def get(self, request):
+        try:
+            quality = _quality(request)
+        except BadRequest as exc:
+            return _bad(str(exc))
+        return JsonResponse(tree_map.compute(quality, request.GET.getlist("layer") or None))

@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Mapa narativů{% endblock %}
+
+{% block content %}
+  {% include "dashboard/_nav.html" %}
+  <h1>Mapa narativů</h1>
+  <p class="muted">
+    Strom kódové knihy: téma → nadnarativ → narativ → podnarativ. Velikost uzlu = dokumenty
+    ve zvoleném období (v nadřazeném uzlu každý dokument jednou), barva = téma, obrys = převažující
+    postoj. Kolečkem nebo gestem přibližujte, tažením posouvejte; podrobnější úrovně se popisují
+    až při přiblížení. Kliknutím na uzel otevřete jeho kartu.
+  </p>
+
+  <form class="filters" id="controls" onsubmit="return false">
+    <label class="small">Kvalita ≥
+      <select id="min-quality">
+        {% for t in chart_config.thresholds %}<option value="{{ t }}" {% if t == chart_config.min_quality %}selected{% endif %}>{{ t }}</option>{% endfor %}
+      </select>
+    </label>
+    <fieldset class="layers" id="layers">
+      <legend class="small">Vrstvy</legend>
+      {% for code, label in chart_config.layers.items %}
+        <label class="small" title="{{ label }}"><input type="checkbox" value="{{ code }}" checked> {{ code }}</label>
+      {% endfor %}
+    </fieldset>
+    <div class="toggle" role="group" aria-label="Rozvržení">
+      <button type="button" class="toggle-btn layout-btn active" data-layout="radial">Kruhově</button>
+      <button type="button" class="toggle-btn layout-btn" data-layout="LR">Do šířky</button>
+    </div>
+    <label class="small"><input type="checkbox" id="show-candidates" checked> kandidáti</label>
+    <input type="search" id="node-search" list="node-list" placeholder="Najít narativ…" aria-label="Najít narativ">
+    <datalist id="node-list"></datalist>
+    <span class="share"><button type="button" class="link-button small" id="share-link">Kopírovat odkaz s nastavením</button>
+    <span class="muted small" id="share-note" role="status" aria-live="polite"></span></span>
+  </form>
+
+  <section class="card time-bar" aria-label="Čas">
+    <button type="button" class="button play-btn" id="play" aria-label="Přehrát">▶</button>
+    <input type="range" id="week" min="0" max="0" value="0" aria-label="Týden">
+    <div class="time-meta">
+      <strong id="week-label">—</strong>
+      <span class="muted small" id="window-label"></span>
+    </div>
+    <div class="time-opts">
+      <div class="toggle" role="group" aria-label="Období">
+        <button type="button" class="toggle-btn mode-btn active" data-mode="cumulative" title="Vše od začátku do zvoleného týdne">Kumulativně</button>
+        <button type="button" class="toggle-btn mode-btn" data-mode="window" title="Posledních N týdnů do zvoleného týdne">Klouzavé okno</button>
+      </div>
+      <label class="small">okno
+        <select id="window-size">
+          <option value="4" selected>4 týdny</option><option value="8">8 týdnů</option><option value="12">12 týdnů</option><option value="26">26 týdnů</option>
+        </select></label>
+      <label class="small">rychlost
+        <select id="speed"><option value="1200">pomalu</option><option value="600" selected>středně</option><option value="250">rychle</option></select></label>
+    </div>
+  </section>
+
+  <div class="compare map-layout">
+    <section class="card map-card">
+      <p id="status" class="muted small" aria-live="polite">Načítám…</p>
+      <div id="map-chart" class="chart map-chart" role="img" aria-label="Mapa stromu narativů"></div>
+      <div class="map-legend small muted">
+        <span><i class="dot ring-pro"></i> převažuje pro</span>
+        <span><i class="dot ring-contra"></i> převažuje proti</span>
+        <span><i class="dot ring-neutral"></i> neutrálně</span>
+        <span><i class="dot ring-dashed"></i> kandidát</span>
+        <span><i class="dot dot-faded"></i> v období bez dokumentů</span>
+      </div>
+    </section>
+    <aside class="card legend-panel map-panel" id="node-panel" aria-live="polite">
+      <p class="muted small" id="node-empty">Klikněte na uzel mapy.</p>
+      <div id="node-detail" hidden>
+        <p class="small muted" id="node-path"></p>
+        <h2 id="node-name"></h2>
+        <p class="small"><span class="badge" id="node-level"></span> <span class="badge" id="node-status"></span></p>
+        <p class="small" id="node-definition"></p>
+        <dl class="node-stats small" id="node-stats"></dl>
+        <div id="node-chart" class="chart node-chart" role="img" aria-label="Dokumenty uzlu po týdnech"></div>
+        <p class="small"><a id="node-link" href="#">Karta narativu →</a></p>
+      </div>
+    </aside>
+  </div>
+
+  <p class="muted small method-note">
+    Struktura stromu je aktuální verze kódové knihy, použitá zpětně na celé období: posuvník
+    ukazuje aktivitu narativů v čase, ne historii kódové knihy. Dokumenty se počítají stejně jako
+    v agregátech (období zařazení aktéra, rubriky, práh kvality, vrstvy analýzy). Nese-li dokument
+    v jedné větvi pro i proti, počítá se v nadřazeném uzlu jako neutrální.
+  </p>
+{% endblock %}
+
+{% block scripts %}
+  {{ chart_config|json_script:"chart-config" }}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/dashboard/common.js' %}"></script>
+  <script>window.NARRATIVE_URL = "{% url 'dashboard:narrative' 'KOD' %}";</script>
+  <script src="{% static 'js/dashboard/map.js' %}"></script>
+{% endblock %}
