@@ -8,7 +8,7 @@
   <p class="crumbs"><a href="{% url 'panel:sources' %}">Zdroje a stav sběru</a> /</p>
   <h1><span class="health health-{{ health }}" title="{{ health }}"></span> {{ source.name }}</h1>
   <p class="muted">
-    Vrstva {{ source.get_layer_display }} · {{ source.get_platform_display }} · <a href="{{ source.url }}" rel="noopener noreferrer">{{ source.url }}</a>
+    {{ source.get_layer_display }} · {{ source.get_platform_display }} · <a href="{{ source.url }}" rel="noopener noreferrer">{{ source.url }}</a>
     · interval sběru {{ source.collect_interval_minutes }} min{% if not source.is_active %} · <strong>sběr vypnut</strong>{% endif %}
     · <a href="{% url 'admin:actors_source_change' source.pk %}">upravit v administraci</a>
   </p>

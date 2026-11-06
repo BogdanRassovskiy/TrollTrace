@@ -20,7 +20,7 @@
           <tr>
             <td><span class="health health-{{ health }}" title="{{ health }}"></span></td>
             <td><a href="{% url 'panel:source_detail' source.pk %}">{{ source.name }}</a>{% if not source.is_active %} <span class="muted small">(vypnut)</span>{% endif %}</td>
-            <td>{{ source.layer }}</td>
+            <td>{{ source.layer|layer }}</td>
             <td>{{ source.docs_day }}</td>
             <td>{{ source.docs_total }}</td>
             <td>{{ source.mean_quality|floatformat:2|default:"—" }}</td>

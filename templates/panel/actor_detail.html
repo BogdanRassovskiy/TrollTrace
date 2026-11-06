@@ -7,7 +7,7 @@
   <p class="crumbs"><a href="{% url 'panel:actors' %}">Aktéři</a> /</p>
   <h1>{{ actor.name }}</h1>
   <p class="muted">
-    {{ actor.get_actor_type_display }}{% if actor.layer %} · vrstva {{ actor.get_layer_display }}{% endif %}{% if actor.party %} · {{ actor.party }}{% endif %}
+    {{ actor.get_actor_type_display }}{% if actor.layer %} · {{ actor.get_layer_display }}{% endif %}{% if actor.party %} · {{ actor.party }}{% endif %}
     · stav: <strong>{{ actor.get_status_display }}</strong>
     · <a href="{% url 'dashboard:actor' actor.pk %}">graf narativů</a>
     · <a href="{% url 'admin:actors_actor_change' actor.pk %}">administrace</a>

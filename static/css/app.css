@@ -155,7 +155,8 @@ tr.unread > td { background: rgba(224, 164, 0, 0.06); }
 .chart-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .filters.compact { margin: 0; }
 .filters label { display: inline-flex; align-items: center; gap: 4px; }
-.filters fieldset.layers { border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; display: flex; gap: 8px; margin: 0; }
+.filters fieldset.layers { border: 1px solid var(--border); border-radius: 6px; padding: 2px 8px; display: flex; flex-wrap: wrap; gap: 2px 10px; margin: 0; }
+.filters fieldset.layers label { white-space: nowrap; }
 .filters fieldset.layers legend { padding: 0 4px; }
 .grid-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
 .grid-2 > .card { margin: 0; }

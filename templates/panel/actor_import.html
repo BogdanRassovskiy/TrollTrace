@@ -17,7 +17,7 @@
           <tbody>
             {% for r in rows %}
               <tr{% if not r.ok %} class="row-error"{% endif %}>
-                <td>{{ r.line }}</td><td>{{ r.values.name }}</td><td>{{ r.values.actor_type }}</td><td>{{ r.values.layer|default:"—" }}</td>
+                <td>{{ r.line }}</td><td>{{ r.values.name }}</td><td>{{ r.values.actor_type }}</td><td>{{ r.values.layer|layer|default:"—" }}</td>
                 <td>{{ r.values.party|default:"—" }}</td>
                 <td class="small">{{ r.values.source_url|default:"—" }}{% if r.values.account_id %} · {{ r.values.account_id }}{% endif %}</td>
                 <td class="small">{% if r.ok %}v pořádku{% else %}{{ r.errors|join:"; " }}{% endif %}</td>

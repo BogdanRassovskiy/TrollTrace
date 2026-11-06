@@ -47,6 +47,7 @@
     TrollTrace v{{ PROJECT_VERSION }} · výzkumný nástroj, UJEP
   </footer>
 
+  {{ LAYER_NAMES|json_script:"layer-names" }}
   {% block scripts %}{% endblock %}
 </body>
 </html>

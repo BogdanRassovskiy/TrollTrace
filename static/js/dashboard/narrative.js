@@ -32,6 +32,6 @@
     .catch((error) => { el.textContent = error.message; });
 
   function label(s) {
-    return s.key === "all" ? "Všechny vrstvy (bez I)" : `Vrstva ${s.key.slice(6)}`;
+    return s.key === "all" ? "Všechny vrstvy (bez Institucí bezpečnosti)" : window.TT.layerName(s.key.slice(6));
   }
 })();

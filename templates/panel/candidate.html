@@ -8,7 +8,7 @@
   <h1>{{ narrative.name|default:candidate.description }}</h1>
   <p class="muted">
     {{ candidate.n_documents }} dok. od {{ candidate.n_authors }} nezávislých autorů ·
-    vrstvy {{ candidate.layers|join:", "|default:"—" }} ·
+    vrstvy: {{ candidate.layers|layers|default:"—" }} ·
     {{ candidate.window_start|date:"j. n." }}–{{ candidate.window_end|date:"j. n. Y" }} ·
     {% if candidate.tracked_since %}sleduje se od {{ candidate.tracked_since|date:"j. n. Y" }}{% else %}zatím nesplnil pravidlo přidání{% endif %}
   </p>

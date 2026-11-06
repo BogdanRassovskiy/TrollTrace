@@ -41,7 +41,7 @@
               {% if a.added_automatically %}<span class="badge badge-warn">automaticky</span>{% endif %}
               {% if a.role %}<div class="muted small">{{ a.role|truncatechars:90 }}</div>{% endif %}</td>
             <td>{{ a.get_actor_type_display }}</td>
-            <td>{{ a.layer|default:"—" }}</td>
+            <td>{{ a.layer|layer|default:"—" }}</td>
             <td>{{ a.party|default:"—" }}</td>
             <td>{% if a.status == "excluded" %}<span class="badge badge-warn">{{ a.get_status_display }}</span>{% else %}{{ a.get_status_display }}{% endif %}</td>
             <td>{{ a.n_accounts }}</td>

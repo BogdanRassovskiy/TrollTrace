@@ -15,15 +15,23 @@ from apps.core.models import TimeStampedModel
 class Layer(models.TextChoices):
     """Слои данных (README §2). Объёмы между слоями напрямую не сравниваются."""
 
-    ATTRIBUTED = "A", "A. Atribuované sítě"
-    ALTERNATIVE = "B", "B. Alternativní média"
-    TELEGRAM = "C", "C. Telegram"
-    MAINSTREAM = "D", "D. Mainstreamová média"
-    PARLIAMENT = "E", "E. Parlament"
-    META = "F", "F. Facebook / Instagram"
-    TIKTOK = "G", "G. TikTok"
-    X = "H", "H. X"
-    SECURITY = "I", "I. Instituce bezpečnosti"
+    ATTRIBUTED = "A", "Atribuované sítě (A)"
+    ALTERNATIVE = "B", "Alternativní média (B)"
+    TELEGRAM = "C", "Telegram (C)"
+    MAINSTREAM = "D", "Mainstreamová média (D)"
+    PARLIAMENT = "E", "Parlament (E)"
+    META = "F", "Facebook / Instagram (F)"
+    TIKTOK = "G", "TikTok (G)"
+    X = "H", "X (H)"
+    SECURITY = "I", "Instituce bezpečnosti (I)"
+
+
+def layer_name(code: str | None) -> str:
+    """Название слоя для интерфейса: «Parlament (E)». Буквы — для внутреннего пользования."""
+    try:
+        return Layer(code).label
+    except ValueError:
+        return code or ""
 
 
 # Слой I говорит *о* нарративах (метауровень) и в общие агрегаты по умолчанию не входит
@@ -106,7 +114,7 @@ class Source(TimeStampedModel):
         ordering = ["layer", "name"]
 
     def __str__(self):
-        return f"{self.name} ({self.layer})"
+        return f"{self.name} · {self.get_layer_display()}"
 
     def parser_error(self) -> str:
         """Почему источник нельзя собирать без своего парсера; пустая строка — можно."""

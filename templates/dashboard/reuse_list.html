@@ -30,8 +30,8 @@
       <tbody>
         {% for link in links %}
           <tr>
-            <td>{{ link.source_document.title|truncatechars:70 }}<div class="muted small">{{ link.source_document.actor.name }} ({{ link.source_document.source.layer }}) · {{ link.source_document.published_at|date:"j. n. Y" }}</div></td>
-            <td>{{ link.target_document.title|truncatechars:70 }}<div class="muted small">{{ link.target_document.actor.name }} ({{ link.target_document.source.layer }}) · {{ link.target_document.published_at|date:"j. n. Y" }}</div></td>
+            <td>{{ link.source_document.title|truncatechars:70 }}<div class="muted small">{{ link.source_document.actor.name }} ({{ link.source_document.source.layer|layer }}) · {{ link.source_document.published_at|date:"j. n. Y" }}</div></td>
+            <td>{{ link.target_document.title|truncatechars:70 }}<div class="muted small">{{ link.target_document.actor.name }} ({{ link.target_document.source.layer|layer }}) · {{ link.target_document.published_at|date:"j. n. Y" }}</div></td>
             <td>{{ link.get_link_type_display }}{% if link.is_confirmed %} <span class="badge badge-ready">potvrzeno</span>{% elif link.is_confirmed is False %} <span class="badge badge-warn">zamítnuto</span>{% endif %}</td>
             <td>{{ link.similarity|floatformat:2 }}</td>
             <td><a href="{% url 'dashboard:reuse_detail' link.pk %}">porovnat</a></td>

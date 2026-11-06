@@ -256,4 +256,4 @@ class EventWindowResult(models.Model):
 
     def __str__(self):
         window = f"−{self.days_before}/+{self.days_after}"
-        return f"{self.event} × {self.narrative} × {self.layer} ({window})"
+        return f"{self.event} × {self.narrative} × {self.get_layer_display()} ({window})"

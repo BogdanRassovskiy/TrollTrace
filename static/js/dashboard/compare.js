@@ -24,7 +24,7 @@
 
   const status = (text) => { $("status").textContent = text; };
   const colorOf = (s) => (controls.colorBy.value === "party" ? TT.partyColor(s.party) : TT.layerColor(s.layer));
-  const groupOf = (s) => (controls.colorBy.value === "party" ? s.party || "bez strany" : s.layer);
+  const groupOf = (s) => (controls.colorBy.value === "party" ? s.party || "bez strany" : TT.layerName(s.layer));
   const layers = () => [...document.querySelectorAll("#layers input:checked")].map((i) => i.value);
 
   async function load() {
@@ -143,7 +143,7 @@
   function showTip(hit, x, y) {
     const { s, index } = hit;
     const breakdown = stanceBreakdown(s, index);
-    tip.innerHTML = `<b>${escapeHtml(s.name)}</b> <span class="muted">${escapeHtml(s.layer)}${s.party ? ` · ${escapeHtml(s.party)}` : ""}</span><br>
+    tip.innerHTML = `<b>${escapeHtml(s.name)}</b> <span class="muted">${escapeHtml(TT.layerName(s.layer))}${s.party ? ` · ${escapeHtml(s.party)}` : ""}</span><br>
       Týden od ${weekLabel(state.data.weeks[index])}: <b>${percent(s.share[index])}</b>
       (${s.n[index]} z ${s.total[index]})${s.z[index] !== null ? ` · z ${s.z[index].toFixed(1)}` : ""}
       ${breakdown ? `<br>Postoj: ${breakdown}` : ""}
@@ -217,7 +217,7 @@
           const s = rows[p.value[1]];
           const i = p.value[0];
           const breakdown = stanceBreakdown(s, i);
-          return `<b>${escapeHtml(s.name)}</b> (${escapeHtml(s.layer)}${s.party ? `, ${escapeHtml(s.party)}` : ""})<br>
+          return `<b>${escapeHtml(s.name)}</b> (${escapeHtml(TT.layerName(s.layer))}${s.party ? `, ${escapeHtml(s.party)}` : ""})<br>
             Týden od ${weekLabel(state.data.weeks[i])}: <b>${percent(s.share[i])}</b> (${s.n[i]} z ${s.total[i]})
             ${breakdown ? `<br>Postoj: ${breakdown}` : ""}`;
         },
@@ -336,7 +336,7 @@
         <label><input type="checkbox" ${state.pinned.has(s.key) ? "checked" : ""}>
           <span class="swatch" style="background:${colorOf(s)}"></span>
           <span class="name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</span></label>
-        <span class="muted small">${escapeHtml(s.layer)}</span>
+        <span class="muted small nowrap">${escapeHtml(TT.layerName(s.layer))}</span>
       </li>`).join("");
   }
 

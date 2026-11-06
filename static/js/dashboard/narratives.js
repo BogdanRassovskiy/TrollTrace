@@ -279,7 +279,7 @@
           <label><input type="checkbox" ${on ? "checked" : ""}>
             <span class="swatch" style="background:${layerColor(a.layer)}"></span>
             <span class="name" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</span></label>
-          <span class="muted small">${escapeHtml(a.layer)}${a.party ? ` · ${escapeHtml(a.party)}` : ""}</span>
+          <span class="muted small">${escapeHtml(TT.layerName(a.layer))}${a.party ? ` · ${escapeHtml(a.party)}` : ""}</span>
         </li>`;
       }).join("");
     }

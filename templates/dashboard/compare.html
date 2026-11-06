@@ -27,7 +27,7 @@
     <fieldset class="layers" id="layers">
       <legend class="small">Vrstvy</legend>
       {% for code, label in chart_config.layers.items %}
-        <label class="small" title="{{ label }}"><input type="checkbox" value="{{ code }}" {% if code != "I" %}checked{% endif %}> {{ code }}</label>
+        <label class="small"><input type="checkbox" value="{{ code }}" {% if code != "I" %}checked{% endif %}> {{ label }}</label>
       {% endfor %}
     </fieldset>
     <label class="small">Barva podle

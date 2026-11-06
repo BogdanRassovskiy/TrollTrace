@@ -30,7 +30,7 @@
       {% if life.first %}
         <p><strong>První fixace:</strong> {{ life.first.moment|date:"j. n. Y H:i" }} —
           <a href="{{ life.first.document.url }}" rel="noopener" target="_blank">{{ life.first.document.title|truncatechars:90 }}</a>
-          <span class="muted small">({{ life.first.document.actor.name }}, vrstva {{ life.first.layer }}, {{ life.first.stance }})</span></p>
+          <span class="muted small">({{ life.first.document.actor.name }}, {{ life.first.layer|layer }}, {{ life.first.stance }})</span></p>
         <h3>Vrstvy podle pořadí výskytu</h3>
         <ol>{% for l in life.layers %}<li>{{ l.layer }} — {{ l.moment|date:"j. n. Y" }} <span class="muted small">({{ l.document.actor.name }})</span></li>{% endfor %}</ol>
         {% if life.peak %}<p><strong>Vrchol:</strong> týden od {{ life.peak.week|date:"j. n. Y" }} — {{ life.peak.share|floatformat:"-3" }} dokumentů všech vrstev ({{ life.peak.n_documents }} z {{ life.peak.n_total }})</p>{% endif %}

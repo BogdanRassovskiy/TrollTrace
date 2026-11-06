@@ -18,6 +18,12 @@ window.TT = (function () {
     return PALETTE[hash % PALETTE.length];
   }
 
+  // Название слоя для интерфейса: «Parlament (E)»; буквы — для внутреннего пользования.
+  const LAYER_NAMES = JSON.parse(document.getElementById("layer-names")?.textContent || "{}");
+  function layerName(layer) {
+    return LAYER_NAMES[layer] || layer || "";
+  }
+
   function layerColor(layer) {
     return LAYER_COLORS[layer] || "#9e9e9e";
   }
@@ -69,7 +75,7 @@ window.TT = (function () {
       list.innerHTML = data.documents.map((d) => `
         <li>
           <a href="${escapeHtml(d.url)}" target="_blank" rel="noopener">${escapeHtml(d.title || d.url)}</a>
-          <div class="muted small">${escapeHtml(d.actor)} · ${escapeHtml(d.source)} (${escapeHtml(d.layer)})
+          <div class="muted small">${escapeHtml(d.actor)} · ${escapeHtml(d.source)} (${escapeHtml(layerName(d.layer))})
             · ${d.published_at ? new Date(d.published_at).toLocaleDateString("cs-CZ") : "?"}
             · <span class="stance-${d.stance}">${STANCES[d.stance] || d.stance}</span>
             ${d.origin === "human" ? "· ruční štítek" : ""}
@@ -273,7 +279,7 @@ window.TT = (function () {
     return { refresh: label };
   }
 
-  return { config, layerColor, partyColor, getJSON, percent, weekLabel, escapeHtml, showPosts,
+  return { config, layerColor, layerName, partyColor, getJSON, percent, weekLabel, escapeHtml, showPosts,
     onResize, syncURL, setSelect, STANCES, buildTree, treeHTML, filterTree, openKeys, LEVELS,
     treePicker };
 })();
