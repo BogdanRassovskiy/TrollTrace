@@ -152,5 +152,9 @@ def decide(document: Document, codebook: Codebook, center: np.ndarray | None) ->
         reasons.append("klíčová slova")
     if semantic:
         reasons.append("podobnost")
+    # Слой целиком в рамках (Z: только политические рубрики, чешские ключевые слова на
+    # кириллице не срабатывают). Близость и ближайший прототип остаются в подробностях.
+    if document.source.layer in get_setting("relevance-all-layers"):
+        reasons.append("celá vrstva")
     details["reason"] = " + ".join(reasons) if reasons else "pod prahem"
     return {"is_relevant": bool(reasons), "score": score, "details": details}

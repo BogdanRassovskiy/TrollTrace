@@ -134,6 +134,23 @@ def test_semantic_similarity_without_keywords():
     assert unrelated.embedding is not None
 
 
+def test_layer_z_is_relevant_as_a_whole():
+    """Слой Z: собираются только политические рубрики, о нарративах решает модель."""
+    Topic.objects.create(
+        code="sport", name="Fotbal", description="Fotbalisté, zápas, trenér, góly, tabulka."
+    )
+    weather = "Zítra bude pršet a foukat silný vítr. " * 8
+    czech = make_doc(Layer.MAINSTREAM, "Pocasi", weather)
+    russian = make_doc(Layer.RUSSIAN, "Ria", weather)
+    empty = make_doc(Layer.RUSSIAN, "Rt", "")
+    run()
+    czech, russian, empty = refreshed(czech), refreshed(russian), refreshed(empty)
+    assert czech.is_relevant is False
+    assert russian.is_relevant is True and russian.relevance_details["reason"] == "celá vrstva"
+    assert russian.relevance_details["nearest"]["code"] == "sport"  # близость видна
+    assert empty.is_relevant is False  # дешёвые фильтры действуют и в слое Z
+
+
 def test_without_codebook_relevance_stays_unknown():
     doc = make_doc(Layer.MAINSTREAM, "Zpravy", PRAVDA)
     run()

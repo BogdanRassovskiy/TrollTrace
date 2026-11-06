@@ -126,6 +126,7 @@ def create_narrative_sample(
             "drawn": {k: sum(1 for s, *_ in drawn if s == k) for k in shares},
             "analysis_min_quality": get_setting("analysis-min-quality"),
             "relevance_threshold": get_setting("relevance-threshold"),
+            "relevance_all_layers": get_setting("relevance-all-layers"),
         },
     )
     sample.narrative_versions.set(version_ids)

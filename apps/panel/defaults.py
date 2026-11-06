@@ -25,6 +25,12 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         0.35,
         "Práh centrované kosinové podobnosti dokumentu s tématy a narativy (README §4, krok 3).",
     ),
+    "relevance-all-layers": (
+        ["Z"],
+        "Vrstvy, jejichž dokumenty jsou po levných filtrech celé relevantní. Vrstva Z: sbírají se "
+        "jen rubriky o politice a světě a česká klíčová slova kódové knihy na ruské texty "
+        "nezabírají — o narativech rozhoduje až model (rozhodnutí výzkumníka 6. 11. 2026).",
+    ),
     "reuse-verbatim-jaccard": (
         0.6,
         "Práh doslovného převzetí: Jaccard podle MinHash nebo podíl převzatých šindelů.",
