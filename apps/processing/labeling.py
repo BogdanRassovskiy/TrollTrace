@@ -4,6 +4,8 @@
    активному нарративу (название, определение, примеры) и ищутся сигнальные слова.
    Кандидат — близость ≥ `labeling-candidate-similarity` или ≥ `labeling-cue-similarity`
    при двух и более сигнальных словах. Пороги мягкие: пропуск дороже лишнего вызова.
+   У нарративов, найденных автоматически (узкие формулировки), порог близости выше —
+   `labeling-discovered-similarity`: иначе они цепляются за тему и почти всегда пусты.
    Вторая дорога — маркеры нарратива (apps/processing/markers.py): найденный в тексте
    маркер делает документ кандидатом при любой близости.
 2. Решение. Один вызов LLM (OpenRouter, настройка `labeling-model`) на документ по всем его
@@ -114,6 +116,7 @@ def find_candidates(document: Document, prototypes: list[Prototype], center,
     if not document.is_relevant or document.embedding is None or center is None:
         return []
     high = float(get_setting("labeling-candidate-similarity"))
+    high_discovered = float(get_setting("labeling-discovered-similarity"))
     low = float(get_setting("labeling-cue-similarity"))
     vector = centered(document.embedding, center)[0]
     folded = fold(f"{document.title}\n{document.text}")
@@ -122,7 +125,8 @@ def find_candidates(document: Document, prototypes: list[Prototype], center,
         similarity = round(float(centered(prototype.vector, center)[0] @ vector), 4)
         cues = _cues(prototype, folded)
         hits = markers.find(prototype.markers, folded)
-        by_meaning = similarity >= high or (similarity >= low and len(cues) >= MIN_CUES)
+        threshold = high_discovered if prototype.narrative.discovered else high
+        by_meaning = similarity >= threshold or (similarity >= low and len(cues) >= MIN_CUES)
         if hits or (by_meaning and not markers_only):
             found.append((prototype, similarity, cues, hits))
     return found

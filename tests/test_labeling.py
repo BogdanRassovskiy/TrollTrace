@@ -406,3 +406,16 @@ def test_paused_labeling_does_not_call_model(monkeypatch):
         stats = labeling.label_pending()
     assert "pozastavena" in stats.stopped and labeling.pending().count() == 1
     assert "pozastavena" in tasks.mature_candidates()["skipped"]
+
+
+def test_discovered_narratives_need_higher_similarity():
+    codebook = narrative("kodbuk", cues=())
+    found = narrative("nalezeny", cues=())
+    cued = narrative("nalezeny-slova")
+    Narrative.objects.filter(code__in=["nalezeny", "nalezeny-slova"]).update(discovered=True)
+    for n in (found, cued):
+        n.refresh_from_db()
+    vector = unit(0.3, 0.954)  # podobnost ≈ 0,3: nad 0,25, pod 0,40
+    protos = [prototype(n, vector) for n in (codebook, found, cued)]
+    codes = {p.narrative.code for p, *_ in labeling.find_candidates(doc(), protos, CENTER)}
+    assert codes == {"kodbuk", "nalezeny-slova"}  # signální slova platí i u nalezených

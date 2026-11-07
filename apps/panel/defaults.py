@@ -133,6 +133,13 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         0.25,
         "Anotace: kandidát, pokud je centrovaná podobnost s narativem aspoň tato.",
     ),
+    "labeling-discovered-similarity": (
+        0.40,
+        "Anotace: práh podobnosti pro narativy navržené automaticky ze shluků (u narativů "
+        "kódové knihy platí labeling-candidate-similarity). Úzké formulace se chytají "
+        "tématu: simulace 7. 11. 2026 — při 0,40 zůstává 35 % kandidátů a 153 ze 168 "
+        "nálezů. Signální slova a markery platí beze změny.",
+    ),
     "labeling-cue-similarity": (
         0.15,
         "Anotace: kandidát i při nižší podobnosti (aspoň tato), pokud text obsahuje "
