@@ -1,9 +1,10 @@
 """Клиент OpenRouter (OpenAI-совместимый API) для разметки нарративов.
 
-Тексты уходят внешнему провайдеру. Запрос всегда запрещает использовать их для обучения
-(`provider.data_collection = deny`). Нулевое хранение (`provider.zdr`) — настройка
-`llm-zero-retention`: тексты публичные, и с 7.11.2026 оно выключено (решение исследователя),
-что открывает дешёвые модели без таких провайдеров. `require_parameters` не ставится:
+Тексты уходят внешнему провайдеру. Ограничения провайдеров — настройки: нулевое хранение
+(`provider.zdr`, `llm-zero-retention`) и запрет обучения на запросах
+(`provider.data_collection = deny`, `llm-deny-training`). С 7.11.2026 оба выключены: тексты
+публичные, личных данных исследования в запросах нет (решение исследователя), а без
+ограничений доступно больше дешёвых провайдеров. `require_parameters` не ставится:
 с ним OpenRouter отсекает почти всех провайдеров Anthropic и OpenAI, — ответ проверяется сам.
 Ключ — OPENROUTER_API_KEY в .env; без него кандидаты просто ждут.
 """
@@ -50,7 +51,8 @@ def is_configured() -> bool:
 def complete_json(model: str, system: str, user: str, schema: dict, *,
                   client: httpx.Client | None = None,
                   max_tokens: int | None = None, reasoning_effort: str = "",
-                  zero_retention: bool | None = None) -> Completion:  # fmt: skip
+                  zero_retention: bool | None = None,
+                  deny_training: bool | None = None) -> Completion:  # fmt: skip
     """Один запрос со строгой JSON-схемой ответа; повтор при 429/5xx и сетевых ошибках.
 
     max_tokens — потолок ответа: без него OpenRouter резервирует под ответ максимум модели
@@ -59,11 +61,15 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
         raise LLMError("Chybí OPENROUTER_API_KEY.")
     model, spec_effort = split_model(model)
     reasoning_effort = spec_effort or reasoning_effort
-    if zero_retention is None:
-        from apps.panel.defaults import get_setting
+    from apps.panel.defaults import get_setting
 
+    if zero_retention is None:
         zero_retention = bool(get_setting("llm-zero-retention"))
-    provider = {"data_collection": "deny"}
+    if deny_training is None:
+        deny_training = bool(get_setting("llm-deny-training"))
+    provider = {}
+    if deny_training:
+        provider["data_collection"] = "deny"
     if zero_retention:
         provider["zdr"] = True
     payload = {
@@ -74,9 +80,10 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
             "type": "json_schema",
             "json_schema": {"name": "decision", "strict": True, "schema": schema},
         },
-        "provider": provider,
         "usage": {"include": True},
     }
+    if provider:
+        payload["provider"] = provider
     if max_tokens:
         payload["max_tokens"] = max_tokens
     if reasoning_effort:

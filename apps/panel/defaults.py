@@ -115,7 +115,13 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
     "llm-zero-retention": (
         False,
         "Volání modelu jen přes poskytovatele s nulovým uchováváním dat (ZDR). Vypnuto "
-        "7. 11. 2026: texty jsou veřejné; zákaz trénování na našich dotazech platí vždy.",
+        "7. 11. 2026: texty jsou veřejné.",
+    ),
+    "llm-deny-training": (
+        False,
+        "Volání modelu jen přes poskytovatele, kteří na dotazech netrénují "
+        "(data_collection = deny). Vypnuto 7. 11. 2026: texty jsou veřejné, osobní data "
+        "výzkumu v dotazech nejsou (rozhodnutí výzkumníka).",
     ),
     "labeling-candidate-similarity": (
         0.25,

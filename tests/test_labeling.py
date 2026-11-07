@@ -238,12 +238,13 @@ def test_openrouter_request_and_retry(monkeypatch):
     with KEY, httpx.Client(transport=httpx.MockTransport(handler)) as client:
         result = llm.complete_json("x/y", "sys", "user", {"type": "object"}, client=client)
     assert result.data == {"decisions": []} and result.cost_usd == 0.01
-    assert calls[0]["provider"] == {"data_collection": "deny"}  # ZDR vypnuto (7. 11. 2026)
+    assert "provider" not in calls[0]  # bez omezení poskytovatelů (7. 11. 2026)
     assert calls[0]["response_format"]["type"] == "json_schema" and "reasoning" not in calls[0]
 
     calls.clear()
     with KEY, httpx.Client(transport=httpx.MockTransport(handler)) as client:
-        llm.complete_json("x/y@low", "s", "u", {}, client=client, zero_retention=True)
+        llm.complete_json("x/y@low", "s", "u", {}, client=client, zero_retention=True,
+                          deny_training=True)  # fmt: skip
     sent = calls[-1]
     assert sent["model"] == "x/y" and sent["reasoning"] == {"effort": "low"}
     assert sent["provider"] == {"data_collection": "deny", "zdr": True}
