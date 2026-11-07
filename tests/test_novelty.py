@@ -78,7 +78,7 @@ def test_screening_only_document_goes_to_model_with_discovery(monkeypatch, space
     document = screened("x")
     seen = {}
 
-    def fake(model, system, user, schema, client=None):
+    def fake(model, system, user, schema, client=None, max_tokens=None):
         seen.update(system=system, user=user, schema=schema)
         return model_answer(claim("Raketu na nemocnici vypálila Ukrajina."),
                             claim("Korespondenční volba je podvod.", confidence=0.2))  # fmt: skip

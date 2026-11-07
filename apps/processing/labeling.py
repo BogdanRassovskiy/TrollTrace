@@ -58,6 +58,11 @@ HEAD_CHARS = 6000  # начало текста целиком
 CUE_WINDOW = 400  # и окна вокруг сигнальных слов дальше по тексту
 MAX_EXCERPT_CHARS = 9000
 MAX_CLAIMS = 3
+# Потолок ответа модели: без него OpenRouter резервирует под ответ максимум модели (65 536
+# токенов) и при малом остатке кредитов отказывает с 402, хотя ответ — сотни токенов.
+ANSWER_TOKENS_BASE = 1500  # поиск новых утверждений и запас
+ANSWER_TOKENS_PER_DECISION = 400  # решение: цитата ≤ 300 знаков, обоснование, ярлык
+ANSWER_TOKENS_MAX = 16000
 KNOWN_IN_PROMPT = 25  # názvy nejbližších sledovaných narativů, aby je model nehlásil jako nové
 TRACKED = (NarrativeStatus.ACTIVE, NarrativeStatus.CANDIDATE)
 
@@ -193,6 +198,19 @@ def drop_stale_labels(document: Document) -> int:
         if current is not None:
             _apply(current)
     return dropped
+
+
+def is_new_text(document: Document) -> bool:
+    """Текущий текст документа к модели ещё не попадал: нет ни проверки, ни решений по нему.
+
+    Повторный проход воронки с тем же текстом очередь разметки не пополняет (README §3,
+    «архив автоматически не переразмечается»): иначе каждый пересчёт ставил бы весь архив
+    в очередь по нарративам, появившимся позже документа, и по новым версиям старых.
+    """
+    same = {"document": document, "text_hash": document.text_hash}
+    return not (
+        Screening.objects.filter(**same).exists() or LabelDecision.objects.filter(**same).exists()
+    )
 
 
 def queue_screening(document: Document) -> bool:
@@ -391,6 +409,7 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
         build_prompt(document, prototypes, known if discovery else ()),
         schema(codes, discovery),
         client=client,
+        max_tokens=answer_tokens(len(decisions)),
     )
     data = completion.data if isinstance(completion.data, dict) else {}
     items = data.get("decisions")
@@ -435,6 +454,10 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
     if save:
         markers.after_decisions(decisions, results)
     return results, completion
+
+
+def answer_tokens(n_decisions: int) -> int:
+    return min(ANSWER_TOKENS_MAX, ANSWER_TOKENS_BASE + ANSWER_TOKENS_PER_DECISION * n_decisions)
 
 
 def _invalid(answer: dict) -> str:

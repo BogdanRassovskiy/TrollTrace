@@ -175,7 +175,7 @@ def test_model_proposes_marker_in_decision(monkeypatch):
     )
     seen = {}
 
-    def fake(model, system, user, schema, client=None):
+    def fake(model, system, user, schema, client=None, max_tokens=None):
         seen.update(system=system, schema=schema)
         return completion({
             "narrative": n.code, "present": True, "stance": "pro", "confidence": 0.9,

@@ -5,8 +5,11 @@
 3. Релевантность: ключевые слова тем или близость к темам и нарративам кодбука.
 4. MinHash-подпись и LSH-пояса.
 5. Заимствования из слоя-источника: дословные (MinHash/LSH) и парафразы (kNN).
-6. Кандидаты в разметку нарративов (README §4, шаг 7): близость к нарративам кодбука и
-   сигнальные слова → ожидающие решения LLM (apps/processing/labeling.py, отдельная задача).
+6. Кандидаты в разметку нарративов (README §4, шаг 7): близость к нарративам кодбука,
+   сигнальные слова и маркеры → ожидающие решения LLM (apps/processing/labeling.py, отдельная
+   задача). Только для текста, который к модели ещё не попадал: повторный проход воронки
+   (пересчёт заимствований, ремонт, перепроверка) архив не переразмечает — ни по новым
+   нарративам, ни по новым версиям старых. Это делает только ручная ретроразметка.
 7. Местные политики, функция которых прямо названа в тексте (starosta, zastupitel …), —
    в акторы с пометкой «přidán automaticky» (apps/actors/discovery.py). Для всех документов,
    в том числе нерелевантных: региональные рубрики тоже источник таких упоминаний.
@@ -75,7 +78,7 @@ def process_documents(documents: list[Document]) -> Stats:
             )
             stats.actors += discovery.record_document(document)
             labeling.drop_stale_labels(document)
-            if document.is_relevant:
+            if document.is_relevant and labeling.is_new_text(document):
                 stats.candidates += labeling.queue_candidates(document, prototypes, center)
                 stats.screenings += labeling.queue_screening(document)
         stats.processed += 1

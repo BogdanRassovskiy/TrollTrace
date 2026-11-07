@@ -154,8 +154,8 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
     labeling.queue_candidates(document, [prototype(x, unit(1.0)) for x in (a, b, c)], CENTER)
     seen = {}
 
-    def fake(model, system, user, schema, client=None):
-        seen.update(model=model, user=user, schema=schema)
+    def fake(model, system, user, schema, client=None, max_tokens=None):
+        seen.update(model=model, user=user, schema=schema, max_tokens=max_tokens)
         return completion(answer("a"), answer("b", present=False, stance="contra"),
                           answer("c", stance="contra", confidence=0.3), cost=0.003)  # fmt: skip
 
@@ -164,6 +164,7 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
         stats = labeling.label_pending()
     assert (stats.documents, stats.decisions, stats.labels, stats.errors) == (1, 3, 1, 0)
     assert seen["model"] == "openai/gpt-6-luna"
+    assert seen["max_tokens"] == 1500 + 3 * 400  # bez stropu OpenRouter rezervuje 65 536 tokenů
     assert "### a" in seen["user"] and "Postoj proti: Vyvrací ho." in seen["user"]
     assert "Není narativ: Jen téma." in seen["user"]
     assert seen["schema"]["properties"]["decisions"]["items"]["properties"]["narrative"][
@@ -344,3 +345,39 @@ def test_refresh_relevance_revives_documents_below_threshold(monkeypatch):
     gated.refresh_from_db()
     assert below.is_relevant and below.relevance_details["revived_by_codebook"]
     assert gated.is_relevant is False
+
+
+def test_reprocessing_same_text_does_not_requeue_archive(monkeypatch):
+    """Případ 6. 11. 2026: přepočet převzetí poslal archiv znovu trychtýřem a fronta anotace
+    narostla o 20 tisíc kandidátů podle narativů a verzí, které vznikly až po dokumentu."""
+    from apps.processing import pipeline
+
+    old = narrative("stary", cues=())
+    document = doc()
+    monkeypatch.setattr(pipeline, "embed_documents", lambda docs: 0)
+    monkeypatch.setattr(pipeline, "get_center", lambda *a: CENTER)
+    monkeypatch.setattr(pipeline.relevance, "load_codebook", lambda *a: None)
+    monkeypatch.setattr(pipeline.relevance, "gate", lambda d: None)
+    monkeypatch.setattr(pipeline.relevance, "decide", lambda *a: {
+        "is_relevant": True, "score": 0.5, "details": {}})  # fmt: skip
+    monkeypatch.setattr(pipeline.reuse, "find_verbatim", lambda *a, **k: [])
+    monkeypatch.setattr(pipeline.reuse, "find_paraphrase", lambda *a: [])
+    protos = [prototype(old, unit(1.0))]
+    monkeypatch.setattr(labeling, "load_prototypes", lambda *a, **k: protos)
+
+    stats = pipeline.process_documents([document])
+    assert (stats.candidates, stats.screenings) == (1, 1)
+
+    new = narrative("novy", cues=())
+    protos.append(prototype(new, unit(1.0)))
+    old.definition = "Upravená definice."
+    old.save(change_note="Nová verze")
+    protos[0] = prototype(old, unit(1.0))
+    stats = pipeline.process_documents([document])  # tentýž text znovu trychtýřem
+    assert (stats.candidates, stats.screenings) == (0, 0)
+    assert LabelDecision.objects.count() == 1
+
+    document.text = "Nový text: pomoc Ukrajině se nevyplácí."
+    document.save()
+    stats = pipeline.process_documents([document])  # změněný text se posoudí znovu
+    assert (stats.candidates, stats.screenings) == (2, 1)
