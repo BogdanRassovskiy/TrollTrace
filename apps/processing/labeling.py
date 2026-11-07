@@ -569,6 +569,9 @@ def label_pending(limit: int | None = None, time_budget: float | None = None) ->
     if not llm.is_configured():
         stats.stopped = "chybí OPENROUTER_API_KEY"
         return stats
+    if get_setting("labeling-paused"):
+        stats.stopped = "anotace pozastavena (nastavení labeling-paused)"
+        return stats
     model = str(get_setting("labeling-model"))
     budget = float(get_setting("labeling-monthly-budget-usd"))
     started = time.monotonic()

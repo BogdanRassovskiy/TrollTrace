@@ -86,6 +86,8 @@ def mature_candidates() -> dict:
 
     from . import novelty
 
+    if get_setting("labeling-paused"):
+        return {"skipped": "anotace pozastavena (nastavení labeling-paused)"}
     budget = float(get_setting("labeling-monthly-budget-usd"))
     if labeling.month_spend() >= budget:
         return {"skipped": f"vyčerpán měsíční rozpočet {budget} USD"}

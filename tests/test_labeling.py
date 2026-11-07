@@ -389,3 +389,20 @@ def test_reprocessing_same_text_does_not_requeue_archive(monkeypatch):
     document.save()
     stats = pipeline.process_documents([document])  # změněný text se posoudí znovu
     assert (stats.candidates, stats.screenings) == (2, 1)
+
+
+def test_paused_labeling_does_not_call_model(monkeypatch):
+    from apps.panel.models import Setting
+    from apps.processing import tasks
+
+    labeling.queue_candidates(doc(), [prototype(narrative(), unit(1.0))], CENTER)
+    Setting(key="labeling-paused", value=True).save(change_note="Test")
+
+    def boom(*a, **k):
+        raise AssertionError("model se nesmí volat")
+
+    monkeypatch.setattr(llm, "complete_json", boom)
+    with KEY:
+        stats = labeling.label_pending()
+    assert "pozastavena" in stats.stopped and labeling.pending().count() == 1
+    assert "pozastavena" in tasks.mature_candidates()["skipped"]

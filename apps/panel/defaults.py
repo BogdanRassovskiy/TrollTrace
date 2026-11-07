@@ -106,6 +106,12 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "Anotace narativů: model OpenRouter, který rozhoduje o kandidátech (README §4, krok 7). "
         "Vybrán srovnáním 4. 11. 2026 (manage.py label_narratives --compare).",
     ),
+    "labeling-paused": (
+        False,
+        "Anotace pozastavena: plánované úlohy nevolají model (anotace fronty, dozrávání "
+        "kandidátů). Sběr a zpracování běží dál, kandidáti čekají ve frontě. Srovnání modelů "
+        "(label_narratives --compare) pauza nebrzdí.",
+    ),
     "labeling-reasoning-effort": (
         "",
         "Anotace: úroveň uvažování modelu (OpenRouter „reasoning.effort“: minimal, low, medium, "
