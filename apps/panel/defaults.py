@@ -106,6 +106,17 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "Anotace narativů: model OpenRouter, který rozhoduje o kandidátech (README §4, krok 7). "
         "Vybrán srovnáním 4. 11. 2026 (manage.py label_narratives --compare).",
     ),
+    "labeling-reasoning-effort": (
+        "",
+        "Anotace: úroveň uvažování modelu (OpenRouter „reasoning.effort“: minimal, low, medium, "
+        "high); prázdné — výchozí modelu. Skryté uvažování se platí jako výstup. Lze zadat i "
+        "v názvu modelu: „openai/gpt-6-luna@low“.",
+    ),
+    "llm-zero-retention": (
+        False,
+        "Volání modelu jen přes poskytovatele s nulovým uchováváním dat (ZDR). Vypnuto "
+        "7. 11. 2026: texty jsou veřejné; zákaz trénování na našich dotazech platí vždy.",
+    ),
     "labeling-candidate-similarity": (
         0.25,
         "Anotace: kandidát, pokud je centrovaná podobnost s narativem aspoň tato.",

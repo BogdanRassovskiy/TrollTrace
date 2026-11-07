@@ -5,7 +5,6 @@ import json
 import random
 import time
 from collections import Counter
-from itertools import combinations
 from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
@@ -109,18 +108,18 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f"Zastaveno: {stats.stopped}."))
 
     def compare(self, models: list[str], size: int, out: str | None):
+        """Modely na stejném vzorku; první model je etalon. Nic se neukládá."""
         if not llm.is_configured():
             raise CommandError("V .env chybí OPENROUTER_API_KEY.")
-        document_ids = sorted(set(LabelDecision.objects.values_list("document_id", flat=True)))
-        if not document_ids:
+        sample = compare_sample(size)
+        if not sample:
             raise CommandError("Nejsou žádní kandidáti: spusťte nejdřív --queue.")
-        sample = random.Random(42).sample(document_ids, min(size, len(document_ids)))
         answers: dict[str, dict] = {model: {} for model in models}
-        totals = {model: {"cost": 0.0, "seconds": 0.0, "errors": 0} for model in models}
+        totals = {model: Counter() for model in models}
         for document_id in sample:
             decisions = list(
                 LabelDecision.objects.filter(document_id=document_id)
-                .select_related("document", "narrative", "narrative_version")
+                .select_related("document__source", "narrative", "narrative_version")
                 .order_by("narrative__code", "-created_at")
             )
             unique = list({d.narrative_id: d for d in reversed(decisions)}.values())
@@ -133,45 +132,72 @@ class Command(BaseCommand):
                     )
                 except llm.LLMError as exc:
                     totals[model]["errors"] += 1
-                    self.stderr.write(f"{model} / dokument {document_id}: {exc}")
+                    self.stderr.write(f"{model} / dokument {document_id}: {str(exc)[:300]}")
                     continue
-                totals[model]["seconds"] += time.monotonic() - started
-                totals[model]["cost"] += completion.cost_usd or 0
+                total = totals[model]
+                total["seconds"] += time.monotonic() - started
+                total["cost"] += completion.cost_usd or 0
+                total["calls"] += 1
+                total["prompt"] += completion.prompt_tokens or 0
+                total["completion"] += completion.completion_tokens or 0
+                total["reasoning"] += completion.reasoning_tokens or 0
                 for decision, answer in zip(unique, results, strict=True):
                     key = f"{document_id}:{decision.narrative.code}"
                     answers[model][key] = {
                         "present": answer.get("present"), "stance": answer.get("stance"),
-                        "confidence": answer.get("confidence"),
+                        "confidence": answer.get("confidence"), "marker": answer.get("marker"),
                         "evidence": answer.get("evidence"), "reason": answer.get("reason"),
-                        "title": document.title[:120],
+                        "title": document.title[:120], "layer": document.source.layer,
                     }  # fmt: skip
 
-        self.stdout.write(f"Vzorek: {len(sample)} dokumentů.\n")
+        self.stdout.write(f"Vzorek: {len(sample)} dokumentů, etalon {models[0]}.\n")
         for model in models:
-            given = answers[model].values()
+            given, total = answers[model].values(), totals[model]
             present = [a for a in given if a["present"]]
-            stances = Counter(a["stance"] for a in present)
+            calls = total["calls"] or 1
             self.stdout.write(
-                f"{model}: rozhodnutí {len(given)}, narativ přítomen {len(present)} "
-                f"({dict(stances)}), chyb {totals[model]['errors']}, "
-                f"cena {totals[model]['cost']:.4f} USD, čas {totals[model]['seconds']:.0f} s"
+                f"{model}: rozhodnutí {len(given)}, přítomen {len(present)} "
+                f"({dict(Counter(a['stance'] for a in present))}), chyb {total['errors']}, "
+                f"cena {total['cost']:.4f} USD ({total['cost'] / calls:.5f}/dok.), "
+                f"čas {total['seconds'] / calls:.0f} s/dok., tokeny na dok.: vstup "
+                f"{total['prompt'] / calls:.0f}, výstup {total['completion'] / calls:.0f} "
+                f"(z toho uvažování {total['reasoning'] / calls:.0f})"
             )
-        self.stdout.write("\nShoda dvojic modelů (přítomnost; přítomnost + postoj):")
-        for left, right in combinations(models, 2):
-            keys = answers[left].keys() & answers[right].keys()
-            if not keys:
-                continue
-            same = sum(answers[left][k]["present"] == answers[right][k]["present"] for k in keys)
-            both = sum(
-                answers[left][k]["present"] == answers[right][k]["present"]
-                and (not answers[left][k]["present"]
-                     or answers[left][k]["stance"] == answers[right][k]["stance"])
-                for k in keys
-            )  # fmt: skip
-            self.stdout.write(
-                f"  {left} × {right}: {same / len(keys):.0%}; "
-                f"{both / len(keys):.0%} (n={len(keys)})"
-            )
+        reference = answers[models[0]]
+        self.stdout.write(f"\nShoda s etalonem {models[0]}:")
+        for model in models[1:]:
+            self.stdout.write(f"  {model}: " + agreement(reference, answers[model]))
         if out:
             Path(out).write_text(json.dumps(answers, ensure_ascii=False, indent=2), "utf-8")
             self.stdout.write(f"\nOdpovědi uloženy: {out}")
+
+
+def compare_sample(size: int, seed: int = 42) -> list[int]:
+    """Vzorek pro srovnání: ~40 % dokumentů, kde model narativ dřív našel (jinak by vzorek
+    tvořila skoro jen „není narativ“), ~20 % vrstvy Z (ruské texty), zbytek náhodně."""
+    rng = random.Random(seed)
+    candidates = LabelDecision.objects.values_list("document_id", flat=True)
+    positive = sorted(set(candidates.filter(present=True)))
+    russian = sorted(set(candidates.filter(document__source__layer="Z")) - set(positive))
+    chosen = rng.sample(positive, min(round(size * 0.4), len(positive)))
+    chosen += rng.sample(russian, min(round(size * 0.2), len(russian)))
+    rest = sorted(set(candidates) - set(chosen))
+    chosen += rng.sample(rest, min(size - len(chosen), len(rest)))
+    return chosen
+
+
+def agreement(reference: dict, other: dict) -> str:
+    keys = reference.keys() & other.keys()
+    if not keys:
+        return "žádná společná rozhodnutí"
+    same = sum(reference[k]["present"] == other[k]["present"] for k in keys)
+    found = [k for k in keys if reference[k]["present"]]
+    hit = sum(bool(other[k]["present"]) for k in found)
+    stance = sum(bool(other[k]["present"]) and other[k]["stance"] == reference[k]["stance"]
+                 for k in found)  # fmt: skip
+    absent = [k for k in keys if not reference[k]["present"]]
+    false_yes = sum(bool(other[k]["present"]) for k in absent)
+    return (
+        f"přítomnost {same / len(keys):.0%} (n={len(keys)}); z {len(found)} nálezů etalonu "
+        f"našel {hit}, se stejným postojem {stance}; navíc „ano“ u {false_yes} z {len(absent)}"
+    )

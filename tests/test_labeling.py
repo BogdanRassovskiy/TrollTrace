@@ -154,7 +154,7 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
     labeling.queue_candidates(document, [prototype(x, unit(1.0)) for x in (a, b, c)], CENTER)
     seen = {}
 
-    def fake(model, system, user, schema, client=None, max_tokens=None):
+    def fake(model, system, user, schema, client=None, max_tokens=None, **kwargs):
         seen.update(model=model, user=user, schema=schema, max_tokens=max_tokens)
         return completion(answer("a"), answer("b", present=False, stance="contra"),
                           answer("c", stance="contra", confidence=0.3), cost=0.003)  # fmt: skip
@@ -238,8 +238,15 @@ def test_openrouter_request_and_retry(monkeypatch):
     with KEY, httpx.Client(transport=httpx.MockTransport(handler)) as client:
         result = llm.complete_json("x/y", "sys", "user", {"type": "object"}, client=client)
     assert result.data == {"decisions": []} and result.cost_usd == 0.01
-    assert calls[0]["provider"] == {"zdr": True, "data_collection": "deny"}  # bez uchování dat
-    assert calls[0]["response_format"]["type"] == "json_schema"
+    assert calls[0]["provider"] == {"data_collection": "deny"}  # ZDR vypnuto (7. 11. 2026)
+    assert calls[0]["response_format"]["type"] == "json_schema" and "reasoning" not in calls[0]
+
+    calls.clear()
+    with KEY, httpx.Client(transport=httpx.MockTransport(handler)) as client:
+        llm.complete_json("x/y@low", "s", "u", {}, client=client, zero_retention=True)
+    sent = calls[-1]
+    assert sent["model"] == "x/y" and sent["reasoning"] == {"effort": "low"}
+    assert sent["provider"] == {"data_collection": "deny", "zdr": True}
 
     denied = httpx.MockTransport(lambda r: httpx.Response(401))
     with KEY, httpx.Client(transport=denied) as c, pytest.raises(llm.LLMError, match="HTTP 401"):

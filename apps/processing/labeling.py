@@ -410,6 +410,7 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
         schema(codes, discovery),
         client=client,
         max_tokens=answer_tokens(len(decisions)),
+        reasoning_effort=str(get_setting("labeling-reasoning-effort") or ""),
     )
     data = completion.data if isinstance(completion.data, dict) else {}
     items = data.get("decisions")

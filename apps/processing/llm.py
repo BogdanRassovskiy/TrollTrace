@@ -1,9 +1,10 @@
 """Клиент OpenRouter (OpenAI-совместимый API) для разметки нарративов.
 
-Тексты уходят внешнему провайдеру, поэтому запрос просит только провайдеров с нулевым
-хранением данных (`provider.zdr`), которые не используют их для обучения
-(`provider.data_collection = deny`). `require_parameters` не ставится: с ним OpenRouter
-отсекает почти всех провайдеров Anthropic и OpenAI, — ответ проверяется сам (labeling).
+Тексты уходят внешнему провайдеру. Запрос всегда запрещает использовать их для обучения
+(`provider.data_collection = deny`). Нулевое хранение (`provider.zdr`) — настройка
+`llm-zero-retention`: тексты публичные, и с 7.11.2026 оно выключено (решение исследователя),
+что открывает дешёвые модели без таких провайдеров. `require_parameters` не ставится:
+с ним OpenRouter отсекает почти всех провайдеров Anthropic и OpenAI, — ответ проверяется сам.
 Ключ — OPENROUTER_API_KEY в .env; без него кандидаты просто ждут.
 """
 
@@ -33,6 +34,13 @@ class Completion:
     cost_usd: float | None
     prompt_tokens: int | None
     completion_tokens: int | None
+    reasoning_tokens: int | None = None  # входят в completion_tokens
+
+
+def split_model(spec: str) -> tuple[str, str]:
+    """«openai/gpt-6-luna@low» → (model, уровень рассуждений); без «@» — ("…", "")."""
+    model, _, effort = spec.partition("@")
+    return model, effort
 
 
 def is_configured() -> bool:
@@ -41,13 +49,23 @@ def is_configured() -> bool:
 
 def complete_json(model: str, system: str, user: str, schema: dict, *,
                   client: httpx.Client | None = None,
-                  max_tokens: int | None = None) -> Completion:  # fmt: skip
+                  max_tokens: int | None = None, reasoning_effort: str = "",
+                  zero_retention: bool | None = None) -> Completion:  # fmt: skip
     """Один запрос со строгой JSON-схемой ответа; повтор при 429/5xx и сетевых ошибках.
 
     max_tokens — потолок ответа: без него OpenRouter резервирует под ответ максимум модели
     и при малом остатке кредитов отказывает (402), даже если ответ короткий."""
     if not is_configured():
         raise LLMError("Chybí OPENROUTER_API_KEY.")
+    model, spec_effort = split_model(model)
+    reasoning_effort = spec_effort or reasoning_effort
+    if zero_retention is None:
+        from apps.panel.defaults import get_setting
+
+        zero_retention = bool(get_setting("llm-zero-retention"))
+    provider = {"data_collection": "deny"}
+    if zero_retention:
+        provider["zdr"] = True
     payload = {
         "model": model,
         "temperature": 0,
@@ -56,11 +74,13 @@ def complete_json(model: str, system: str, user: str, schema: dict, *,
             "type": "json_schema",
             "json_schema": {"name": "decision", "strict": True, "schema": schema},
         },
-        "provider": {"zdr": True, "data_collection": "deny"},
+        "provider": provider,
         "usage": {"include": True},
     }
     if max_tokens:
         payload["max_tokens"] = max_tokens
+    if reasoning_effort:
+        payload["reasoning"] = {"effort": reasoning_effort}
     headers = {
         "Authorization": f"Bearer {settings.OPENROUTER_API_KEY}",
         "X-Title": "TrollTrace (research, UJEP)",  # hlavička musí být ASCII
@@ -102,4 +122,5 @@ def _parse(body: dict, model: str) -> Completion:
         cost_usd=usage.get("cost"),
         prompt_tokens=usage.get("prompt_tokens"),
         completion_tokens=usage.get("completion_tokens"),
+        reasoning_tokens=(usage.get("completion_tokens_details") or {}).get("reasoning_tokens"),
     )
