@@ -164,7 +164,7 @@ def test_decide_document_stores_all_decisions_and_labels_only_confident(monkeypa
         stats = labeling.label_pending()
     assert (stats.documents, stats.decisions, stats.labels, stats.errors) == (1, 3, 1, 0)
     assert seen["model"] == "openai/gpt-6-luna"
-    assert seen["max_tokens"] == 1500 + 3 * 400  # bez stropu OpenRouter rezervuje 65 536 tokenů
+    assert seen["max_tokens"] == 8000 + 3 * 400  # bez stropu OpenRouter rezervuje 65 536 tokenů
     assert "### a" in seen["user"] and "Postoj proti: Vyvrací ho." in seen["user"]
     assert "Není narativ: Jen téma." in seen["user"]
     assert seen["schema"]["properties"]["decisions"]["items"]["properties"]["narrative"][

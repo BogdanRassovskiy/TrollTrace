@@ -118,7 +118,10 @@ def _parse(body: dict, model: str) -> Completion:
     if body.get("error"):
         raise LLMError(str(body["error"])[:300])
     try:
-        content = body["choices"][0]["message"]["content"]
+        choice = body["choices"][0]
+        content = choice["message"]["content"]
+        if not content and choice.get("finish_reason") == "length":
+            raise LLMError("Odpověď modelu useknuta limitem tokenů (finish_reason=length).")
         data = json.loads(content)
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
         raise LLMError(f"Neplatná odpověď modelu: {exc}") from exc
