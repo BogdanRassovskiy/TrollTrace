@@ -260,7 +260,8 @@ calling the Ukrainian government a "junta" asserts that it is illegitimate): pre
 stance "pro", even without an explicit thesis. The same label only inside a quotation that \
 the author does not endorse is "neutral".
 
-Follow the stance guide of each narrative. Judge only the text given, not the source."""
+Follow the stance guide of each narrative. Judge only the text given, not the source.
+Answer with a JSON object that follows the given schema."""
 
 DISCOVERY = """
 

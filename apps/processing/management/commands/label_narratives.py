@@ -51,6 +51,10 @@ class Command(BaseCommand):
             help="Srovnat modely OpenRouter na vzorku kandidátů (nic se neukládá).",
         )  # fmt: skip
         parser.add_argument("--sample", type=int, default=20, help="Velikost vzorku pro --compare.")
+        parser.add_argument(
+            "--same-as", metavar="JSON",
+            help="Srovnání na dokumentech z dřívějšího --out (stejný vzorek).",
+        )  # fmt: skip
         parser.add_argument("--out", help="Uložit odpovědi modelů ze srovnání do JSON.")
 
     def handle(self, *args, **options):
@@ -87,7 +91,9 @@ class Command(BaseCommand):
         if options["retry"]:
             self.stdout.write(f"Znovu ve frontě po chybě: {labeling.retry_errors()}")
         if options["compare"]:
-            return self.compare(options["compare"], options["sample"], options["out"])
+            return self.compare(
+                options["compare"], options["sample"], options["out"], options["same_as"]
+            )
         waiting = labeling.pending().count() + labeling.pending_screenings().count()
         if not llm.is_configured():
             self.stdout.write(
@@ -107,11 +113,16 @@ class Command(BaseCommand):
         if stats.stopped:
             self.stdout.write(self.style.WARNING(f"Zastaveno: {stats.stopped}."))
 
-    def compare(self, models: list[str], size: int, out: str | None):
+    def compare(self, models: list[str], size: int, out: str | None, same_as: str | None = None):
         """Modely na stejném vzorku; první model je etalon. Nic se neukládá."""
         if not llm.is_configured():
             raise CommandError("V .env chybí OPENROUTER_API_KEY.")
-        sample = compare_sample(size)
+        if same_as:
+            earlier = json.loads(Path(same_as).read_text("utf-8"))
+            keys = {key for answers in earlier.values() for key in answers}
+            sample = sorted({int(key.split(":")[0]) for key in keys})
+        else:
+            sample = compare_sample(size)
         if not sample:
             raise CommandError("Nejsou žádní kandidáti: spusťte nejdřív --queue.")
         answers: dict[str, dict] = {model: {} for model in models}
