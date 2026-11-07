@@ -1,6 +1,14 @@
 from django.urls import path
 
-from . import views, views_actors, views_candidates, views_codebook, views_tree, views_validation
+from . import (
+    views,
+    views_actors,
+    views_candidates,
+    views_codebook,
+    views_markers,
+    views_tree,
+    views_validation,
+)
 
 app_name = "panel"
 
@@ -41,6 +49,8 @@ urlpatterns = [
         views_candidates.CandidateDecideView.as_view(),
         name="candidate_decide",
     ),
+    path("markery/", views_markers.MarkerListView.as_view(), name="markers"),
+    path("markery/<int:pk>/", views_markers.MarkerDetailView.as_view(), name="marker"),
     path("nastaveni/", views_codebook.SettingsView.as_view(), name="settings"),
     path("nastaveni/<slug:key>/", views_codebook.SettingEditView.as_view(), name="setting"),
     path("ulohy/", views_codebook.JobListView.as_view(), name="jobs"),

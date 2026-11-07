@@ -152,7 +152,7 @@ def merge(duplicate: Narrative, keeper: Narrative, *, user=None, note: str = "")
     Метки дубля копируются на текущую версию основного (с пометкой merged_from в details),
     если у документа ещё нет метки основного нарратива от того же источника (модель / человек).
     Сами метки дубля остаются в истории; дубль уходит в архив с merged_into.
-    Дочерние узлы дубля переходят к основному.
+    Дочерние узлы и маркеры дубля переходят к основному.
     """
     if duplicate.pk == keeper.pk:
         raise ValueError("Narativ nelze sloučit sám se sebou.")
@@ -183,6 +183,9 @@ def merge(duplicate: Narrative, keeper: Narrative, *, user=None, note: str = "")
     Label.objects.bulk_create(moved)
     for child in duplicate.children.all():
         move(child, keeper, user=user, note=note)
+    from apps.processing.markers import reattach
+
+    reattach(duplicate, keeper, user=user)
     duplicate.status = NarrativeStatus.ARCHIVED
     duplicate.merged_into = keeper
     duplicate.save(changed_by=user, change_note=note)

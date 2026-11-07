@@ -61,6 +61,7 @@ class Notification(models.Model):
 
     class Type(models.TextChoices):
         NARRATIVE_CANDIDATE = "candidate", "Nový kandidát na narativ"
+        MARKER = "marker", "Markery narativů"
         SPIKE = "spike", "Výkyv u aktéra"
         COLLECTION = "collection", "Sběr dat"
         JOB = "job", "Úloha na pozadí"

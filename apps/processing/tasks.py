@@ -97,3 +97,46 @@ def mature_candidates() -> dict:
         cache.delete(LOCK_KEY)
     novelty.notify_maturation(stats)
     return stats
+
+
+@shared_task
+def summarize_markers() -> dict:
+    """Souhrn automatických změn markerů za den do panelu (apps/processing/markers.py)."""
+    from django.utils import timezone
+
+    from . import markers
+
+    changed = markers.notify_changes(timezone.now() - timezone.timedelta(days=1))
+    return {"changes": changed, **markers.overview()}
+
+
+@shared_task
+def queue_marker_archive(job_id: int | None = None) -> dict:
+    """Průchod archivem podle aktivních markerů, kterými ještě neprošel (tlačítko v panelu)."""
+    from django.utils import timezone
+
+    from apps.panel.models import Job, Notification
+
+    from . import markers
+
+    if job_id:
+        Job.objects.filter(pk=job_id).update(status=Job.Status.RUNNING, started_at=timezone.now())
+    try:
+        result = markers.queue_archive()
+    except Exception as exc:
+        if job_id:
+            Job.objects.filter(pk=job_id).update(
+                status=Job.Status.FAILED, message=str(exc)[:1000], finished_at=timezone.now()
+            )
+        raise
+    if job_id:
+        Job.objects.filter(pk=job_id).update(
+            status=Job.Status.SUCCEEDED, progress=1, result=result, finished_at=timezone.now(),
+            message=f"Markerů: {result['markers']}, do fronty anotace: {result['queued']}.",
+        )  # fmt: skip
+    Notification.objects.create(
+        notification_type=Notification.Type.MARKER,
+        title=f"Archiv podle markerů: {result['queued']} kandidátů ve frontě",
+        text=f"Prošlo markerů: {result['markers']}. Kandidáty postupně posoudí model.",
+    )
+    return result

@@ -41,6 +41,10 @@
     </details>
   {% endif %}
 
+  {% if markers %}
+    <h2>Markery</h2>
+    <p class="small">{% for m in markers %}<a href="{% url 'panel:marker' m.pk %}">„{{ m.phrase }}“</a> <span class="muted">{{ m.get_status_display|lower }}</span>{% if not forloop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
   <h2>Verze</h2>
   <form method="get" class="filters">
     <div class="table-wrap card" style="width:100%">

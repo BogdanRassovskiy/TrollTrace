@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block title %}Markery narativů — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <h1>Markery narativů</h1>
+  <p class="muted">
+    Krátká hodnotící označení z dokumentů („kyjevský režim“, „junta“), která sama nesou tvrzení
+    známého narativu. Nalezený marker pošle dokument k modelu i při nízké podobnosti významu;
+    štítek a postoj určuje model podle celého textu. Markery navrhuje model z dokumentů, které
+    narativ šíří, a stav mění pravidla automaticky.
+  </p>
+  <p class="muted small">
+    <strong>Navržený</strong> marker jde do <strong>zkoušky</strong>, až ho model označí
+    v dostatku dokumentů od více autorů. Ve zkoušce posílá k modelu omezený počet dokumentů;
+    podle podílu, v němž model narativ našel, se stane <strong>aktivním</strong>, nebo je
+    zamítnut. Aktivní marker s klesající přesností se pozastaví. Prahy jsou v
+    <a href="{% url 'panel:settings' %}">nastavení</a> (marker-…).
+  </p>
+  <nav class="subnav" aria-label="Filtr">
+    {% for key, label, count in tabs %}
+      <a href="{% if key %}?stav={{ key }}{% else %}{% url 'panel:markers' %}{% endif %}" class="{% if key == tab %}active{% endif %}">{{ label }} ({{ count }})</a>
+    {% endfor %}
+  </nav>
+  {% if archive_pending %}
+    <form method="post" class="actions">{% csrf_token %}
+      <button class="button">Dohledat v archivu ({{ archive_pending }} nových aktivních markerů)</button>
+      <span class="muted small">Archiv se automaticky nepřeznačuje — dokumenty s markerem se zařadí k posouzení modelem.</span>
+    </form>
+  {% endif %}
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Marker</th><th>Narativ</th><th>Návrhy</th><th>Autorů</th><th>Kontroly</th><th>Přesnost</th><th>Stav</th></tr></thead>
+      <tbody>
+        {% for m in markers %}
+          <tr>
+            <td><a href="{% url 'panel:marker' m.pk %}">{{ m.phrase }}</a><div class="muted small">{{ m.key }}</div></td>
+            <td class="small"><a href="{% url 'panel:narrative_history' m.narrative.code %}">{{ m.narrative.name|truncatechars:70 }}</a></td>
+            <td>{{ m.n_proposals }}</td>
+            <td>{{ m.n_authors }}</td>
+            <td>{{ m.n_confirmed }} / {{ m.n_checks }}</td>
+            <td>{% if m.precision is not None %}{% widthratio m.precision 1 100 %} %{% else %}—{% endif %}</td>
+            <td class="small">{{ m.get_status_display }}{% if m.status_changed_at %}<div class="muted">{{ m.status_changed_at|date:"j. n. Y" }}</div>{% endif %}</td>
+          </tr>
+        {% empty %}<tr><td colspan="7" class="muted">Žádné markery v tomto stavu.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% include "panel/_pager.html" %}
+{% endblock %}

@@ -182,6 +182,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.processing.tasks.mature_candidates",
         "schedule": 24 * 60 * 60,
     },
+    # Маркеры нарративов: сводка автоматических смен статуса (apps/processing/markers.py).
+    "summarize-markers": {
+        "task": "apps.processing.tasks.summarize_markers",
+        "schedule": 24 * 60 * 60,
+    },
     # Агрегация (README §4, шаг 8): инкрементально, полный пересчёт раз в сутки.
     "update-aggregates": {
         "task": "apps.analytics.tasks.update_aggregates",

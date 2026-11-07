@@ -125,6 +125,31 @@ DEFAULT_SETTINGS: dict[str, tuple[object, str]] = {
         "Anotace: měsíční strop útraty za model (USD). Po dosažení se další kandidáti nechají "
         "čekat a přijde upozornění.",
     ),
+    "marker-min-documents": (
+        3,
+        "Markery narativů: fráze, kterou model označil za marker aspoň v tolika dokumentech, "
+        "jde do zkoušky (začne posílat dokumenty k modelu).",
+    ),
+    "marker-min-authors": (
+        2,
+        "Markery: … a aspoň od tolika nezávislých autorů (aktér, jinak zdroj), aby marker nebyl "
+        "jen styl jednoho autora.",
+    ),
+    "marker-trial-checks": (
+        10,
+        "Markery: zkouška končí po tolika rozhodnutích modelu o dokumentech s markerem; do té "
+        "doby marker nepošle k modelu víc dokumentů.",
+    ),
+    "marker-min-precision": (
+        0.7,
+        "Markery: minimální přesnost — podíl dokumentů s markerem, v nichž model narativ našel "
+        "(v jakémkoli postoji; citace je také nález). Nižší po zkoušce → zamítnut, u aktivního "
+        "za posledních N kontrol → pozastaven.",
+    ),
+    "marker-recent-checks": (
+        50,
+        "Markery: přesnost aktivního markeru se sleduje za posledních N kontrol.",
+    ),
     "monitoring-volume-ratio": (
         0.33,
         "Monitoring: signál, pokud je dokumentů za den méně než tento podíl mediánu (README §4.2).",

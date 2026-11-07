@@ -74,7 +74,7 @@ def test_candidates_by_similarity_or_cues():
         prototype(cued, unit(0.2, 0.98)),  # podobnost ≈0,2 + 2 signální slova
         prototype(far, unit(0.0, 1.0)),  # podobnost 0
     ]
-    found = {p.narrative.code: (s, cues) for p, s, cues in
+    found = {p.narrative.code: (s, cues) for p, s, cues, _ in
              labeling.find_candidates(document, protos, CENTER)}  # fmt: skip
     assert set(found) == {"a", "b"}
     assert found["b"][1] == ["pomoc ukrajin", "nevypla"]

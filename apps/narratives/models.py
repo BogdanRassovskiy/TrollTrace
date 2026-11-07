@@ -490,6 +490,12 @@ class LabelDecision(models.Model):
     text_hash = models.CharField("hash textu", max_length=64)
     similarity = models.FloatField("podobnost s narativem")
     cues = models.JSONField("nalezená signální slova", default=list, blank=True)
+    markers = models.JSONField(
+        "nalezené markery",
+        default=list,
+        blank=True,
+        help_text="ID markerů narativu, které se v textu našly (NarrativeMarker).",
+    )
     model_name = models.CharField("model", max_length=100, blank=True)
     prompt_version = models.CharField("verze zadání", max_length=20, blank=True)
     present = models.BooleanField("narativ přítomen", null=True, blank=True)
@@ -603,6 +609,149 @@ class NovelClaim(models.Model):
 
     def __str__(self):
         return self.claim[:80]
+
+
+class MarkerStatus(models.TextChoices):
+    PROPOSED = "proposed", "Navržen"
+    TRIAL = "trial", "Ve zkoušce"
+    ACTIVE = "active", "Aktivní"
+    REJECTED = "rejected", "Zamítnut"
+    SUSPENDED = "suspended", "Pozastaven"
+    BANNED = "banned", "Zakázán výzkumníkem"
+
+
+class NarrativeMarker(TimeStampedModel):
+    """Marker narativu: krátké hodnotící označení z dokumentů („kyjevský režim“), které samo
+    nese tvrzení narativu (apps/processing/markers.py).
+
+    Druhá cesta k narativu vedle podobnosti významu: nalezený marker pošle dokument k modelu
+    i při nízké podobnosti. Štítek ani postoj marker neurčuje — rozhoduje model podle celého
+    textu. Markery navrhuje model z dokumentů, které narativ šíří; o stavu rozhodují čísla
+    (počet dokumentů a autorů, přesnost ve zkoušce), výzkumník může marker zakázat.
+    """
+
+    narrative = models.ForeignKey(
+        Narrative,
+        verbose_name="narativ",
+        on_delete=models.CASCADE,
+        related_name="markers",
+        help_text="Uzel stromu, na který marker ukazuje. Ukazuje-li na více sourozenců, "
+        "patří jejich společnému nadřazenému uzlu.",
+    )
+    key = models.CharField(
+        "vzor",
+        max_length=150,
+        unique=True,
+        help_text="Začátky slov bez diakritiky, jak se marker hledá v textu "
+        "(„kyjevsk rezi“ najde „kyjevský režim“ i „kyjevského režimu“).",
+    )
+    phrase = models.CharField("marker", max_length=150, help_text="Podoba z prvního dokumentu.")
+    forms = models.JSONField("nalezené podoby", default=list, blank=True)
+    status = models.CharField(
+        "stav", max_length=10, choices=MarkerStatus.choices, default=MarkerStatus.PROPOSED
+    )
+    first_document = models.ForeignKey(
+        Document,
+        verbose_name="první dokument",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    n_proposals = models.PositiveIntegerField("dokumentů s návrhem", default=0)
+    n_authors = models.PositiveIntegerField("autorů s návrhem", default=0)
+    n_checks = models.PositiveIntegerField(
+        "kontrol modelem", default=0, help_text="Rozhodnutí modelu o dokumentech s markerem."
+    )
+    n_confirmed = models.PositiveIntegerField(
+        "potvrzeno", default=0, help_text="Z toho model narativ v dokumentu našel."
+    )
+    precision = models.FloatField("přesnost", null=True, blank=True)
+    status_changed_at = models.DateTimeField("změna stavu", null=True, blank=True)
+    archive_queued_at = models.DateTimeField(
+        "dohledán v archivu", null=True, blank=True, help_text="Kdy se podle markeru prošel archiv."
+    )
+
+    class Meta:
+        verbose_name = "marker narativu"
+        verbose_name_plural = "markery narativů"
+        ordering = ["narrative__code", "phrase"]
+        indexes = [models.Index(fields=["status"])]
+
+    def __str__(self):
+        return f"„{self.phrase}“ → {self.narrative.code}"
+
+
+class MarkerProposal(models.Model):
+    """Model v dokumentu označil frázi za marker narativu (původ markeru, dohledatelný)."""
+
+    marker = models.ForeignKey(
+        NarrativeMarker, verbose_name="marker", on_delete=models.CASCADE, related_name="proposals"
+    )
+    document = models.ForeignKey(
+        Document, verbose_name="dokument", on_delete=models.CASCADE, related_name="+"
+    )
+    decision = models.ForeignKey(
+        LabelDecision,
+        verbose_name="rozhodnutí modelu",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+    )
+    narrative = models.ForeignKey(
+        Narrative,
+        verbose_name="narativ v rozhodnutí",
+        on_delete=models.CASCADE,
+        related_name="+",
+    )
+    phrase = models.CharField("podoba v textu", max_length=150)
+    author = models.CharField("autor", max_length=40, help_text="Aktér, jinak zdroj.")
+    created_at = models.DateTimeField("vytvořeno", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "návrh markeru"
+        verbose_name_plural = "návrhy markerů"
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["marker", "document"], name="marker_proposal_unique"),
+        ]
+
+    def __str__(self):
+        return f"{self.phrase} ({self.document_id})"
+
+
+class MarkerEvent(models.Model):
+    """Změna stavu nebo uzlu markeru: kdy, proč a s jakými čísly (pro metodiku)."""
+
+    marker = models.ForeignKey(
+        NarrativeMarker, verbose_name="marker", on_delete=models.CASCADE, related_name="events"
+    )
+    status_before = models.CharField("stav předtím", max_length=10, blank=True)
+    status = models.CharField("stav", max_length=10, choices=MarkerStatus.choices)
+    narrative = models.ForeignKey(
+        Narrative, verbose_name="narativ", on_delete=models.CASCADE, related_name="+"
+    )
+    reason = models.TextField("důvod")
+    stats = models.JSONField("čísla v okamžiku změny", default=dict, blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        verbose_name="výzkumník",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="+",
+        help_text="Prázdné — rozhodla pravidla automaticky.",
+    )
+    created_at = models.DateTimeField("kdy", auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "změna markeru"
+        verbose_name_plural = "historie markerů"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.marker.phrase}: {self.status_before or '—'} → {self.status}"
 
 
 class TreeDraft(models.Model):

@@ -4,6 +4,8 @@
    активному нарративу (название, определение, примеры) и ищутся сигнальные слова.
    Кандидат — близость ≥ `labeling-candidate-similarity` или ≥ `labeling-cue-similarity`
    при двух и более сигнальных словах. Пороги мягкие: пропуск дороже лишнего вызова.
+   Вторая дорога — маркеры нарратива (apps/processing/markers.py): найденный в тексте
+   маркер делает документ кандидатом при любой близости.
 2. Решение. Один вызов LLM (OpenRouter, настройка `labeling-model`) на документ по всем его
    кандидатам: есть ли нарратив, позиция, уверенность, цитата-доказательство, кто нарратив
    несёт. Решения хранятся все, в том числе отрицательные (LabelDecision).
@@ -23,7 +25,7 @@
 import datetime
 import logging
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 from django.db import transaction
@@ -43,14 +45,14 @@ from apps.narratives.models import (
 )
 from apps.panel.defaults import get_setting
 
-from . import llm
+from . import llm, markers
 from .embeddings import centered, get_center, model_name
 from .relevance import _embed_cached, stem_pattern
 from .text import fold
 
 logger = logging.getLogger(__name__)
 
-PROMPT_VERSION = "p4"  # p2: přísná přítomnost; p3: nová tvrzení; p4: užší rámec nových tvrzení
+PROMPT_VERSION = "p5"  # p2: přísná přítomnost; p3: nová tvrzení; p4: užší rámec; p5: markery
 MIN_CUES = 2
 HEAD_CHARS = 6000  # начало текста целиком
 CUE_WINDOW = 400  # и окна вокруг сигнальных слов дальше по тексту
@@ -66,9 +68,11 @@ class Prototype:
     version: NarrativeVersion
     vector: np.ndarray  # нецентрированный
     patterns: list
+    markers: list = field(default_factory=list)  # [markers.Matcher]
 
 
-def load_prototypes(narratives=None) -> list[Prototype]:
+def load_prototypes(narratives=None, marker_ids=None) -> list[Prototype]:
+    """Прототипы отслеживаемых нарративов с их маркерами; marker_ids — только эти маркеры."""
     narratives = narratives or list(
         Narrative.objects.filter(status__in=TRACKED).select_related("topic")
     )
@@ -76,12 +80,18 @@ def load_prototypes(narratives=None) -> list[Prototype]:
         return []
     texts = [f"{n.name}. {n.definition} {' '.join(map(str, n.examples))}" for n in narratives]
     vectors = _embed_cached(texts, model_name())
+    index = markers.load_index([n.pk for n in narratives])
     return [
         Prototype(
             narrative=n,
             version=n.latest_version,
             vector=vector,
             patterns=[(cue, stem_pattern(fold(cue).strip())) for cue in n.cues if cue.strip()],
+            markers=[
+                m
+                for m in index.for_narrative(n.pk)
+                if marker_ids is None or m.marker_id in marker_ids
+            ],
         )
         for n, vector in zip(narratives, vectors, strict=True)
     ]
@@ -91,8 +101,11 @@ def _cues(prototype: Prototype, folded: str) -> list[str]:
     return [cue for cue, pattern in prototype.patterns if pattern.search(folded)]
 
 
-def find_candidates(document: Document, prototypes: list[Prototype], center) -> list:
-    """[(prototype, similarity, cues)] для релевантного документа с эмбеддингом."""
+def find_candidates(document: Document, prototypes: list[Prototype], center,
+                    markers_only: bool = False) -> list:  # fmt: skip
+    """[(prototype, similarity, cues, matchers)] для релевантного документа с эмбеддингом.
+
+    markers_only — только дорога маркеров (прогон архива по новым маркерам)."""
     if not document.is_relevant or document.embedding is None or center is None:
         return []
     high = float(get_setting("labeling-candidate-similarity"))
@@ -103,18 +116,22 @@ def find_candidates(document: Document, prototypes: list[Prototype], center) -> 
     for prototype in prototypes:
         similarity = round(float(centered(prototype.vector, center)[0] @ vector), 4)
         cues = _cues(prototype, folded)
-        if similarity >= high or (similarity >= low and len(cues) >= MIN_CUES):
-            found.append((prototype, similarity, cues))
+        hits = markers.find(prototype.markers, folded)
+        by_meaning = similarity >= high or (similarity >= low and len(cues) >= MIN_CUES)
+        if hits or (by_meaning and not markers_only):
+            found.append((prototype, similarity, cues, hits))
     return found
 
 
-def queue_candidates(document: Document, prototypes=None, center=None) -> int:
+def queue_candidates(document: Document, prototypes=None, center=None,
+                     markers_only: bool = False) -> int:  # fmt: skip
     """Кандидаты документа → ожидающие решения. Повтор безопасен; уже решённые пары
     (тот же текст и та же версия нарратива) повторно модели не отправляются."""
     prototypes = load_prototypes() if prototypes is None else prototypes
     center = get_center() if center is None else center
     created = 0
-    for prototype, similarity, cues in find_candidates(document, prototypes, center):
+    found = find_candidates(document, prototypes, center, markers_only)
+    for prototype, similarity, cues, hits in found:
         stale = LabelDecision.objects.filter(
             document=document, narrative_version=prototype.version
         ).exclude(text_hash=document.text_hash)
@@ -123,7 +140,8 @@ def queue_candidates(document: Document, prototypes=None, center=None) -> int:
             Label.objects.filter(
                 document=document, narrative_version=prototype.version, origin=Label.Origin.MODEL
             ).delete()
-        _, new = LabelDecision.objects.get_or_create(
+        marker_ids = [m.marker_id for m in hits]
+        decision, new = LabelDecision.objects.get_or_create(
             document=document,
             narrative_version=prototype.version,
             text_hash=document.text_hash,
@@ -131,8 +149,17 @@ def queue_candidates(document: Document, prototypes=None, center=None) -> int:
                 "narrative": prototype.narrative,
                 "similarity": similarity,
                 "cues": cues,
+                "markers": marker_ids,
             },
         )
+        missing = [pk for pk in marker_ids if pk not in decision.markers]
+        if not new and missing and decision.present is None:  # ещё ждёт модель
+            decision.markers = [*decision.markers, *missing]
+            decision.save(update_fields=["markers"])
+        if new or missing:
+            for matcher in hits:
+                if matcher.remaining is not None:
+                    matcher.remaining -= 1
         created += new
     return created
 
@@ -203,6 +230,17 @@ otherwise the name of the quoted person or organisation; empty string if not pre
 in the document's own language (do not translate); empty string if not present.
 - confidence: 0–1, how sure you are about present AND stance together.
 - reason: one short sentence IN CZECH explaining the decision.
+- marker: only when stance is "pro": the shortest verbatim expression (1–4 words) from the \
+document that by itself carries this claim — typically a loaded label for a government, \
+army, country or group (a name that presents a government as illegitimate, its soldiers as \
+criminals, a people as nazis, a country as a puppet). Copy it exactly as written in the \
+document. Empty string if the claim is argued only in full sentences, the expression is a \
+neutral term, or stance is not "pro".
+
+A loaded label used by the author in their own voice asserts the claim it encodes (e.g. \
+calling the Ukrainian government a "junta" asserts that it is illegitimate): present = true, \
+stance "pro", even without an explicit thesis. The same label only inside a quotation that \
+the author does not endorse is "neutral".
 
 Follow the stance guide of each narrative. Judge only the text given, not the source."""
 
@@ -239,7 +277,8 @@ def _excerpt(document: Document, prototypes: list[Prototype]) -> str:
     parts, used = [text[:HEAD_CHARS]], HEAD_CHARS
     folded = fold(text)  # fold zachovává délku pro češtinu (diakritika se jen odstraní)
     for prototype in prototypes:
-        for _, pattern in prototype.patterns:
+        patterns = [p for _, p in prototype.patterns] + [m.pattern for m in prototype.markers]
+        for pattern in patterns:
             for match in pattern.finditer(folded, HEAD_CHARS):
                 if used >= MAX_EXCERPT_CHARS:
                     break
@@ -304,9 +343,10 @@ def schema(codes: list[str], discovery: bool = False) -> dict:
             "carrier": {"type": "string"},
             "evidence": {"type": "string"},
             "reason": {"type": "string"},
+            "marker": {"type": "string"},
         },
         "required": ["narrative", "present", "stance", "confidence", "carrier", "evidence",
-                     "reason"],
+                     "reason", "marker"],
         "additionalProperties": False,
     }  # fmt: skip
     if not codes:
@@ -392,6 +432,8 @@ def decide_document(document: Document, decisions: list[LabelDecision], model: s
         with transaction.atomic():
             decision.save()
             _apply(decision)
+    if save:
+        markers.after_decisions(decisions, results)
     return results, completion
 
 
@@ -408,11 +450,13 @@ def _invalid(answer: dict) -> str:
 
 def _prototype_of(decision: LabelDecision) -> Prototype:
     narrative = decision.narrative
+    found = markers.NarrativeMarker.objects.filter(pk__in=decision.markers or [])
     return Prototype(
         narrative=narrative,
         version=decision.narrative_version,
         vector=np.zeros(1),
         patterns=[(cue, stem_pattern(fold(cue).strip())) for cue in narrative.cues if cue.strip()],
+        markers=[markers.Matcher(m.pk, m.key, stem_pattern(m.key)) for m in found],
     )
 
 
@@ -439,6 +483,7 @@ def _apply(decision: LabelDecision) -> None:
                 "decision": decision.pk,
                 "similarity": decision.similarity,
                 "cues": decision.cues,
+                "markers": decision.markers,
                 "carrier": decision.carrier,
                 "evidence": decision.evidence,
                 "prompt": decision.prompt_version,

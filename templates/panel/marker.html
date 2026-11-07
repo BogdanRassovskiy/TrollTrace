@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Marker „{{ marker.phrase }}“ — panel{% endblock %}
+
+{% block content %}
+  {% include "panel/_nav.html" %}
+  <p class="small"><a href="{% url 'panel:markers' %}">← Markery</a></p>
+  <h1>„{{ marker.phrase }}“</h1>
+  <p>
+    → <a href="{% url 'panel:narrative_history' marker.narrative.code %}">{{ marker.narrative.name }}</a>
+    <span class="muted">{{ marker.narrative.code }}</span> ·
+    <strong>{{ marker.get_status_display }}</strong>
+  </p>
+  <p class="muted small">
+    Hledá se jako „{{ marker.key }}“ (začátky slov bez diakritiky).
+    {% if marker.forms %}Nalezené podoby: {{ marker.forms|join:", " }}.{% endif %}
+    Návrhy: {{ marker.n_proposals }} dok. od {{ marker.n_authors }} autorů ·
+    kontroly: narativ potvrzen v {{ marker.n_confirmed }} z {{ marker.n_checks }}{% if marker.precision is not None %} ({% widthratio marker.precision 1 100 %} %){% endif %}
+    {% if marker.archive_queued_at %}· archiv prošel {{ marker.archive_queued_at|date:"j. n. Y" }}{% endif %}
+  </p>
+
+  <div class="card">
+    {% if can_ban %}
+      <form method="post" class="actions">{% csrf_token %}
+        <input type="hidden" name="action" value="ban">
+        <input type="text" name="reason" placeholder="Důvod (nepovinné)" maxlength="500">
+        <button class="button">Zakázat marker</button>
+      </form>
+    {% endif %}
+    {% if can_retry %}
+      <form method="post" class="actions">{% csrf_token %}
+        <input type="hidden" name="action" value="retry">
+        <select name="target" aria-label="Narativ">
+          {% for code, label in targets %}<option value="{{ code }}" {% if code == marker.narrative.code %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <button class="button">Znovu do zkoušky</button>
+      </form>
+    {% endif %}
+  </div>
+
+  <h2>Historie</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Kdy</th><th>Stav</th><th>Narativ</th><th>Důvod</th><th>Kdo</th></tr></thead>
+      <tbody>
+        {% for e in events %}
+          <tr><td class="nowrap small">{{ e.created_at|date:"j. n. Y H:i" }}</td>
+            <td class="small">{{ e.get_status_display }}</td>
+            <td class="small">{{ e.narrative.code }}</td>
+            <td class="small">{{ e.reason }}</td>
+            <td class="small">{{ e.user|default:"automaticky" }}</td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Zatím jen navržen.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Kontroly modelem ({{ checks|length }})</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Dokument</th><th>Narativ</th><th>Výsledek</th><th>Doklad</th></tr></thead>
+      <tbody>
+        {% for d in checks %}
+          <tr><td class="small"><a href="{{ d.document.url }}" target="_blank" rel="noopener">{{ d.document.title|default:d.document.url|truncatechars:90 }}</a>
+              <div class="muted">{{ d.document.source.name }} · {{ d.document.published_at|date:"j. n. Y" }}</div></td>
+            <td class="small">{{ d.narrative.code }}</td>
+            <td class="small">{% if d.present is None %}čeká{% elif d.present %}{{ d.get_stance_display }} ({{ d.confidence|floatformat:2 }}){% else %}není narativ{% endif %}</td>
+            <td class="small">{% if d.evidence %}„{{ d.evidence|truncatechars:200 }}“{% endif %}{% if d.reason %}<div class="muted">{{ d.reason|truncatechars:200 }}</div>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="4" class="muted">Marker zatím neposlal k modelu žádný dokument.</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Původ: návrhy modelu ({{ proposals|length }})</h2>
+  <div class="table-wrap card">
+    <table class="table">
+      <thead><tr><th>Podoba v textu</th><th>Dokument</th><th>Narativ v rozhodnutí</th></tr></thead>
+      <tbody>
+        {% for p in proposals %}
+          <tr><td class="small">{{ p.phrase }}</td>
+            <td class="small"><a href="{{ p.document.url }}" target="_blank" rel="noopener">{{ p.document.title|default:p.document.url|truncatechars:90 }}</a>
+              <div class="muted">{{ p.document.source.name }} · {{ p.document.published_at|date:"j. n. Y" }}</div></td>
+            <td class="small">{{ p.narrative.code }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endblock %}

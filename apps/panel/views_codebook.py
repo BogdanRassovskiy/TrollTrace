@@ -216,6 +216,7 @@ class NarrativeHistoryView(ResearcherRequiredMixin, View):
                 )[:5],
                 "path": tree_path(narrative)[:-1],
                 "children": narrative.children.exclude(status=NarrativeStatus.ARCHIVED),
+                "markers": narrative.markers.order_by("status", "phrase"),
                 "merge_targets": Narrative.objects.filter(topic=narrative.topic)
                 .exclude(status=NarrativeStatus.ARCHIVED)
                 .exclude(pk=narrative.pk)

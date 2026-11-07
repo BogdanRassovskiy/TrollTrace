@@ -7,8 +7,11 @@ from .models import (
     Debunk,
     Label,
     LabelDecision,
+    MarkerEvent,
+    MarkerProposal,
     Narrative,
     NarrativeCandidate,
+    NarrativeMarker,
     NarrativeVersion,
     NovelClaim,
     Screening,
@@ -188,6 +191,44 @@ class NovelClaimAdmin(admin.ModelAdmin):
     raw_id_fields = ["document"]
     exclude = ["embedding"]
     readonly_fields = [f.name for f in NovelClaim._meta.fields if f.name != "embedding"]
+
+    def has_add_permission(self, request):
+        return False
+
+
+class MarkerEventInline(admin.TabularInline):
+    model = MarkerEvent
+    extra = 0
+    can_delete = False
+    readonly_fields = [f.name for f in MarkerEvent._meta.fields]
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(NarrativeMarker)
+class NarrativeMarkerAdmin(admin.ModelAdmin):
+    """Stav markeru mění pravidla a tlačítka v panelu (s historií), ne ruční úprava."""
+
+    list_display = [
+        "phrase", "narrative", "status", "n_proposals", "n_authors", "n_checks", "precision",
+        "status_changed_at",
+    ]  # fmt: skip
+    list_filter = ["status", "narrative__topic"]
+    search_fields = ["phrase", "key", "narrative__code", "narrative__name"]
+    readonly_fields = [field.name for field in NarrativeMarker._meta.fields]
+    inlines = [MarkerEventInline]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(MarkerProposal)
+class MarkerProposalAdmin(admin.ModelAdmin):
+    list_display = ["phrase", "marker", "narrative", "document", "created_at"]
+    search_fields = ["phrase", "marker__key"]
+    raw_id_fields = ["document", "decision"]
+    readonly_fields = [field.name for field in MarkerProposal._meta.fields]
 
     def has_add_permission(self, request):
         return False
