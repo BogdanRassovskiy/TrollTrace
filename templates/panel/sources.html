@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %}Zdroje a stav sběru{% endblock %}
 
@@ -9,6 +10,23 @@
     Stav podle otevřených incidentů monitoringu (README §4.2): zelená — v normě, žlutá — varování,
     červená — kritické. Kontroly probíhají jednou za hodinu. Klikněte na název zdroje pro grafy objemu a kvality po dnech. Zdroje se zatím upravují v administraci.
   </p>
+
+  <section class="card">
+    <h2>Sběr po dnech</h2>
+    <p class="muted small">
+      Každý sloupec je den sběru za posledních {{ mix.dates|length }} dní (výška vždy 100 %), nad ním počet
+      dokumentů. Úseky sloupce jsou zdroje: čím víc dokumentů zdroj ten den dodal, tím je úsek vyšší.
+      Barva úseku je průměrné hodnocení kvality jeho dokumentů (README §4.3); šedá — dokumenty zatím bez
+      hodnocení. Kliknutím na úsek otevřete zdroj.
+    </p>
+    <div class="quality-scale small" aria-hidden="true">
+      <span>Kvalita:</span>
+      <span class="quality-scale-bar"></span>
+      <span>1 — 3 — 5</span>
+      <span class="quality-scale-none"></span><span>bez hodnocení</span>
+    </div>
+    <div id="mix-chart" class="chart chart-tall" role="img" aria-label="Podíl zdrojů na sběru po dnech a jejich kvalita"></div>
+  </section>
 
   <div class="table-wrap card">
     <table class="table">
@@ -58,4 +76,11 @@
       </tbody>
     </table>
   </div>
+
+  {{ mix|json_script:"sources-mix" }}
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'vendor/echarts.min.js' %}"></script>
+  <script src="{% static 'js/sources-mix-chart.js' %}"></script>
 {% endblock %}

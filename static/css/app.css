@@ -371,3 +371,11 @@ label.block input[type="text"], label.block textarea { display: block; width: 10
 .tt-topic-check .muted { font-weight: normal; }
 .merge-row { align-items: center; margin-top: 8px; }
 .merge-row select { max-width: 36rem; font: inherit; font-size: .9rem; }
+
+/* Общая гистограмма источников: шкала цвета качества. */
+.quality-scale { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+.quality-scale-bar {
+  width: 140px; height: 10px; border-radius: 2px;
+  background: linear-gradient(to right, #c62828, #f57c00, #fbc02d, #7cb342, #2e7d32);
+}
+.quality-scale-none { width: 10px; height: 10px; border-radius: 2px; background: #9aa5b1; margin-left: 8px; }

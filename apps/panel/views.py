@@ -4,6 +4,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg, Count, Max, Q
 from django.db.models.functions import TruncDate
 from django.shortcuts import get_object_or_404, redirect
+from django.urls import reverse
 from django.utils import timezone
 from django.views import View
 from django.views.generic import ListView, RedirectView, TemplateView
@@ -98,10 +99,70 @@ class SourcesHealthView(ResearcherRequiredMixin, TemplateView):
             rows.append((source, health, incidents))
         context["rows"] = rows
         context["recent_incidents"] = SourceIncident.objects.select_related("source")[:30]
+        context["mix"] = sources_daily_mix()
         return context
 
 
 CHART_DAYS = 30
+
+
+def _chart_window(days: int):
+    tz = timezone.get_current_timezone()
+    start = timezone.localdate() - datetime.timedelta(days=days - 1)
+    since = datetime.datetime.combine(start, datetime.time.min, tzinfo=tz)
+    dates = [start + datetime.timedelta(days=i) for i in range(days)]
+    return tz, since, dates
+
+
+def sources_daily_mix(days: int = CHART_DAYS) -> dict:
+    """Состав сбора по дням для общей гистограммы источников: сколько документов дал каждый
+    источник в каждый день (по collected_at) и средняя оценка качества этих документов.
+
+    Источники без документов за окно не попадают в ряд, чтобы не засорять легенду.
+    """
+    from apps.actors.models import Source
+    from apps.documents.models import Document, DocumentQuality
+
+    tz, since, dates = _chart_window(days)
+    index = {d: i for i, d in enumerate(dates)}
+    counts: dict[int, list[int]] = {}
+    rows = (
+        Document.objects.filter(collected_at__gte=since)
+        .annotate(day=TruncDate("collected_at", tzinfo=tz))
+        .values("source_id", "day")
+        .annotate(n=Count("id"))
+    )
+    for row in rows:
+        counts.setdefault(row["source_id"], [0] * days)[index[row["day"]]] = row["n"]
+
+    quality: dict[int, list] = {pk: [None] * days for pk in counts}
+    rows = (
+        DocumentQuality.objects.filter(is_current=True, document__collected_at__gte=since)
+        .annotate(day=TruncDate("document__collected_at", tzinfo=tz))
+        .values("document__source_id", "day")
+        .annotate(mean=Avg("score"))
+    )
+    for row in rows:
+        series = quality.get(row["document__source_id"])
+        if series is not None:
+            series[index[row["day"]]] = round(row["mean"], 2)
+
+    sources = Source.objects.filter(pk__in=counts).order_by("layer", "name")
+    return {
+        "dates": [d.isoformat() for d in dates],
+        "totals": [sum(c[i] for c in counts.values()) for i in range(days)],
+        "sources": [
+            {
+                "id": s.pk,
+                "name": s.name,
+                "layer": s.layer,
+                "url": reverse("panel:source_detail", args=[s.pk]),
+                "counts": counts[s.pk],
+                "quality": quality[s.pk],
+            }
+            for s in sources
+        ],
+    }
 
 
 def daily_series(source, days: int = CHART_DAYS) -> dict:
@@ -112,11 +173,7 @@ def daily_series(source, days: int = CHART_DAYS) -> dict:
     """
     from apps.documents.models import Document, DocumentQuality
 
-    tz = timezone.get_current_timezone()
-    today = timezone.localdate()
-    start = today - datetime.timedelta(days=days - 1)
-    since = datetime.datetime.combine(start, datetime.time.min, tzinfo=tz)
-    dates = [start + datetime.timedelta(days=i) for i in range(days)]
+    tz, since, dates = _chart_window(days)
     index = {d: i for i, d in enumerate(dates)}
 
     volume = [0] * days
