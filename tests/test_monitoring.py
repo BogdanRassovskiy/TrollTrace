@@ -422,7 +422,8 @@ def test_sources_daily_mix(source, researcher_client):
     assert row["id"] == source.pk and row["counts"][-1] == 2
     assert row["quality"][-1] == 3.0 and row["quality"][0] is None
     page = researcher_client.get(reverse("panel:sources"))
-    assert "sources-mix" in page.content.decode()
+    content = page.content.decode()
+    assert "sources-mix" in content and 'data-mix-mode="count"' in content
 
 
 def test_propose_golden_pages_from_clean_documents(source):

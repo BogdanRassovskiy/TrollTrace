@@ -12,10 +12,18 @@
   </p>
 
   <section class="card">
-    <h2>Sběr po dnech</h2>
+    <div class="chart-head">
+      <h2>Sběr po dnech</h2>
+      <div class="toggle" role="group" aria-label="Zobrazení grafu">
+        <button type="button" class="toggle-btn active" data-mix-mode="share" aria-pressed="true">Podíl zdrojů (100 %)</button>
+        <button type="button" class="toggle-btn" data-mix-mode="count" aria-pressed="false">Počet dokumentů</button>
+      </div>
+    </div>
     <p class="muted small">
-      Každý sloupec je den sběru za posledních {{ mix.dates|length }} dní (výška vždy 100 %), nad ním počet
-      dokumentů. Úseky sloupce jsou zdroje: čím víc dokumentů zdroj ten den dodal, tím je úsek vyšší.
+      Každý sloupec je den sběru za posledních {{ mix.dates|length }} dní, nad ním počet dokumentů.
+      „Podíl zdrojů“ — každý sloupec má výšku 100 % a ukazuje složení dne; „Počet dokumentů“ — výška
+      odpovídá počtu dokumentů, takže lze porovnat dny mezi sebou. Úseky sloupce jsou zdroje: čím víc
+      dokumentů zdroj ten den dodal, tím je úsek vyšší.
       Barva úseku je průměrné hodnocení kvality jeho dokumentů (README §4.3); šedá — dokumenty zatím bez
       hodnocení. Kliknutím na úsek otevřete zdroj.
     </p>

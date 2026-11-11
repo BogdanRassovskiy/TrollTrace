@@ -1,5 +1,7 @@
-// Общая гистограмма источников (README §4.2, §4.3): каждый столбец — день сбора, 100 % высоты;
-// сегменты — источники пропорционально числу документов, цвет — средняя оценка качества.
+// Общая гистограмма источников (README §4.2, §4.3): каждый столбец — день сбора; сегменты —
+// источники пропорционально числу документов, цвет — средняя оценка качества.
+// Два режима: «podíl» — каждый столбец 100 % (состав дня), «počet» — абсолютное число
+// документов (дни сравниваются между собой).
 (function () {
   const data = JSON.parse(document.getElementById("sources-mix")?.textContent || "null");
   const el = document.getElementById("mix-chart");
@@ -25,9 +27,25 @@
   const fmtDate = (iso) => iso.slice(8, 10) + "." + iso.slice(5, 7) + ".";
   const grid = { left: 48, right: 16, top: 28, bottom: 32 };
   const chart = echarts.init(el, null, { renderer: "canvas" });
+  const STORAGE_KEY = "sources-mix-mode";
+  let mode = "share";
+  try {
+    if (localStorage.getItem(STORAGE_KEY) === "count") mode = "count";
+  } catch (e) {}
+
+  // Округление максимума оси вверх до «красивого» числа (1, 2, 5 × 10^k), чтобы знать
+  // реальную высоту сегментов в пикселях и решать, помещается ли подпись.
+  function niceMax(value) {
+    if (value <= 0) return 1;
+    const step = Math.pow(10, Math.floor(Math.log10(value)));
+    for (const k of [1, 2, 2.5, 5, 10]) if (k * step >= value) return k * step;
+    return 10 * step;
+  }
 
   function build() {
     const plotHeight = chart.getHeight() - grid.top - grid.bottom;
+    const isShare = mode === "share";
+    const axisMax = isShare ? 100 : niceMax(Math.max(...data.totals));
     const series = data.sources.map((source) => ({
       name: source.name,
       type: "bar",
@@ -39,9 +57,11 @@
         const total = data.totals[day];
         const share = total ? (n / total) * 100 : 0;
         const rgb = qualityRgb(source.quality[day]);
-        const height = (share / 100) * plotHeight;
+        const value = isShare ? share : n;
+        const height = (value / axisMax) * plotHeight;
         return {
-          value: share,
+          value,
+          share,
           n,
           quality: source.quality[day],
           itemStyle: { color: toCss(rgb), borderColor: surface, borderWidth: n ? 1 : 0 },
@@ -71,13 +91,13 @@
             return (
               `<strong>${echarts.format.encodeHTML(p.seriesName)}</strong><br>` +
               `${fmtDate(data.dates[p.dataIndex])}: ${d.n} z ${data.totals[p.dataIndex]} dokumentů ` +
-              `(${Math.round(d.value)} %)<br>Prům. hodnocení: ${quality}`
+              `(${Math.round(d.share)} %)<br>Prům. hodnocení: ${quality}`
             );
           },
         },
         xAxis: [
           { type: "category", data: data.dates, axisLabel: { formatter: fmtDate } },
-          // Верхняя ось — число документов за день (столбец сам всегда 100 %).
+          // Верхняя ось — число документов за день (в режиме долей столбец всегда 100 %).
           {
             type: "category",
             position: "top",
@@ -87,13 +107,40 @@
             axisLabel: { interval: 0, fontSize: 11, color: text, formatter: (v, i) => (data.totals[i] ? String(data.totals[i]) : "") },
           },
         ],
-        yAxis: { type: "value", min: 0, max: 100, interval: 25, axisLabel: { formatter: "{value} %" } },
+        yAxis: isShare
+          ? { type: "value", min: 0, max: 100, interval: 25, axisLabel: { formatter: "{value} %" } }
+          : {
+              type: "value",
+              min: 0,
+              max: axisMax,
+              minInterval: 1,
+              axisLabel: { formatter: (v) => v.toLocaleString("cs-CZ") },
+            },
         series,
       },
       true,
     );
   }
 
+  const buttons = document.querySelectorAll("[data-mix-mode]");
+  function syncButtons() {
+    buttons.forEach((b) => {
+      const active = b.dataset.mixMode === mode;
+      b.classList.toggle("active", active);
+      b.setAttribute("aria-pressed", String(active));
+    });
+  }
+  buttons.forEach((b) =>
+    b.addEventListener("click", () => {
+      mode = b.dataset.mixMode;
+      try {
+        localStorage.setItem(STORAGE_KEY, mode);
+      } catch (e) {}
+      syncButtons();
+      build();
+    }),
+  );
+  syncButtons();
   build();
   chart.on("click", (p) => {
     const source = data.sources[p.seriesIndex];
