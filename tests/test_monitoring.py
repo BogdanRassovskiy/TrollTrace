@@ -410,20 +410,40 @@ def test_source_detail_page_with_daily_series(source, researcher_client):
     assert "Kontrolní stránky" in content and "https://z.example/a/1" in content
 
 
-def test_sources_daily_mix(source, researcher_client):
-    from apps.panel.views import CHART_DAYS, sources_daily_mix
+@pytest.mark.parametrize("period", ["day", "week", "month"])
+def test_sources_mix(source, researcher_client, period):
+    from apps.panel.views import MIX_PERIODS, sources_mix
 
     Source.objects.create(name="Bez dokumentů", layer=Layer.MAINSTREAM, url="https://x.example")
     save(source, 1)
     save(source, 2, text="Jen pár slov.")  # оценка 1
-    mix = sources_daily_mix()
-    assert len(mix["dates"]) == CHART_DAYS and mix["totals"][-1] == 2
+    _, old = save(source, 3)
+    backdate(old, 40)  # за окном дней, но в окне месяцев
+    mix = sources_mix(period)
+    assert len(mix["dates"]) == len(mix["labels"]) == len(mix["titles"]) == MIX_PERIODS[period]
+    assert mix["totals"][-1] == 2
+    assert sum(mix["totals"]) == (2 if period == "day" else 3)
     [row] = mix["sources"]  # источник без документов в ряд не попадает
     assert row["id"] == source.pk and row["counts"][-1] == 2
-    assert row["quality"][-1] == 3.0 and row["quality"][0] is None
+    assert row["quality"][-1] == 3.0
     page = researcher_client.get(reverse("panel:sources"))
     content = page.content.decode()
-    assert "sources-mix" in content and 'data-mix-mode="count"' in content
+    assert "sources-mix" in content and f'data-mix-period="{period}"' in content
+
+
+def test_mix_buckets_start_of_week_and_month(monkeypatch):
+    from apps.panel import views
+
+    monkeypatch.setattr(views.timezone, "localdate", lambda: datetime.date(2026, 1, 14))
+    weeks = views._mix_buckets("week", 3)
+    assert weeks[-1] == datetime.date(2026, 1, 12) and weeks[0] == datetime.date(2025, 12, 29)
+    months = views._mix_buckets("month", 3)
+    assert months == [
+        datetime.date(2025, 11, 1),
+        datetime.date(2025, 12, 1),
+        datetime.date(2026, 1, 1),
+    ]
+    assert views._mix_labels("month", months[-1]) == ("01/2026", "leden 2026")
 
 
 def test_propose_golden_pages_from_clean_documents(source):

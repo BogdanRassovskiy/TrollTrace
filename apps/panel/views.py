@@ -2,10 +2,11 @@ import datetime
 
 from django.contrib.contenttypes.models import ContentType
 from django.db.models import Avg, Count, Max, Q
-from django.db.models.functions import TruncDate
+from django.db.models.functions import TruncDate, TruncMonth, TruncWeek
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.views import View
 from django.views.generic import ListView, RedirectView, TemplateView
 
@@ -99,7 +100,7 @@ class SourcesHealthView(ResearcherRequiredMixin, TemplateView):
             rows.append((source, health, incidents))
         context["rows"] = rows
         context["recent_incidents"] = SourceIncident.objects.select_related("source")[:30]
-        context["mix"] = sources_daily_mix()
+        context["mix"] = {period: sources_mix(period) for period in MIX_PERIODS}
         return context
 
 
@@ -114,43 +115,88 @@ def _chart_window(days: int):
     return tz, since, dates
 
 
-def sources_daily_mix(days: int = CHART_DAYS) -> dict:
-    """Состав сбора по дням для общей гистограммы источников: сколько документов дал каждый
-    источник в каждый день (по collected_at) и средняя оценка качества этих документов.
+# Периоды общей гистограммы источников: сколько последних дней / недель / месяцев показывать.
+MIX_PERIODS = {"day": 30, "week": 26, "month": 12}
+
+
+def _mix_buckets(period: str, count: int) -> list[datetime.date]:
+    """Начала последних `count` периодов (день; понедельник недели; 1-е число месяца)."""
+    today = timezone.localdate()
+    if period == "day":
+        return [today - datetime.timedelta(days=count - 1 - i) for i in range(count)]
+    if period == "week":
+        monday = today - datetime.timedelta(days=today.weekday())
+        return [monday - datetime.timedelta(weeks=count - 1 - i) for i in range(count)]
+    months = today.year * 12 + today.month - 1
+    return [
+        datetime.date((m := months - (count - 1 - i)) // 12, m % 12 + 1, 1) for i in range(count)
+    ]
+
+
+def _mix_labels(period: str, start: datetime.date) -> tuple[str, str]:
+    """Короткая подпись оси и полное название периода для подсказки."""
+    if period == "day":
+        return start.strftime("%d.%m."), date_format(start, "j. n. Y")
+    if period == "week":
+        end = start + datetime.timedelta(days=6)
+        return (
+            start.strftime("%d.%m."),
+            f"týden {date_format(start, 'j. n.')} – {date_format(end, 'j. n. Y')}",
+        )
+    return start.strftime("%m/%Y"), date_format(start, "F Y")
+
+
+def sources_mix(period: str = "day") -> dict:
+    """Состав сбора по периодам для общей гистограммы источников: сколько документов дал
+    каждый источник за день / неделю / месяц (по collected_at) и средняя оценка их качества.
 
     Источники без документов за окно не попадают в ряд, чтобы не засорять легенду.
     """
     from apps.actors.models import Source
     from apps.documents.models import Document, DocumentQuality
 
-    tz, since, dates = _chart_window(days)
-    index = {d: i for i, d in enumerate(dates)}
+    trunc = {"day": TruncDate, "week": TruncWeek, "month": TruncMonth}[period]
+    count = MIX_PERIODS[period]
+    tz = timezone.get_current_timezone()
+    buckets = _mix_buckets(period, count)
+    since = datetime.datetime.combine(buckets[0], datetime.time.min, tzinfo=tz)
+    index = {d: i for i, d in enumerate(buckets)}
+
+    def bucket(value) -> int:
+        # TruncWeek/TruncMonth над DateTimeField возвращают datetime в поясе проекта.
+        if isinstance(value, datetime.datetime):
+            value = timezone.localtime(value, tz).date()
+        return index[value]
+
     counts: dict[int, list[int]] = {}
     rows = (
         Document.objects.filter(collected_at__gte=since)
-        .annotate(day=TruncDate("collected_at", tzinfo=tz))
-        .values("source_id", "day")
+        .annotate(p=trunc("collected_at", tzinfo=tz))
+        .values("source_id", "p")
         .annotate(n=Count("id"))
     )
     for row in rows:
-        counts.setdefault(row["source_id"], [0] * days)[index[row["day"]]] = row["n"]
+        counts.setdefault(row["source_id"], [0] * count)[bucket(row["p"])] = row["n"]
 
-    quality: dict[int, list] = {pk: [None] * days for pk in counts}
+    quality: dict[int, list] = {pk: [None] * count for pk in counts}
     rows = (
         DocumentQuality.objects.filter(is_current=True, document__collected_at__gte=since)
-        .annotate(day=TruncDate("document__collected_at", tzinfo=tz))
-        .values("document__source_id", "day")
+        .annotate(p=trunc("document__collected_at", tzinfo=tz))
+        .values("document__source_id", "p")
         .annotate(mean=Avg("score"))
     )
     for row in rows:
         series = quality.get(row["document__source_id"])
         if series is not None:
-            series[index[row["day"]]] = round(row["mean"], 2)
+            series[bucket(row["p"])] = round(row["mean"], 2)
 
+    labels = [_mix_labels(period, b) for b in buckets]
     sources = Source.objects.filter(pk__in=counts).order_by("layer", "name")
     return {
-        "dates": [d.isoformat() for d in dates],
-        "totals": [sum(c[i] for c in counts.values()) for i in range(days)],
+        "dates": [b.isoformat() for b in buckets],
+        "labels": [short for short, _ in labels],
+        "titles": [full for _, full in labels],
+        "totals": [sum(c[i] for c in counts.values()) for i in range(count)],
         "sources": [
             {
                 "id": s.pk,

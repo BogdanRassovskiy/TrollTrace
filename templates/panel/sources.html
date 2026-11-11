@@ -13,17 +13,25 @@
 
   <section class="card">
     <div class="chart-head">
-      <h2>Sběr po dnech</h2>
-      <div class="toggle" role="group" aria-label="Zobrazení grafu">
-        <button type="button" class="toggle-btn active" data-mix-mode="share" aria-pressed="true">Podíl zdrojů (100 %)</button>
-        <button type="button" class="toggle-btn" data-mix-mode="count" aria-pressed="false">Počet dokumentů</button>
+      <h2>Sběr po obdobích</h2>
+      <div class="actions mix-toggles">
+        <div class="toggle" role="group" aria-label="Období">
+          <button type="button" class="toggle-btn active" data-mix-period="day" aria-pressed="true">Dny</button>
+          <button type="button" class="toggle-btn" data-mix-period="week" aria-pressed="false">Týdny</button>
+          <button type="button" class="toggle-btn" data-mix-period="month" aria-pressed="false">Měsíce</button>
+        </div>
+        <div class="toggle" role="group" aria-label="Zobrazení grafu">
+          <button type="button" class="toggle-btn active" data-mix-mode="share" aria-pressed="true">Podíl zdrojů (100 %)</button>
+          <button type="button" class="toggle-btn" data-mix-mode="count" aria-pressed="false">Počet dokumentů</button>
+        </div>
       </div>
     </div>
     <p class="muted small">
-      Každý sloupec je den sběru za posledních {{ mix.dates|length }} dní, nad ním počet dokumentů.
-      „Podíl zdrojů“ — každý sloupec má výšku 100 % a ukazuje složení dne; „Počet dokumentů“ — výška
-      odpovídá počtu dokumentů, takže lze porovnat dny mezi sebou. Úseky sloupce jsou zdroje: čím víc
-      dokumentů zdroj ten den dodal, tím je úsek vyšší.
+      Každý sloupec je jedno období sběru — den (posledních {{ mix.day.dates|length }}), týden
+      (posledních {{ mix.week.dates|length }}) nebo měsíc (posledních {{ mix.month.dates|length }}); nad ním
+      počet dokumentů. „Podíl zdrojů“ — každý sloupec má výšku 100 % a ukazuje složení období; „Počet
+      dokumentů“ — výška odpovídá počtu dokumentů, takže lze porovnat období mezi sebou. Úseky sloupce
+      jsou zdroje: čím víc dokumentů zdroj v daném období dodal, tím je úsek vyšší.
       Barva úseku je průměrné hodnocení kvality jeho dokumentů (README §4.3); šedá — dokumenty zatím bez
       hodnocení. Kliknutím na úsek otevřete zdroj.
     </p>
@@ -33,7 +41,7 @@
       <span>1 — 3 — 5</span>
       <span class="quality-scale-none"></span><span>bez hodnocení</span>
     </div>
-    <div id="mix-chart" class="chart chart-tall" role="img" aria-label="Podíl zdrojů na sběru po dnech a jejich kvalita"></div>
+    <div id="mix-chart" class="chart chart-tall" role="img" aria-label="Podíl zdrojů na sběru po obdobích a jejich kvalita"></div>
   </section>
 
   <div class="table-wrap card">

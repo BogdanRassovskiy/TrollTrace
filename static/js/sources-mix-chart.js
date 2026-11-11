@@ -1,11 +1,11 @@
-// Общая гистограмма источников (README §4.2, §4.3): каждый столбец — день сбора; сегменты —
-// источники пропорционально числу документов, цвет — средняя оценка качества.
-// Два режима: «podíl» — каждый столбец 100 % (состав дня), «počet» — абсолютное число
-// документов (дни сравниваются между собой).
+// Общая гистограмма источников (README §4.2, §4.3): каждый столбец — период сбора (день,
+// неделя или месяц); сегменты — источники пропорционально числу документов, цвет — средняя
+// оценка качества. Два режима: «podíl» — каждый столбец 100 % (состав периода), «počet» —
+// абсолютное число документов (периоды сравниваются между собой).
 (function () {
-  const data = JSON.parse(document.getElementById("sources-mix")?.textContent || "null");
+  const all = JSON.parse(document.getElementById("sources-mix")?.textContent || "null");
   const el = document.getElementById("mix-chart");
-  if (!data || !el || !window.echarts) return;
+  if (!all || !el || !window.echarts) return;
 
   // Те же цвета оценок, что на странице источника; между ними — линейная интерполяция.
   const STOPS = { 1: [198, 40, 40], 2: [245, 124, 0], 3: [251, 192, 45], 4: [124, 179, 66], 5: [46, 125, 50] };
@@ -24,27 +24,35 @@
   }
   const toCss = (rgb) => `rgb(${rgb.join(",")})`;
   const labelColor = (rgb) => (0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] > 150 ? "#1c1d21" : "#fff");
-  const fmtDate = (iso) => iso.slice(8, 10) + "." + iso.slice(5, 7) + ".";
   const grid = { left: 48, right: 16, top: 28, bottom: 32 };
   const chart = echarts.init(el, null, { renderer: "canvas" });
-  const STORAGE_KEY = "sources-mix-mode";
-  let mode = "share";
-  try {
-    if (localStorage.getItem(STORAGE_KEY) === "count") mode = "count";
-  } catch (e) {}
+  // Выбор режима и периода запоминается в браузере (только удобство, без него всё работает).
+  const state = { mode: "share", period: "day" };
+  const allowed = { mode: ["share", "count"], period: Object.keys(all) };
+  for (const key of Object.keys(state)) {
+    try {
+      const saved = localStorage.getItem(`sources-mix-${key}`);
+      if (allowed[key].includes(saved)) state[key] = saved;
+    } catch (e) {}
+  }
+  const fmtNumber = (v) => v.toLocaleString("cs-CZ");
 
-  // Округление максимума оси вверх до «красивого» числа (1, 2, 5 × 10^k), чтобы знать
+  // Округление максимума оси вверх до «красивого» числа (1; 1,5; 2; 2,5; 3; 4; 5; 6; 8 × 10^k), чтобы знать
   // реальную высоту сегментов в пикселях и решать, помещается ли подпись.
   function niceMax(value) {
     if (value <= 0) return 1;
     const step = Math.pow(10, Math.floor(Math.log10(value)));
-    for (const k of [1, 2, 2.5, 5, 10]) if (k * step >= value) return k * step;
+    for (const k of [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10]) if (k * step >= value) return k * step;
     return 10 * step;
   }
 
   function build() {
+    const data = all[state.period];
     const plotHeight = chart.getHeight() - grid.top - grid.bottom;
-    const isShare = mode === "share";
+    // Широкие столбцы (недели, месяцы) подписываются горизонтально, узкие — вертикально.
+    const barWidth = ((chart.getWidth() - grid.left - grid.right) / data.dates.length) * 0.82;
+    const horizontal = barWidth >= 70;
+    const isShare = state.mode === "share";
     const axisMax = isShare ? 100 : niceMax(Math.max(...data.totals));
     const series = data.sources.map((source) => ({
       name: source.name,
@@ -53,24 +61,24 @@
       barCategoryGap: "18%",
       cursor: "pointer",
       emphasis: { focus: "series" },
-      data: source.counts.map((n, day) => {
-        const total = data.totals[day];
+      data: source.counts.map((n, i) => {
+        const total = data.totals[i];
         const share = total ? (n / total) * 100 : 0;
-        const rgb = qualityRgb(source.quality[day]);
+        const rgb = qualityRgb(source.quality[i]);
         const value = isShare ? share : n;
         const height = (value / axisMax) * plotHeight;
         return {
           value,
           share,
           n,
-          quality: source.quality[day],
+          quality: source.quality[i],
           itemStyle: { color: toCss(rgb), borderColor: surface, borderWidth: n ? 1 : 0 },
           // Название внутри сегмента — только если оно туда помещается хотя бы частично.
           label: {
-            show: height >= 36,
+            show: horizontal ? height >= 16 : height >= 36,
             position: "inside",
-            rotate: 90,
-            width: Math.max(0, height - 6),
+            rotate: horizontal ? 0 : 90,
+            width: Math.max(0, (horizontal ? barWidth : height) - 6),
             overflow: "truncate",
             fontSize: 11,
             color: labelColor(rgb),
@@ -90,21 +98,21 @@
             const quality = d.quality == null ? "bez hodnocení" : d.quality.toFixed(2).replace(".", ",");
             return (
               `<strong>${echarts.format.encodeHTML(p.seriesName)}</strong><br>` +
-              `${fmtDate(data.dates[p.dataIndex])}: ${d.n} z ${data.totals[p.dataIndex]} dokumentů ` +
+              `${data.titles[p.dataIndex]}: ${fmtNumber(d.n)} z ${fmtNumber(data.totals[p.dataIndex])} dokumentů ` +
               `(${Math.round(d.share)} %)<br>Prům. hodnocení: ${quality}`
             );
           },
         },
         xAxis: [
-          { type: "category", data: data.dates, axisLabel: { formatter: fmtDate } },
-          // Верхняя ось — число документов за день (в режиме долей столбец всегда 100 %).
+          { type: "category", data: data.labels },
+          // Верхняя ось — число документов за период (в режиме долей столбец всегда 100 %).
           {
             type: "category",
             position: "top",
             data: data.dates,
             axisLine: { show: false },
             axisTick: { show: false },
-            axisLabel: { interval: 0, fontSize: 11, color: text, formatter: (v, i) => (data.totals[i] ? String(data.totals[i]) : "") },
+            axisLabel: { interval: 0, fontSize: 11, color: text, formatter: (v, i) => (data.totals[i] ? fmtNumber(data.totals[i]) : "") },
           },
         ],
         yAxis: isShare
@@ -114,7 +122,7 @@
               min: 0,
               max: axisMax,
               minInterval: 1,
-              axisLabel: { formatter: (v) => v.toLocaleString("cs-CZ") },
+              axisLabel: { formatter: fmtNumber },
             },
         series,
       },
@@ -122,19 +130,23 @@
     );
   }
 
-  const buttons = document.querySelectorAll("[data-mix-mode]");
+  // Кнопки переключателей: data-mix-mode="share|count", data-mix-period="day|week|month".
+  const buttons = document.querySelectorAll("[data-mix-mode], [data-mix-period]");
+  const keyOf = (b) => ("mixMode" in b.dataset ? "mode" : "period");
+  const valueOf = (b) => b.dataset.mixMode ?? b.dataset.mixPeriod;
   function syncButtons() {
     buttons.forEach((b) => {
-      const active = b.dataset.mixMode === mode;
+      const active = state[keyOf(b)] === valueOf(b);
       b.classList.toggle("active", active);
       b.setAttribute("aria-pressed", String(active));
     });
   }
   buttons.forEach((b) =>
     b.addEventListener("click", () => {
-      mode = b.dataset.mixMode;
+      const key = keyOf(b);
+      state[key] = valueOf(b);
       try {
-        localStorage.setItem(STORAGE_KEY, mode);
+        localStorage.setItem(`sources-mix-${key}`, state[key]);
       } catch (e) {}
       syncButtons();
       build();
@@ -143,7 +155,7 @@
   syncButtons();
   build();
   chart.on("click", (p) => {
-    const source = data.sources[p.seriesIndex];
+    const source = all[state.period].sources[p.seriesIndex];
     if (source) window.location.href = source.url;
   });
   window.addEventListener("resize", () => {
